@@ -2,12 +2,18 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>20주년 현장 관리자 v2</title><link rel="stylesheet" href="/style.css">
+<title>20주년 현장 관리자 v2</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#172554">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="20주년 관리자">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.3.1</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.4</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="backup">백업</button>
 </nav>
@@ -29,7 +35,27 @@
 
 <section id="view-raffle" class="view"><div class="two"><article class="card"><p class="eyebrow">LUCKY DRAW</p><h2>행운권 추첨</h2><p class="muted">도착 완료 참가자 중 기존 당첨자를 제외하고 추첨합니다.</p><form id="raffleForm" class="stack"><label>상품<select id="raffleProduct"></select></label><label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label><button class="primary">추첨하기</button></form><div id="raffleWinners"></div></article><article class="card"><h2>최근 당첨</h2><div id="raffleHistory"></div></article></div></section>
 
-<section id="view-sms" class="view"><div class="two"><article class="card"><p class="eyebrow">SMS</p><h2>행사 전날 안내문자</h2><p class="muted">집 PC 문자나라 중계 프로그램을 Cloudtype relay 주소에 연결하면 대기열을 순차 발송합니다.</p><label>발송대상<select id="smsTarget"><option value="all">개인 + 단체 대표자 전체</option><option value="pending">미도착 대상</option><option value="representatives">단체 대표자만</option></select></label><button id="queuePreSms" class="primary">안내문자 대기열 등록</button></article><article class="card"><h2>최근 문자 대기열</h2><button id="reloadSms">갱신</button><div id="smsList"></div></article></div></section>
+<section id="view-sms" class="view">
+<div class="two">
+  <article class="card">
+    <p class="eyebrow">SMS DIRECT</p><h2>문자나라 직접발송</h2>
+    <div id="smsStatusBox" class="notice">상태 확인 중...</div>
+    <div class="actions">
+      <button id="smsTestBtn" class="primary">테스트 문자 발송</button>
+      <button id="reloadSms">발송이력 갱신</button>
+    </div>
+    <hr style="margin:18px 0;border:0;border-top:1px solid #e2e8f0">
+    <h3>개별 문자 발송</h3>
+    <form id="manualSmsForm" class="stack">
+      <input name="phone" placeholder="01012345678" required>
+      <textarea name="message" rows="5" placeholder="보낼 문자 내용" required></textarea>
+      <button class="primary">이 번호로 발송</button>
+    </form>
+    <p class="muted">행사 전날 안내문자는 일괄 자동발송하지 않고 필요한 대상에게 개별 발송하는 방향으로 운영합니다.</p>
+  </article>
+  <article class="card"><h2>최근 문자 발송이력</h2><div id="smsList"></div></article>
+</div>
+</section>
 
 <section id="view-backup" class="view"><article class="card"><p class="eyebrow">BACKUP</p><h2>백업 및 내보내기</h2><p class="muted">서버 내부 자동백업은 1분마다 실행됩니다. 행사 중에는 PC에도 JSON을 수시로 내려받아 주세요.</p><div class="actions"><button id="backupNow" class="primary">지금 백업</button><button id="downloadBackup">JSON 다운로드</button><button id="downloadCsv">참가자 CSV 다운로드</button></div>
 <hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">

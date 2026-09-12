@@ -7,7 +7,7 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.3.1';$('#statusBadge').classList.add('ok')}
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.4';$('#statusBadge').classList.add('ok')}
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden')}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
 $('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
@@ -26,7 +26,7 @@ async function processCode(code){
 function showIndividualCheckin(p){
   modal(`<p class="eyebrow">개인 QR 접수</p><h2>${esc(p.name)}</h2><p>${esc(p.organization||'소속 없음')} · ${esc(p.phone||'연락처 없음')}</p><div class="notice">좌석 ${esc(p.seat||'자동배정 예정')} · 기념품 지급완료 처리</div><p class="muted">개인 접수는 잠시 후 자동으로 진행됩니다. 아래 버튼을 누르면 즉시 처리합니다.</p><div class="actions"><button data-now class="primary">바로 접수</button><button data-close>닫기</button></div><div id="modalProgress" class="muted">자동 접수 준비 중...</div>`);
   let done=false;
-  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:'QR접수'})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} 접수 완료</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · 기념품 지급완료${r.already?'<br>이미 접수된 참가자였습니다.':''}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · 접수완료`;refreshDashboard()}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
+  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:'QR접수'})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,850)}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
   $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;window.__autoCheckinTimer=setTimeout(run,1400);
 }
 function showGroupCheckin(p,g){
@@ -35,7 +35,7 @@ function showGroupCheckin(p,g){
   const render=()=>{const seats=Math.min(n,remaining),extra=Math.max(0,n-remaining);$('#stepN').textContent=n;$('#stepInfo').innerHTML=`이번 좌석 배정 <strong>${seats}석</strong>${extra?` · 추가 ${extra}명은 <strong>스탠딩</strong>`:''}`};
   modal(`<p class="eyebrow">단체 QR 접수</p><h2>${esc(g.name||g.organization||p.organization)}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>이번에 실제로 함께 도착한 인원을 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
   $('#minus').onclick=()=>{n=Math.max(1,n-1);render()};$('#plus').onclick=()=>{n=Math.min(99,n+1);render()};$('#cancelGroup').onclick=closeModal;
-  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:'QR접수'})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard()}catch(e){toast(e.message,6000)}};
+  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:'QR접수'})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
   render();
 }
 $('#manualQrForm').onsubmit=e=>{e.preventDefault();processCode($('#manualQr').value.trim());$('#manualQr').select()};
@@ -85,3 +85,19 @@ $('#restoreBackup').onclick=async()=>{
 };
 
 init();setInterval(()=>{if(token&&!document.hidden)refreshDashboard().catch(()=>{})},10000);
+
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredInstallPrompt=e;
+  $('#installApp')?.classList.remove('hidden');
+});
+$('#installApp')?.addEventListener('click',async()=>{
+  if(!deferredInstallPrompt){toast('이 브라우저에서는 홈 화면 추가 메뉴를 이용해 주세요.');return}
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt=null;
+  $('#installApp')?.classList.add('hidden');
+});
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}

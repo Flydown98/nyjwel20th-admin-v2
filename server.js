@@ -6,11 +6,17 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const XLSX = require('xlsx');
+const http = require('http');
+const iconv = require('iconv-lite');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || 'change-me-now');
 const SMS_RELAY_TOKEN = String(process.env.SMS_RELAY_TOKEN || '');
+const MUNJANARA_ID = String(process.env.MUNJANARA_ID || '');
+const MUNJANARA_PW = String(process.env.MUNJANARA_PW || '');
+const MUNJANARA_SENDER = String(process.env.MUNJANARA_SENDER || '');
+const MUNJANARA_TEST_RECEIVER = String(process.env.MUNJANARA_TEST_RECEIVER || '');
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const BACKUP_INTERVAL_MS = 60 * 1000;
 const ROOT = __dirname;
@@ -32,7 +38,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.3.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.4.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -47,7 +53,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.3.1'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.4.0'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -163,6 +169,85 @@ function addLog(action,p,note='',station='관리자 웹'){
   state.checkins.unshift({at:nowIso(),action,participantId:p?.id||'',receptionNo:p?.receptionNo||0,name:p?.name||'',seat:p?.seat||'',station,note});
   state.checkins=state.checkins.slice(0,5000);
 }
+
+function pctAscii(v){ return encodeURIComponent(String(v ?? '')); }
+function pctEucKr(v){
+  const buf = iconv.encode(String(v ?? ''), 'euc-kr');
+  let out = '';
+  for (const b of buf) {
+    const ch = String.fromCharCode(b);
+    if ((b>=0x30&&b<=0x39)||(b>=0x41&&b<=0x5A)||(b>=0x61&&b<=0x7A)||'-_.~'.includes(ch)) out += ch;
+    else out += '%' + b.toString(16).toUpperCase().padStart(2,'0');
+  }
+  return out;
+}
+function munjanaraConfigured(){
+  return Boolean(MUNJANARA_ID && MUNJANARA_PW && MUNJANARA_SENDER);
+}
+function sendMunjanaraSms(receiver, message){
+  return new Promise((resolve,reject)=>{
+    if(!munjanaraConfigured()) return reject(new Error('문자나라 환경변수가 설정되지 않았습니다.'));
+    const recv = digits(receiver);
+    if(recv.length < 9) return reject(new Error('수신번호 형식이 올바르지 않습니다.'));
+    const params = [
+      'userid=' + pctAscii(MUNJANARA_ID),
+      'passwd=' + pctAscii(MUNJANARA_PW),
+      'sender=' + pctAscii(digits(MUNJANARA_SENDER)),
+      'receiver=' + pctAscii(recv),
+      'encode=1',
+      'end_alert=0',
+      'allow_mms=1',
+      'message=' + pctEucKr(message)
+    ].join('&');
+    const req = http.request({
+      hostname:'munjanara.co.kr',
+      port:80,
+      path:'/send.sys?' + params,
+      method:'GET',
+      timeout:20000,
+      headers:{'User-Agent':'NYJWEL-Cloudtype-SMS/1.0','Connection':'close'}
+    }, res=>{
+      const chunks=[];
+      res.on('data',c=>chunks.push(c));
+      res.on('end',()=>{
+        const raw=Buffer.concat(chunks);
+        let body='';
+        try{body=iconv.decode(raw,'euc-kr')}catch(_){body=raw.toString('utf8')}
+        const code=String(body).trim().split('|')[0].trim();
+        resolve({httpStatus:res.statusCode,body,code,success:res.statusCode===200&&code==='9'});
+      });
+    });
+    req.on('timeout',()=>req.destroy(new Error('문자나라 연결 시간 초과')));
+    req.on('error',reject);
+    req.end();
+  });
+}
+async function sendQueuedSmsItem(item){
+  if(!item || item.status==='성공') return item;
+  item.status='발송중';
+  item.startedAt=nowIso();
+  saveState();
+  try{
+    const r=await sendMunjanaraSms(item.phone,item.message);
+    item.status=r.success?'성공':'실패';
+    item.result=`HTTP ${r.httpStatus} / ${String(r.body).trim()}`;
+    item.sentAt=nowIso();
+  }catch(e){
+    item.status='실패';
+    item.result=`${e.name||'Error'}: ${e.message}`;
+    item.sentAt=nowIso();
+  }
+  saveState();
+  return item;
+}
+function queueAndSendSms(phone,message,kind='checkin',participantId=''){
+  const item=queueSms(phone,message,kind,participantId);
+  if(item && munjanaraConfigured()){
+    setImmediate(()=>sendQueuedSmsItem(item).catch(err=>console.error('[SMS]',err)));
+  }
+  return item;
+}
+
 function queueSms(phone,message,kind='checkin',participantId=''){
   const d=digits(phone);
   if(d.length<9)return null;
@@ -189,7 +274,7 @@ function markArrived(p,{station='관리자 웹',sendSms=true}={}){
     p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso();
     if(!p.seat)assignOne(p);
     addLog('QR접수',p,'기념품 지급완료',station);
-    if(sendSms && state.settings.checkinSmsEnabled!==false) queueSms(p.phone,checkinMessage(p),'checkin',p.id);
+    if(sendSms && state.settings.checkinSmsEnabled!==false) queueAndSendSms(p.phone,checkinMessage(p),'checkin',p.id);
   }
   return {already,participant:p};
 }
@@ -238,7 +323,7 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.3.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.4.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
 app.post('/api/login',(req,res)=>{
   if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
   const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
@@ -277,7 +362,7 @@ app.post('/api/participants/onsite',auth,(req,res)=>{
     giftReceived:true,giftReceivedAt:nowIso(),onsite:true,standing:true};
   // 사용자의 운영 규칙: 현장 추가 접수자는 자동 좌석을 만들지 않고 스탠딩으로 안내.
   state.participants.push(p);addLog('현장신규등록',p,'좌석 미배정 · 스탠딩 안내',str(b.station)||'현장접수');
-  if(p.phone&&state.settings.checkinSmsEnabled!==false)queueSms(p.phone,checkinMessage(p,'현장 추가 참여로 좌석은 별도 배정되지 않습니다.'),'onsite',p.id);
+  if(p.phone&&state.settings.checkinSmsEnabled!==false)queueAndSendSms(p.phone,checkinMessage(p,'현장 추가 참여로 좌석은 별도 배정되지 않습니다.'),'onsite',p.id);
   saveState();res.json({ok:true,participant:p});
 });
 app.post('/api/participant/:id/update',auth,(req,res)=>{
@@ -327,7 +412,7 @@ app.post('/api/checkin/group',auth,(req,res)=>{
   if(rep?.phone&&state.settings.checkinSmsEnabled!==false){
     const seats=selected.map(p=>p.seat).filter(Boolean);
     const extraText=extras?`추가 ${extras}명은 좌석 미배정(스탠딩 안내)입니다.`:'';
-    sms=queueSms(rep.phone,`[남양주시장애인복지관]\n${group.name||rep.organization||rep.name} 단체 현장 접수가 완료되었습니다.\n이번 접수 ${actual}명 / 좌석 ${checkCount}석\n${seats.length?'좌석: '+seats.join(', ')+'\n':''}${extraText}\n기념품: ${actual}명 지급완료\n감사합니다.`,'group-checkin',rep.id);
+    sms=queueAndSendSms(rep.phone,`[남양주시장애인복지관]\n${group.name||rep.organization||rep.name} 단체 현장 접수가 완료되었습니다.\n이번 접수 ${actual}명 / 좌석 ${checkCount}석\n${seats.length?'좌석: '+seats.join(', ')+'\n':''}${extraText}\n기념품: ${actual}명 지급완료\n감사합니다.`,'group-checkin',rep.id);
   }
   saveState();res.json({ok:true,total:members.length,checkedInNow:checkCount,actualCount:actual,extraStanding:extras,seats:selected.map(p=>p.seat).filter(Boolean),smsQueued:Boolean(sms)});
 });
@@ -337,6 +422,18 @@ app.post('/api/checkin/undo',auth,(req,res)=>{
   addLog('접수취소',p,'도착·기념품·좌석 취소',str(req.body?.station)||'관리자');
   saveState();res.json({ok:true,participant:p});
 });
+
+
+const INTERNAL_ORG_KEYWORDS = [
+  '남양주시장애인복지관','사회서비스','활동지원','활동지원사','활동지원팀',
+  '이용인','낮활동','낮활동팀','주간활동','주간활동팀','직업재활팀',
+  '기획협력지원팀','지역융합서비스팀','운영지원팀','복지관직원','직원'
+];
+function isInternalOrganization(name){
+  const n=str(name).replace(/\s+/g,'').toLowerCase();
+  if(!n)return false;
+  return INTERNAL_ORG_KEYWORDS.some(k=>n.includes(k.replace(/\s+/g,'').toLowerCase()));
+}
 
 app.get('/api/groups',auth,(req,res)=>{
   const rows=state.groups.map(g=>{
@@ -348,7 +445,7 @@ app.get('/api/groups',auth,(req,res)=>{
 app.get('/api/group-suggestions',auth,(req,res)=>{
   const map=new Map();
   state.participants.filter(participantActive).forEach(p=>{
-    const o=str(p.organization);if(!o)return;
+    const o=str(p.organization);if(!o||isInternalOrganization(o))return;
     if(!map.has(o))map.set(o,[]);
     map.get(o).push(p);
   });
@@ -402,6 +499,28 @@ app.post('/api/raffle/redeem',auth,(req,res)=>{
   const r=state.rouletteHistory.find(x=>x.drawId===str(req.body?.drawId)&&x.participantId===str(req.body?.participantId));
   if(!r)return res.status(404).json({ok:false,error:'당첨 기록을 찾을 수 없습니다.'});
   r.received=true;r.receivedAt=nowIso();saveState();res.json({ok:true,record:r});
+});
+
+
+app.get('/api/sms/status',auth,(req,res)=>res.json({
+  ok:true,
+  ready:munjanaraConfigured(),
+  sender: MUNJANARA_SENDER ? digits(MUNJANARA_SENDER).replace(/(\d{2,3})\d+(\d{4})/,'$1****$2') : '',
+  testReceiverConfigured:Boolean(MUNJANARA_TEST_RECEIVER)
+}));
+app.post('/api/sms/test',auth,async(req,res)=>{
+  const receiver=digits(req.body?.receiver||MUNJANARA_TEST_RECEIVER);
+  if(!receiver)return res.status(400).json({ok:false,error:'테스트 수신번호가 설정되지 않았습니다.'});
+  const item=queueSms(receiver,'[남양주시장애인복지관] Cloudtype 문자 발송 테스트입니다.','test','');
+  await sendQueuedSmsItem(item);
+  res.json({ok:item.status==='성공',item});
+});
+app.post('/api/sms/send-one',auth,async(req,res)=>{
+  const phone=digits(req.body?.phone), message=str(req.body?.message);
+  if(!phone||!message)return res.status(400).json({ok:false,error:'수신번호와 메시지를 입력해 주세요.'});
+  const item=queueSms(phone,message,'manual','');
+  await sendQueuedSmsItem(item);
+  res.json({ok:item.status==='성공',item});
 });
 
 app.get('/api/sms',auth,(req,res)=>res.json({ok:true,rows:[...state.smsQueue].reverse().slice(0,300)}));
@@ -480,4 +599,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.3.1 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.4.0 · :${PORT}`));
