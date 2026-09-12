@@ -7,7 +7,7 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.4';$('#statusBadge').classList.add('ok')}
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.4.1';$('#statusBadge').classList.add('ok')}
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden')}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
 $('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
@@ -62,8 +62,47 @@ async function loadRaffle(){try{const [p,h]=await Promise.all([api('/api/raffle/
 $('#raffleForm').onsubmit=async e=>{e.preventDefault();if(!confirm('현재 도착 완료 참가자 중에서 추첨할까요?'))return;try{const d=await api('/api/raffle/draw',{method:'POST',body:JSON.stringify({productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value)})});$('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;loadRaffle()}catch(x){toast(x.message,6000)}};
 $('#raffleHistory').onclick=async e=>{const b=e.target.closest('[data-redeem]');if(!b)return;try{await api('/api/raffle/redeem',{method:'POST',body:JSON.stringify({drawId:b.dataset.redeem,participantId:b.dataset.pid})});loadRaffle()}catch(x){toast(x.message)}};
 
-async function loadSms(){try{const d=await api('/api/sms');$('#smsList').innerHTML=d.rows.slice(0,60).map(x=>`<div class="sms-row"><strong>${esc(x.phone)} · ${esc(x.status)}</strong><small>${esc(x.kind||'')} · ${new Date(x.requestedAt).toLocaleString('ko-KR')}</small><div>${esc(x.message).slice(0,100)}${x.message.length>100?'…':''}</div></div>`).join('')||'<p class="muted">문자 기록 없음</p>'}catch(e){toast(e.message)}}
-$('#reloadSms').onclick=loadSms;$('#queuePreSms').onclick=async()=>{if(!confirm('선택한 대상에게 행사 전날 안내문자를 대기열에 등록할까요?'))return;try{const d=await api('/api/sms/pre-event',{method:'POST',body:JSON.stringify({target:$('#smsTarget').value})});toast(`${d.queued}건 대기열 등록 완료`,6000);loadSms();refreshDashboard()}catch(e){toast(e.message,6000)}};
+async function loadSms(){
+  try{
+    const [d,st]=await Promise.all([api('/api/sms'),api('/api/sms/status')]);
+    const box=$('#smsStatusBox');
+    if(box){
+      box.className=st.ready?'successbox':'warning';
+      box.textContent=st.ready
+        ? `문자나라 직접발송 준비됨 · 발신번호 ${st.sender||'설정됨'}`
+        : '문자나라 환경변수를 확인해 주세요.';
+    }
+    const list=$('#smsList');
+    if(list){
+      list.innerHTML=d.rows.slice(0,80).map(x=>`<div class="sms-row">
+        <strong>${esc(x.phone)} · ${esc(x.status)}</strong>
+        <small>${esc(x.kind||'')} · ${new Date(x.requestedAt).toLocaleString('ko-KR')}</small>
+        <div>${esc(x.message).slice(0,120)}${x.message.length>120?'…':''}</div>
+        ${x.result?`<small>${esc(x.result).slice(0,160)}</small>`:''}
+      </div>`).join('')||'<p class="muted">문자 기록 없음</p>';
+    }
+  }catch(e){toast(e.message,6000)}
+}
+$('#reloadSms')?.addEventListener('click',loadSms);
+$('#smsTestBtn')?.addEventListener('click',async()=>{
+  if(!confirm('MUNJANARA_TEST_RECEIVER로 테스트 문자를 발송할까요?'))return;
+  try{
+    const d=await api('/api/sms/test',{method:'POST',body:'{}'});
+    toast(d.ok?'테스트 문자 발송 성공':'문자나라에서 실패 응답을 받았습니다.',6500);
+    loadSms();
+  }catch(e){toast(e.message,7000)}
+});
+$('#manualSmsForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const b=Object.fromEntries(new FormData(e.currentTarget).entries());
+  if(!confirm(`${b.phone} 번호로 문자를 발송할까요?`))return;
+  try{
+    const d=await api('/api/sms/send-one',{method:'POST',body:JSON.stringify(b)});
+    toast(d.ok?'문자 발송 성공':'문자 발송 실패',6500);
+    if(d.ok)e.currentTarget.reset();
+    loadSms();
+  }catch(x){toast(x.message,7000)}
+});
 
 $('#backupNow').onclick=async()=>{try{const d=await api('/api/backup',{method:'POST',body:'{}'});$('#backupOutput').textContent=JSON.stringify(d,null,2)}catch(e){toast(e.message)}};
 async function downloadAuth(url,name){const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error('다운로드 실패');const blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
@@ -71,18 +110,31 @@ $('#downloadBackup').onclick=()=>downloadAuth('/api/backup/download',`nyjwel20th
 $('#downloadCsv').onclick=()=>downloadAuth('/api/export/participants.csv','participants.csv').catch(e=>toast(e.message));
 
 
-$('#restoreBackup').onclick=async()=>{
-  const file=$('#restoreFile').files?.[0];
+$('#restoreBackup')?.addEventListener('click',async()=>{
+  const file=$('#restoreFile')?.files?.[0];
   if(!file)return toast('복원할 JSON 백업 파일을 선택해 주세요.');
   if(!confirm('현재 서버 데이터를 선택한 백업 내용으로 교체할까요?\n복원 직전 자동백업도 생성합니다.'))return;
-  const fd=new FormData();fd.append('file',file);
+
+  const out=$('#backupOutput');
+  if(out)out.textContent='백업 파일 업로드 및 복원 중...';
+  const btn=$('#restoreBackup');
+  if(btn)btn.disabled=true;
+
+  const fd=new FormData();
+  fd.append('file',file);
+
   try{
     const d=await api('/api/backup/restore',{method:'POST',body:fd});
-    $('#backupOutput').textContent=JSON.stringify(d,null,2);
+    if(out)out.textContent=JSON.stringify(d,null,2);
     toast(`복원 완료 · 참가자 ${d.participants}명 · 좌석 ${d.seats}석`,7000);
     await refreshDashboard();
-  }catch(e){toast(e.message,7000)}
-};
+  }catch(e){
+    if(out)out.textContent=`복원 실패: ${e.message}`;
+    toast(e.message,7000);
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+});
 
 init();setInterval(()=>{if(token&&!document.hidden)refreshDashboard().catch(()=>{})},10000);
 
