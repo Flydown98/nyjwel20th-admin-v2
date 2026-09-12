@@ -7,7 +7,7 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.5';$('#statusBadge').classList.add('ok')}
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.6';$('#statusBadge').classList.add('ok')}
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden')}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
 $('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
@@ -317,6 +317,54 @@ $('#restoreBackup')?.addEventListener('click',async()=>{
   }finally{
     if(btn)btn.disabled=false;
   }
+});
+
+
+let currentXlsxImportId='';
+function renderXlsxPreview(d){
+  currentXlsxImportId=d.importId;
+  $('#xlsxPreviewCard').classList.remove('hidden');
+  $('#xlsxPreviewFileName').textContent=`${d.fileName} · 시트: ${d.sheets.join(', ')}`;
+  const s=d.summary;
+  const cards=[
+    ['참가자',s.participants],['좌석',s.seats],['설정',s.settings],['기존 좌석배정',s.assignedSeats],['룰렛상품',s.rouletteProducts]
+  ];
+  $('#xlsxPreviewSummary').innerHTML=cards.map(([k,v])=>`<article class="stat"><span>${esc(k)}</span><strong>${esc(v)}</strong></article>`).join('');
+  const warnings=[];
+  if(s.duplicateQr)warnings.push(`중복 QR ${s.duplicateQr}건`);
+  if(s.blankPhones)warnings.push(`연락처 공란 ${s.blankPhones}명`);
+  $('#xlsxPreviewWarnings').innerHTML=warnings.length?`<div class="warning"><strong>확인 필요</strong><br>${warnings.map(esc).join(' · ')}</div>`:'<div class="successbox">기본 형식 검사에서 큰 문제를 찾지 못했습니다.</div>';
+  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(p.seat||'미배정')}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
+  $('#xlsxPreviewSeats').innerHTML=d.sampleSeats.map(s=>`<tr><td>${esc(s.code)}</td><td>${esc(s.zone||'-')}</td><td>${s.autoAssignable?'예':'아니오'}</td><td>${s.wheelchairAssignable?'예':'아니오'}</td><td>${s.enabled?'예':'아니오'}</td></tr>`).join('');
+}
+$('#xlsxPreviewBtn')?.addEventListener('click',async()=>{
+  const file=$('#xlsxImportFile')?.files?.[0];
+  if(!file)return toast('가져올 XLSX 파일을 먼저 선택해 주세요.');
+  const btn=$('#xlsxPreviewBtn');btn.disabled=true;
+  $('#xlsxImportStatus').textContent='엑셀을 분석하고 있습니다...';
+  try{
+    const fd=new FormData();fd.append('file',file);
+    const d=await api('/api/import/xlsx/preview',{method:'POST',body:fd});
+    renderXlsxPreview(d);
+    $('#xlsxImportStatus').textContent=`미리보기 완료 · 참가자 ${d.summary.participants}명 · 좌석 ${d.summary.seats}석`;
+    toast('엑셀 미리보기가 완료되었습니다.');
+  }catch(e){
+    $('#xlsxImportStatus').textContent=`오류: ${e.message}`;toast(e.message,7000);
+  }finally{btn.disabled=false}
+});
+$('#xlsxConfirmBtn')?.addEventListener('click',async()=>{
+  if(!currentXlsxImportId)return toast('먼저 엑셀 미리보기를 실행해 주세요.');
+  if(!confirm('현재 서버 데이터를 자동 백업한 뒤 이 XLSX 내용으로 교체할까요?'))return;
+  const btn=$('#xlsxConfirmBtn');btn.disabled=true;
+  try{
+    const d=await api('/api/import/xlsx/confirm',{method:'POST',body:JSON.stringify({importId:currentXlsxImportId})});
+    currentXlsxImportId='';
+    toast(`XLSX 반영 완료 · 참가자 ${d.participants}명 · 좌석 ${d.seats}석`,8000);
+    $('#xlsxImportStatus').textContent=`최종 반영 완료 · 참가자 ${d.participants}명 · 좌석 ${d.seats}석`;
+    await refreshDashboard();
+    $('#xlsxPreviewCard').classList.add('hidden');
+  }catch(e){toast(e.message,8000)}
+  finally{btn.disabled=false}
 });
 
 init();setInterval(()=>{if(token&&!document.hidden)refreshDashboard().catch(()=>{})},10000);

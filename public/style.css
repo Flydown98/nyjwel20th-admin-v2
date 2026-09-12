@@ -63,3 +63,7 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;bord
 .seat-cell{cursor:pointer}.seat-cell:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.12)}
 .unassigned-list{max-height:420px;overflow:auto}.unassigned-row{display:flex;justify-content:space-between;gap:10px;padding:9px;border-bottom:1px solid #e5e7eb}
 @media(max-width:700px){.modal .form-grid.compact{grid-template-columns:1fr}}
+
+/* v0.6 데이터 가져오기 */
+#xlsxPreviewSummary .stat{min-height:94px}
+#xlsxImportFile{max-width:520px}

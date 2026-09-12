@@ -38,7 +38,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.5.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.6.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -53,7 +53,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.5.0'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.6.0'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -323,7 +323,7 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.5.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.6.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
 app.post('/api/login',(req,res)=>{
   if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
   const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
@@ -758,37 +758,57 @@ app.post('/api/sms/pre-event',auth,(req,res)=>{
   saveState();res.json({ok:true,queued});
 });
 
+
 app.post('/api/import/xlsx/preview',auth,upload.single('file'),(req,res)=>{
   try{
     if(!req.file)return res.status(400).json({ok:false,error:'엑셀 파일을 선택해 주세요.'});
-    const parsed=buildImport(req.file.buffer,req.file.originalname),importId=uuid('import');previews.set(importId,{createdAt:Date.now(),parsed});
-    res.json({ok:true,importId,fileName:parsed.name,sheets:parsed.sheets,summary:{participants:parsed.participants.length,seats:parsed.seats.length,settings:Object.keys(parsed.settings).length,rouletteProducts:parsed.rouletteProducts.length},
-      sampleParticipants:parsed.participants.slice(0,8),sampleSeats:parsed.seats.slice(0,8)});
+    const parsed=buildImport(req.file.buffer,req.file.originalname);
+    const importId=uuid('import');
+    previews.set(importId,{createdAt:Date.now(),parsed});
+    const duplicateQr=parsed.participants.length-new Set(parsed.participants.map(p=>p.id)).size;
+    const blankPhones=parsed.participants.filter(p=>!p.phone).length;
+    const assignedSeats=parsed.participants.filter(p=>p.seat).length;
+    res.json({
+      ok:true,importId,fileName:parsed.name,sheets:parsed.sheets,
+      summary:{
+        participants:parsed.participants.length,
+        seats:parsed.seats.length,
+        settings:Object.keys(parsed.settings||{}).length,
+        rouletteProducts:(parsed.rouletteProducts||[]).length,
+        assignedSeats,duplicateQr,blankPhones
+      },
+      sampleParticipants:parsed.participants.slice(0,12),
+      sampleSeats:parsed.seats.slice(0,12)
+    });
   }catch(e){res.status(500).json({ok:false,error:e.message})}
 });
 app.post('/api/import/xlsx/confirm',auth,(req,res)=>{
-  const h=previews.get(str(req.body?.importId));if(!h)return res.status(400).json({ok:false,error:'미리보기가 만료되었습니다.'});
-  backupNow('before-import');
-  state.participants=h.parsed.participants;state.seats=h.parsed.seats;state.settings={...state.settings,...h.parsed.settings};state.rouletteProducts=h.parsed.rouletteProducts;
-  state.groups=[];state.checkins=[];state.smsQueue=[];state.raffles=[];state.rouletteHistory=[];
-  state.meta.importedAt=nowIso();state.meta.importSource=h.parsed.name;saveState();backupNow('after-import');previews.delete(str(req.body?.importId));
-  res.json({ok:true,participants:state.participants.length,seats:state.seats.length});
-});
-
-app.post('/api/backup/restore',auth,upload.single('file'),(req,res)=>{
-  try{
-    if(!req.file)return res.status(400).json({ok:false,error:'JSON 백업 파일을 선택해 주세요.'});
-    const parsed=JSON.parse(req.file.buffer.toString('utf8'));
-    if(!parsed||!parsed.meta||!Array.isArray(parsed.participants))return res.status(400).json({ok:false,error:'올바른 관리자 백업 JSON이 아닙니다.'});
-    const before=backupNow('before-restore');
-    state=normalizeState(parsed);
-    state.meta.version='0.4.1';
-    state.meta.restoredAt=nowIso();
-    state.meta.restoredFrom=req.file.originalname;
-    saveState();
-    const after=backupNow('after-restore');
-    res.json({ok:true,beforeBackup:before,afterBackup:after,participants:state.participants.length,seats:state.seats.length,groups:state.groups.length});
-  }catch(e){res.status(400).json({ok:false,error:'백업 복원 실패: '+e.message})}
+  const h=previews.get(str(req.body?.importId));
+  if(!h)return res.status(400).json({ok:false,error:'미리보기 정보가 만료되었습니다. 다시 파일을 선택해 주세요.'});
+  const before=backupNow('before-xlsx-import');
+  state.participants=h.parsed.participants;
+  state.seats=h.parsed.seats;
+  state.settings={...state.settings,...(h.parsed.settings||{})};
+  state.rouletteProducts=h.parsed.rouletteProducts||[];
+  state.groups=[];
+  state.checkins=[];
+  state.smsQueue=[];
+  state.raffles=[];
+  state.rouletteHistory=[];
+  state.gifts=[];
+  state.meta.importedAt=nowIso();
+  state.meta.importSource=h.parsed.name;
+  ensureCompanionGroups();
+  adminAudit('XLSX가져오기',{id:'xlsx',name:h.parsed.name},null,{
+    participants:state.participants.length,seats:state.seats.length
+  });
+  saveState();
+  const after=backupNow('after-xlsx-import');
+  previews.delete(str(req.body?.importId));
+  res.json({
+    ok:true,participants:state.participants.length,seats:state.seats.length,
+    groups:state.groups.length,beforeBackup:before,afterBackup:after
+  });
 });
 
 app.post('/api/backup',auth,(req,res)=>res.json({ok:true,filename:backupNow('manual')}));
@@ -815,4 +835,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.5.0 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.6.0 · :${PORT}`));

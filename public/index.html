@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.5.0">
+<link rel="stylesheet" href="/style.css?v=0.6.0">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.5</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.6</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
-<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="backup">백업</button>
+<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
 </nav>
 <main>
 <section id="view-dashboard" class="view active"><div class="stats">
@@ -81,6 +81,40 @@
 </div>
 </section>
 
+
+<section id="view-data" class="view">
+  <article class="card">
+    <p class="eyebrow">DATA MANAGEMENT</p>
+    <h2>XLSX 가져오기</h2>
+    <p class="muted">기존 행사 엑셀을 다시 불러올 때 사용합니다. 바로 덮어쓰지 않고 미리보기 후 최종 반영합니다.</p>
+    <div class="notice">최종 반영 시 현재 서버 데이터는 자동으로 JSON 백업한 뒤, XLSX의 참가자·좌석·설정 기준으로 교체됩니다.</div>
+    <div class="actions">
+      <input id="xlsxImportFile" type="file" accept=".xlsx,.xls">
+      <button id="xlsxPreviewBtn" class="primary">엑셀 분석 · 미리보기</button>
+    </div>
+    <div id="xlsxImportStatus" class="muted" style="margin-top:10px"></div>
+  </article>
+
+  <article id="xlsxPreviewCard" class="card hidden">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">PREVIEW</p>
+        <h2>가져오기 미리보기</h2>
+        <p id="xlsxPreviewFileName" class="muted"></p>
+      </div>
+      <button id="xlsxConfirmBtn" class="danger">이 내용으로 최종 반영</button>
+    </div>
+    <div id="xlsxPreviewSummary" class="stats"></div>
+    <div id="xlsxPreviewWarnings"></div>
+
+    <h3>참가자 샘플</h3>
+    <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>상태</th></tr></thead><tbody id="xlsxPreviewParticipants"></tbody></table></div>
+
+    <h3 style="margin-top:18px">좌석 샘플</h3>
+    <div class="table-wrap"><table><thead><tr><th>좌석</th><th>구역</th><th>일반자동</th><th>휠체어자동</th><th>사용</th></tr></thead><tbody id="xlsxPreviewSeats"></tbody></table></div>
+  </article>
+</section>
+
 <section id="view-backup" class="view"><article class="card"><p class="eyebrow">BACKUP</p><h2>백업 및 내보내기</h2><p class="muted">서버 내부 자동백업은 1분마다 실행됩니다. 행사 중에는 PC에도 JSON을 수시로 내려받아 주세요.</p><div class="actions"><button id="backupNow" class="primary">지금 백업</button><button id="downloadBackup">JSON 다운로드</button><button id="downloadCsv">참가자 CSV 다운로드</button></div>
 <hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">
 <h3>JSON 백업 복원</h3><p class="muted">재배포 후 데이터가 비어 있다면, 이전 버전에서 다운로드한 JSON 백업을 올려 그대로 복원합니다.</p>
@@ -89,4 +123,4 @@
 </main>
 
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.5.0"></script></body></html>
+<script src="/app.js?v=0.6.0"></script></body></html>
