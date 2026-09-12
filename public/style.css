@@ -1,16 +1,21 @@
-*{box-sizing:border-box}html,body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f5f7fb;color:#172033}
-body{min-height:100vh}header{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0}
-h1,h2,p{margin-top:0}.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:800;color:#6b7280;margin-bottom:6px}
-header h1{font-size:22px;margin:0}.header-actions,.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-main{max-width:1100px;margin:24px auto;padding:0 18px 50px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
-.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
-.stat span{display:block;color:#6b7280;font-size:14px;margin-bottom:8px}.stat strong{font-size:28px}
-button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:11px 15px;font-weight:700;cursor:pointer}
-button.primary{background:#172554;border-color:#172554;color:#fff}.ghost{background:transparent}
-.badge{padding:8px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:13px}.badge.ok{background:#ecfdf5;color:#047857}
-pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;min-height:140px}.muted{color:#6b7280}
-.overlay{position:fixed;inset:0;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:20px;z-index:999}
-.overlay.hidden{display:none}.login-card{width:min(420px,100%)}.mark{width:58px;height:58px;border-radius:18px;background:#172554;color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;margin-bottom:18px}
-label{display:block;font-weight:700;margin:18px 0 10px}input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px}.error{color:#b91c1c;margin-top:12px}
-ul{line-height:1.8;padding-left:20px}
-@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;gap:16px;flex-direction:column}}
+*{box-sizing:border-box}html,body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f5f7fb;color:#14213d}body{min-height:100vh}
+header{display:flex;justify-content:space-between;align-items:center;padding:17px 24px;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20}
+h1,h2,h3,p{margin-top:0}header h1{font-size:22px;margin:0}header h1 small{font-size:12px;color:#64748b}.eyebrow{font-size:11px;letter-spacing:.13em;font-weight:900;color:#6d28d9;margin-bottom:6px}.muted{color:#64748b}
+.header-actions,.actions,.card-head,.filters,.import-box{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.card-head{justify-content:space-between}
+main{max-width:1450px;margin:20px auto;padding:0 18px 60px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(15,23,42,.04);margin-bottom:16px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.stats-grid.compact{grid-template-columns:repeat(5,minmax(0,1fr))}
+.stat span{display:block;color:#64748b;font-size:13px;margin-bottom:7px}.stat strong{font-size:26px}.stat.success{background:#f0fdf4}.stat.success strong{color:#047857}
+button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}button.primary{background:#172554;color:#fff;border-color:#172554}button.danger{background:#7f1d1d;color:#fff;border-color:#7f1d1d}.ghost{background:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}.wide-btn{width:100%}
+.badge{padding:8px 11px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:800;font-size:12px}.badge.ok{background:#ecfdf5;color:#047857}
+.tabs{display:flex;gap:6px;padding:10px 18px;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:73px;z-index:19;overflow:auto}.tabs button{white-space:nowrap;border:none}.tabs button.active{background:#172554;color:#fff}
+.view{display:none}.view.active{display:block}.overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;padding:20px;z-index:1000}.overlay.hidden{display:none}.login-card{width:min(430px,100%)}.mark{width:58px;height:58px;border-radius:18px;background:#6d28d9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:27px;font-weight:900;margin-bottom:16px}
+label{display:block;font-weight:800;margin:16px 0 9px}input,select{border:1px solid #cbd5e1;border-radius:10px;padding:11px 12px;font-size:15px;background:#fff}label input{width:100%}.filters input{flex:1;min-width:260px}.filters select{min-width:160px}.import-box input{flex:1;min-width:280px}
+.error{color:#b91c1c}.hidden{display:none!important}.notice{margin-top:14px;padding:12px 14px;border-radius:12px;background:#eff6ff;color:#1d4ed8;font-weight:700}
+.warning{padding:12px 14px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;margin:12px 0}
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.info-grid div{padding:14px;border:1px solid #e2e8f0;border-radius:12px}.info-grid span{display:block;font-size:12px;color:#64748b;margin-bottom:5px}.info-grid strong{font-size:15px}
+.table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:13px;margin-top:12px}table{border-collapse:collapse;width:100%;min-width:900px}th,td{padding:10px 11px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px;vertical-align:top}th{background:#f8fafc;color:#475569;position:sticky;top:0}td small{display:block;color:#64748b;margin-top:3px}.yes{color:#047857;font-weight:800}.no{color:#94a3b8}
+pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;min-height:150px}
+.toast{position:fixed;right:20px;bottom:20px;background:#0f172a;color:#fff;padding:13px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);z-index:1100;font-weight:700}
+@media(max-width:1000px){.stats-grid,.stats-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}.info-grid{grid-template-columns:1fr 1fr}.tabs{top:105px}}
+@media(max-width:640px){header{align-items:flex-start;flex-direction:column}.stats-grid,.stats-grid.compact,.info-grid{grid-template-columns:1fr}.tabs{top:121px}main{padding:0 10px 50px}.card{padding:15px}}

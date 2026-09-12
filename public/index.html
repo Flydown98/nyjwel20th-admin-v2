@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#172554">
   <title>20주년 현장 관리자 v2</title>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -13,11 +13,9 @@
       <div class="mark">20</div>
       <p class="eyebrow">NYJWEL FIELD ADMIN</p>
       <h1>20주년 현장 관리자 v2</h1>
-      <p class="muted">Cloudtype + Node.js 기본 연결 테스트</p>
-      <label>관리자 비밀번호
-        <input id="password" type="password" autocomplete="current-password" required>
-      </label>
-      <button type="submit" class="primary">로그인</button>
+      <p class="muted">Cloudtype · Node.js · 행사 당일 현장 시스템</p>
+      <label>관리자 비밀번호<input id="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="primary wide-btn">로그인</button>
       <p id="loginMessage" class="error"></p>
     </form>
   </div>
@@ -25,46 +23,124 @@
   <header>
     <div>
       <p class="eyebrow">남양주시장애인복지관</p>
-      <h1>20주년 현장 관리자 v2</h1>
+      <h1>20주년 현장 관리자 v2 <small>v0.2</small></h1>
     </div>
     <div class="header-actions">
       <span id="statusBadge" class="badge">확인 중</span>
+      <button id="refreshTopBtn" class="ghost">새로고침</button>
       <button id="logoutBtn" class="ghost">로그아웃</button>
     </div>
   </header>
 
+  <nav class="tabs">
+    <button data-view="dashboard" class="active">현황</button>
+    <button data-view="import">엑셀 가져오기</button>
+    <button data-view="participants">참가자</button>
+    <button data-view="seats">좌석설정</button>
+    <button data-view="backup">백업</button>
+  </nav>
+
   <main>
-    <section class="grid">
-      <article class="card stat"><span>서버 상태</span><strong id="serverState">-</strong></article>
-      <article class="card stat"><span>참가자</span><strong id="participants">0</strong></article>
-      <article class="card stat"><span>체크인</span><strong id="checkins">0</strong></article>
-      <article class="card stat"><span>문자 대기</span><strong id="smsPending">0</strong></article>
-    </section>
-
-    <section class="card">
-      <h2>1단계 서버 테스트</h2>
-      <p class="muted">여기까지 정상 작동하면 다음 단계에서 참가자·QR·좌석·기념품·행운권 기능을 붙입니다.</p>
-      <div class="actions">
-        <button id="refreshBtn" class="primary">서버 새로고침</button>
-        <button id="writeBtn">테스트 저장</button>
-        <button id="backupBtn">지금 백업 만들기</button>
-        <button id="downloadBtn">백업 다운로드</button>
+    <section id="view-dashboard" class="view active">
+      <div class="stats-grid">
+        <article class="card stat"><span>참가자</span><strong id="statParticipants">0</strong></article>
+        <article class="card stat"><span>참여 예정</span><strong id="statActive">0</strong></article>
+        <article class="card stat success"><span>도착</span><strong id="statArrived">0</strong></article>
+        <article class="card stat"><span>좌석 설정</span><strong id="statSeats">0</strong></article>
+        <article class="card stat"><span>좌석 배정</span><strong id="statAssignedSeats">0</strong></article>
+        <article class="card stat"><span>단체 그룹</span><strong id="statGroups">0</strong></article>
+        <article class="card stat"><span>기념품 지급</span><strong id="statGifts">0</strong></article>
+        <article class="card stat"><span>문자 대기</span><strong id="statSms">0</strong></article>
       </div>
-      <pre id="output">대기 중...</pre>
+      <article class="card">
+        <div class="card-head"><div><h2>서버 정보</h2><p class="muted">현재 현장 서버에 저장된 데이터 기준입니다.</p></div><button id="refreshDashboardBtn" class="primary">새로고침</button></div>
+        <div id="serverInfo" class="info-grid"></div>
+      </article>
     </section>
 
-    <section class="card">
-      <h2>현재 버전에서 확인할 것</h2>
-      <ul>
-        <li>Cloudtype 주소로 페이지가 열린다.</li>
-        <li>환경변수 ADMIN_PASSWORD로 로그인된다.</li>
-        <li>서버 상태가 정상으로 나온다.</li>
-        <li>테스트 저장 후 새로고침해도 서버가 살아 있다.</li>
-        <li>백업 JSON 다운로드가 된다.</li>
-      </ul>
+    <section id="view-import" class="view">
+      <article class="card">
+        <p class="eyebrow">XLSX IMPORT</p>
+        <h2>기존 행사 엑셀 가져오기</h2>
+        <p class="muted">엑셀 파일은 서버 메모리에서 읽고 바로 폐기합니다. GitHub에는 업로드하지 않습니다. 최종 반영 전 미리보기를 확인할 수 있습니다.</p>
+        <div class="import-box">
+          <input id="xlsxFile" type="file" accept=".xlsx,.xls">
+          <button id="previewImportBtn" class="primary">엑셀 분석 · 미리보기</button>
+        </div>
+        <div id="importProgress" class="notice hidden"></div>
+      </article>
+
+      <article id="importPreviewCard" class="card hidden">
+        <div class="card-head">
+          <div><p class="eyebrow">PREVIEW</p><h2>가져오기 미리보기</h2><p id="importFileName" class="muted"></p></div>
+          <button id="confirmImportBtn" class="danger">이 내용으로 최종 반영</button>
+        </div>
+        <div id="importSummary" class="stats-grid compact"></div>
+        <div id="importWarnings"></div>
+
+        <h3>참가자 샘플</h3>
+        <div class="table-wrap"><table><thead><tr><th>접수번호</th><th>이름</th><th>연락처</th><th>소속</th><th>좌석</th><th>상태</th></tr></thead><tbody id="previewParticipants"></tbody></table></div>
+
+        <h3>좌석 샘플</h3>
+        <div class="table-wrap"><table><thead><tr><th>좌석</th><th>구역</th><th>일반자동</th><th>휠체어자동</th><th>사용</th></tr></thead><tbody id="previewSeats"></tbody></table></div>
+      </article>
+    </section>
+
+    <section id="view-participants" class="view">
+      <article class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 명단</h2><p id="participantCount" class="muted"></p></div>
+          <button id="reloadParticipantsBtn" class="primary">목록 갱신</button>
+        </div>
+        <div class="filters">
+          <input id="participantSearch" type="search" placeholder="이름 · 연락처 · 소속 · QR · 좌석 검색">
+          <select id="participantStatus">
+            <option value="all">전체</option>
+            <option value="pending">미도착</option>
+            <option value="arrived">도착</option>
+            <option value="inactive">미참여/사용중지</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>접수번호</th><th>참가자</th><th>연락처</th><th>소속기관</th><th>신청</th><th>좌석</th><th>정보</th><th>상태</th></tr></thead>
+            <tbody id="participantRows"></tbody>
+          </table>
+        </div>
+        <p class="muted">검색 결과는 최대 300명까지 표시합니다. v0.3에서 수정·현장등록·QR 접수를 붙입니다.</p>
+      </article>
+    </section>
+
+    <section id="view-seats" class="view">
+      <article class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">SEAT CONFIG</p><h2>좌석설정 가져오기 확인</h2><p id="seatCount" class="muted"></p></div>
+          <button id="reloadSeatsBtn" class="primary">목록 갱신</button>
+        </div>
+        <div class="filters"><input id="seatSearch" type="search" placeholder="좌석코드 · 구역 · 메모 검색"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>좌석</th><th>행</th><th>측면</th><th>번호</th><th>구역</th><th>일반자동</th><th>휠체어자동</th><th>사용</th><th>메모</th></tr></thead>
+            <tbody id="seatRows"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="view-backup" class="view">
+      <article class="card">
+        <p class="eyebrow">BACKUP</p><h2>현장 데이터 백업</h2>
+        <p class="muted">서버에서는 1분마다 자동 백업합니다. Cloudtype 임시 디스크만 믿지 않도록 행사 중 수시로 PC에도 내려받아 주세요.</p>
+        <div class="actions">
+          <button id="backupBtn" class="primary">지금 백업 만들기</button>
+          <button id="downloadBtn">JSON 백업 다운로드</button>
+        </div>
+        <pre id="output">대기 중...</pre>
+      </article>
     </section>
   </main>
 
+  <div id="toast" class="toast hidden"></div>
   <script src="/app.js"></script>
 </body>
 </html>
