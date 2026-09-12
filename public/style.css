@@ -81,3 +81,8 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;bord
 .raffle-stage button{margin-top:30px;font-size:18px;padding:13px 30px}
 @keyframes spinStage{to{transform:rotate(360deg)}}@keyframes winnerPop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
 .log-json{font-size:11px;white-space:pre-wrap;color:#64748b;max-width:620px}
+
+/* v0.7.1 자동그룹 정책 */
+.group-policy-box{margin:14px 0;padding:14px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc}
+.group-policy-box textarea{width:100%;margin:8px 0 10px;min-height:96px}
+.group-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca;margin-left:6px}

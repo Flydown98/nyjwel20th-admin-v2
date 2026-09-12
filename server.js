@@ -38,7 +38,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.7.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.7.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -53,7 +53,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.7.0'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.7.1'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -274,9 +274,108 @@ function findParticipant(code){
   const raw=str(code).replace(/^NYJ20[|:]/i,'').toUpperCase();
   return state.participants.find(p=>str(p.id).toUpperCase()===raw || str(p.receptionNo)===raw);
 }
+
+const DEFAULT_GROUP_EXCLUSION_KEYWORDS = [
+  '남양주시','남양주시장애인복지관','사회서비스','활동지원','활동지원사','활동지원팀',
+  '이용인','낮활동','낮활동팀','주간활동','주간활동팀','직업재활팀',
+  '기획협력지원팀','지역융합서비스팀','운영지원팀','복지관직원','직원'
+];
+function getGroupExclusionKeywords(){
+  const v=state.settings?.groupExclusionKeywords;
+  if(Array.isArray(v)&&v.length)return v.map(str).filter(Boolean);
+  if(typeof v==='string'&&v.trim())return v.split(/\r?\n|,/).map(str).filter(Boolean);
+  return [...DEFAULT_GROUP_EXCLUSION_KEYWORDS];
+}
+function normalizeOrg(v){return str(v).replace(/\s+/g,' ').trim()}
+function isInternalOrganization(name){
+  const n=normalizeOrg(name).replace(/\s+/g,'').toLowerCase();
+  if(!n)return false;
+  return getGroupExclusionKeywords().some(k=>n.includes(normalizeOrg(k).replace(/\s+/g,'').toLowerCase()));
+}
+function sameExternalOrganization(members){
+  const orgs=[...new Set(members.map(p=>normalizeOrg(p.organization)).filter(Boolean))];
+  if(orgs.length!==1)return '';
+  return isInternalOrganization(orgs[0])?'':orgs[0];
+}
+function groupDisplayName(g){
+  if(!g)return '';
+  const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
+  if(g.type==='companion'){
+    const org=sameExternalOrganization(members);
+    return org||'동반';
+  }
+  return str(g.name)||str(g.organization)||'그룹';
+}
+function manualGroupMemberIds(){
+  return new Set(state.groups.filter(g=>g.type==='representative'&&!g.auto).flatMap(g=>g.memberIds||[]));
+}
+function rebuildAutomaticGroups({persist=false}={}){
+  const manualGroups=state.groups.filter(g=>!(g.auto===true || g.type==='organization' || g.type==='companion'));
+  const manualUsed=new Set(manualGroups.flatMap(g=>g.memberIds||[]));
+  const autoGroups=[];
+  const autoUsed=new Set();
+
+  // 1) 같은 외부기관은 무조건 하나의 운영 그룹으로 묶음.
+  const byOrg=new Map();
+  state.participants.filter(participantActive).forEach(p=>{
+    if(manualUsed.has(p.id))return;
+    const org=normalizeOrg(p.organization);
+    if(!org||isInternalOrganization(org))return;
+    if(!byOrg.has(org))byOrg.set(org,[]);
+    byOrg.get(org).push(p);
+  });
+  for(const [org,members] of byOrg.entries()){
+    if(members.length<2)continue;
+    const old=state.groups.find(g=>g.type==='organization'&&normalizeOrg(g.organization)===org);
+    const ids=members.map(p=>p.id);
+    const rep=(old&&ids.includes(old.representativeId)?old.representativeId:'') || members.find(p=>p.phone)?.id || members[0].id;
+    autoGroups.push({
+      id:old?.id||`org:${crypto.createHash('sha1').update(org).digest('hex').slice(0,12)}`,
+      type:'organization',auto:true,name:org,organization:org,
+      representativeId:rep,memberIds:ids,createdAt:old?.createdAt||nowIso(),
+      extraStanding:num(old?.extraStanding,0),extraGiftCount:num(old?.extraGiftCount,0)
+    });
+    ids.forEach(id=>autoUsed.add(id));
+  }
+
+  // 2) 기관 그룹으로 묶이지 않은 동반신청자는 companionGroup 값 기준으로 묶음.
+  const byCompanion=new Map();
+  state.participants.filter(participantActive).forEach(p=>{
+    if(manualUsed.has(p.id)||autoUsed.has(p.id))return;
+    const key=str(p.companionGroup);
+    if(!key)return;
+    if(!byCompanion.has(key))byCompanion.set(key,[]);
+    byCompanion.get(key).push(p);
+  });
+  for(const [key,members] of byCompanion.entries()){
+    if(members.length<2)continue;
+    const old=state.groups.find(g=>g.type==='companion'&&g.companionGroup===key);
+    const ids=members.map(p=>p.id);
+    const sharedOrg=sameExternalOrganization(members);
+    const rep=(old&&ids.includes(old.representativeId)?old.representativeId:'') || members.find(p=>p.phone)?.id || members[0].id;
+    autoGroups.push({
+      id:old?.id||`comp:${key}`,type:'companion',auto:true,
+      name:sharedOrg||'동반',organization:sharedOrg||'',companionGroup:key,
+      representativeId:rep,memberIds:ids,createdAt:old?.createdAt||nowIso(),
+      extraStanding:num(old?.extraStanding,0),extraGiftCount:num(old?.extraGiftCount,0)
+    });
+    ids.forEach(id=>autoUsed.add(id));
+  }
+
+  const before=JSON.stringify(state.groups.map(g=>({id:g.id,type:g.type,name:g.name,memberIds:g.memberIds,representativeId:g.representativeId})));
+  state.groups=[...manualGroups,...autoGroups];
+  const after=JSON.stringify(state.groups.map(g=>({id:g.id,type:g.type,name:g.name,memberIds:g.memberIds,representativeId:g.representativeId})));
+  const changed=before!==after;
+  if(changed&&persist)saveState();
+  return {changed,organizationGroups:autoGroups.filter(g=>g.type==='organization').length,companionGroups:autoGroups.filter(g=>g.type==='companion').length};
+}
 function groupForParticipant(p){
   if(!p)return null;
-  return state.groups.find(g=>g.memberIds?.includes(p.id));
+  // 명시적인 수동 대표자 그룹 → 기관 그룹 → 동반 그룹 순.
+  return state.groups.find(g=>g.type==='representative'&&!g.auto&&g.memberIds?.includes(p.id))
+    || state.groups.find(g=>g.type==='organization'&&g.memberIds?.includes(p.id))
+    || state.groups.find(g=>g.type==='companion'&&g.memberIds?.includes(p.id))
+    || state.groups.find(g=>g.memberIds?.includes(p.id));
 }
 function markArrived(p,{station='관리자 웹',sendSms=true}={}){
   const already=Boolean(p.arrived);
@@ -333,7 +432,7 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.7.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.7.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
 app.post('/api/login',(req,res)=>{
   if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
   const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
@@ -354,7 +453,7 @@ app.get('/api/events',(req,res)=>{
 });
 
 app.get('/api/bootstrap',auth,(req,res)=>{
-  ensureCompanionGroups();
+  rebuildAutomaticGroups({persist:true});
   const active=state.participants.filter(participantActive);
   const extraGifts=state.groups.reduce((n,g)=>n+num(g.extraGiftCount,0),0);
   res.json({ok:true,serverTime:nowIso(),summary:{
@@ -378,37 +477,7 @@ function participantPublic(p){
   if(!p)return null;
   return {...p, group:groupForParticipant(p)?.id||''};
 }
-function companionGroupEntries(){
-  const map=new Map();
-  state.participants.filter(participantActive).forEach(p=>{
-    const key=str(p.companionGroup);
-    if(!key)return;
-    if(!map.has(key))map.set(key,[]);
-    map.get(key).push(p);
-  });
-  return [...map.entries()].filter(([,members])=>members.length>=2).map(([key,members])=>({
-    id:`comp:${key}`, type:'companion', name:`동반그룹 ${key}`, companionGroup:key,
-    representativeId:members.find(x=>x.phone)?.id||members[0].id,
-    memberIds:members.map(x=>x.id), members
-  }));
-}
-function ensureCompanionGroups(){
-  const existing=new Map(state.groups.filter(g=>g.type==='companion').map(g=>[g.companionGroup,g]));
-  companionGroupEntries().forEach(v=>{
-    if(existing.has(v.companionGroup)){
-      const g=existing.get(v.companionGroup);
-      g.memberIds=v.memberIds;
-      if(!v.memberIds.includes(g.representativeId))g.representativeId=v.representativeId;
-      if(!g.name)g.name=v.name;
-    }else{
-      state.groups.push({
-        id:v.id,type:'companion',name:v.name,companionGroup:v.companionGroup,
-        representativeId:v.representativeId,memberIds:v.memberIds,createdAt:nowIso(),
-        extraStanding:0,extraGiftCount:0
-      });
-    }
-  });
-}
+
 function availableParticipantIds(excludeGroupId=''){
   const used=new Set(state.groups.filter(g=>g.id!==excludeGroupId && g.type!=='companion').flatMap(g=>g.memberIds||[]));
   return state.participants.filter(participantActive).filter(p=>!used.has(p.id));
@@ -496,42 +565,58 @@ app.post('/api/checkin/individual',auth,(req,res)=>{
   saveState();res.json({ok:true,...r});
 });
 app.post('/api/checkin/lookup',auth,(req,res)=>{
-  ensureCompanionGroups();
+  rebuildAutomaticGroups({persist:false});
   const p=findParticipant(req.body?.code);if(!p)return res.status(404).json({ok:false,error:'QR 참가자를 찾을 수 없습니다.'});
   const g=groupForParticipant(p);
   let group=null;
   if(g){
     const members=g.memberIds.map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
-    group={...g,members,total:members.length,arrived:members.filter(p=>p.arrived).length};
+    group={...g,name:groupDisplayName(g),members,total:members.length,arrived:members.filter(p=>p.arrived).length};
   }
   res.json({ok:true,participant:p,group});
 });
 app.post('/api/checkin/group',auth,(req,res)=>{
+  rebuildAutomaticGroups({persist:false});
   const group=state.groups.find(g=>g.id===str(req.body?.groupId));if(!group)return res.status(404).json({ok:false,error:'단체를 찾을 수 없습니다.'});
   const members=group.memberIds.map(id=>state.participants.find(p=>p.id===id)).filter(Boolean).filter(participantActive);
   const pending=members.filter(p=>!p.arrived);
+  const scannedId=str(req.body?.scannedParticipantId);
+  const scanned=members.find(p=>p.id===scannedId)||null;
   const actual=Math.max(0,num(req.body?.actualCount,0));
   const registeredRemaining=pending.length;
   const checkCount=Math.min(actual,registeredRemaining);
   const extras=Math.max(0,actual-registeredRemaining);
-  const selected=pending.slice(0,checkCount);
-  // 그룹 좌석은 실제 도착 등록인원만 유지. 이번에 안 온 미도착 멤버 좌석은 비움.
-  pending.slice(checkCount).forEach(p=>releaseSeat(p));
+
+  // QR을 찍은 사람이 미도착이면 그 사람을 가장 먼저 이번 접수 대상에 포함.
+  const orderedPending=[...pending].sort((a,b)=>{
+    if(a.id===scannedId)return -1;if(b.id===scannedId)return 1;
+    return num(a.receptionNo)-num(b.receptionNo);
+  });
+  const selected=orderedPending.slice(0,checkCount);
+
+  // 이번에 안 온 미도착 멤버 좌석은 비움.
+  orderedPending.slice(checkCount).forEach(p=>releaseSeat(p));
   selected.forEach(p=>{p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso()});
   assignContiguous(selected);
-  selected.forEach(p=>addLog('단체QR접수',p,`단체 ${group.name||group.organization||group.id}`,str(req.body?.station)||'QR접수'));
+  const displayName=groupDisplayName(group);
+  selected.forEach(p=>addLog('단체QR접수',p,`단체 ${displayName}`,str(req.body?.station)||'QR접수'));
   group.extraStanding=num(group.extraStanding,0)+extras;
   group.extraGiftCount=num(group.extraGiftCount,0)+extras;
   group.lastCheckinAt=nowIso();
   group.lastActualCount=actual;
-  const rep=state.participants.find(p=>p.id===group.representativeId)||selected[0]||members[0];
+
+  // 동반/기관 그룹 모두 'QR을 실제로 제시한 사람'에게 우선 문자 발송.
+  const smsTarget=(scanned?.phone?scanned:null)
+    || state.participants.find(p=>p.id===group.representativeId&&p.phone)
+    || selected.find(p=>p.phone)
+    || members.find(p=>p.phone);
   let sms=null;
-  if(rep?.phone&&state.settings.checkinSmsEnabled!==false){
+  if(smsTarget?.phone&&state.settings.checkinSmsEnabled!==false){
     const seats=selected.map(p=>p.seat).filter(Boolean);
     const extraText=extras?`추가 ${extras}명은 좌석 미배정(스탠딩 안내)입니다.`:'';
-    sms=queueAndSendSms(rep.phone,`[남양주시장애인복지관]\n${group.name||rep.organization||rep.name} 단체 현장 접수가 완료되었습니다.\n이번 접수 ${actual}명 / 좌석 ${checkCount}석\n${seats.length?'좌석: '+seats.join(', ')+'\n':''}${extraText}\n기념품: ${actual}명 지급완료\n감사합니다.`,'group-checkin',rep.id);
+    sms=queueAndSendSms(smsTarget.phone,`[남양주시장애인복지관]\n${displayName} 현장 접수가 완료되었습니다.\n이번 접수 ${actual}명 / 좌석 ${checkCount}석\n${seats.length?'좌석: '+seats.join(', ')+'\n':''}${extraText}\n기념품: ${actual}명 지급완료\n감사합니다.`,'group-checkin',smsTarget.id);
   }
-  saveState();res.json({ok:true,total:members.length,checkedInNow:checkCount,actualCount:actual,extraStanding:extras,seats:selected.map(p=>p.seat).filter(Boolean),smsQueued:Boolean(sms)});
+  saveState();res.json({ok:true,groupName:displayName,total:members.length,checkedInNow:checkCount,actualCount:actual,extraStanding:extras,seats:selected.map(p=>p.seat).filter(Boolean),smsQueued:Boolean(sms),smsTargetName:smsTarget?.name||''});
 });
 app.post('/api/checkin/undo',auth,(req,res)=>{
   const p=findParticipant(req.body?.code);if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
@@ -541,47 +626,49 @@ app.post('/api/checkin/undo',auth,(req,res)=>{
 });
 
 
-const INTERNAL_ORG_KEYWORDS = [
-  '남양주시장애인복지관','사회서비스','활동지원','활동지원사','활동지원팀',
-  '이용인','낮활동','낮활동팀','주간활동','주간활동팀','직업재활팀',
-  '기획협력지원팀','지역융합서비스팀','운영지원팀','복지관직원','직원'
-];
-function isInternalOrganization(name){
-  const n=str(name).replace(/\s+/g,'').toLowerCase();
-  if(!n)return false;
-  return INTERNAL_ORG_KEYWORDS.some(k=>n.includes(k.replace(/\s+/g,'').toLowerCase()));
-}
-
 app.get('/api/groups',auth,(req,res)=>{
-  ensureCompanionGroups();
+  rebuildAutomaticGroups({persist:false});
   const rows=state.groups.map(g=>{
     const members=g.memberIds.map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
-    return {...g,total:members.length,arrived:members.filter(p=>p.arrived).length,members};
+    return {...g,name:groupDisplayName(g),total:members.length,arrived:members.filter(p=>p.arrived).length,members};
   });
   res.json({ok:true,rows});
 });
+
 app.get('/api/group-suggestions',auth,(req,res)=>{
-  const map=new Map();
-  state.participants.filter(participantActive).forEach(p=>{
-    const o=str(p.organization);if(!o||isInternalOrganization(o))return;
-    if(!map.has(o))map.set(o,[]);
-    map.get(o).push(p);
-  });
-  const groupedIds=new Set(state.groups.flatMap(g=>g.memberIds||[]));
-  const rows=[...map.entries()].filter(([o,ps])=>ps.length>=2 && ps.some(p=>!groupedIds.has(p.id)))
-    .map(([organization,ps])=>({organization,count:ps.length,ungrouped:ps.filter(p=>!groupedIds.has(p.id)).length,members:ps.map(p=>({id:p.id,name:p.name,phone:p.phone,seat:p.seat}))}))
-    .sort((a,b)=>b.count-a.count);
+  rebuildAutomaticGroups({persist:false});
+  const rows=state.groups.filter(g=>g.type==='organization').map(g=>{
+    const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
+    return {organization:g.organization,count:members.length,ungrouped:0,groupId:g.id,
+      members:members.map(p=>({id:p.id,name:p.name,phone:p.phone,seat:p.seat}))};
+  }).sort((a,b)=>b.count-a.count);
   res.json({ok:true,rows});
+});
+app.get('/api/groups/exclusions',auth,(req,res)=>{
+  res.json({ok:true,keywords:getGroupExclusionKeywords(),defaults:DEFAULT_GROUP_EXCLUSION_KEYWORDS});
+});
+app.post('/api/groups/exclusions',auth,(req,res)=>{
+  const keywords=(Array.isArray(req.body?.keywords)?req.body.keywords:[]).map(str).filter(Boolean);
+  state.settings.groupExclusionKeywords=keywords;
+  const result=rebuildAutomaticGroups({persist:false});
+  adminAudit('그룹제외어수정',{id:'group-exclusions',name:'자동 기관묶음 제외어'},null,{keywords});
+  saveState();
+  res.json({ok:true,keywords,result});
+});
+app.post('/api/groups/rebuild-auto',auth,(req,res)=>{
+  const result=rebuildAutomaticGroups({persist:false});
+  adminAudit('자동그룹재구성',{id:'auto-groups',name:'자동 그룹'},null,result);
+  saveState();
+  res.json({ok:true,...result,totalGroups:state.groups.length});
 });
 app.post('/api/groups/create-by-organization',auth,(req,res)=>{
-  const organization=str(req.body?.organization);
+  const organization=normalizeOrg(req.body?.organization);
   if(!organization)return res.status(400).json({ok:false,error:'소속기관을 선택해 주세요.'});
-  const used=new Set(state.groups.flatMap(g=>g.memberIds||[]));
-  const members=state.participants.filter(p=>participantActive(p)&&str(p.organization)===organization&&!used.has(p.id));
-  if(members.length<2)return res.status(400).json({ok:false,error:'묶을 수 있는 미지정 참가자가 2명 이상 필요합니다.'});
-  let rep=members.find(p=>p.id===str(req.body?.representativeId))||members.find(p=>p.phone)||members[0];
-  const g={id:uuid('grp'),name:str(req.body?.name)||organization,organization,representativeId:rep.id,memberIds:members.map(p=>p.id),createdAt:nowIso(),extraStanding:0,extraGiftCount:0};
-  state.groups.push(g);saveState();res.json({ok:true,group:g});
+  if(isInternalOrganization(organization))return res.status(400).json({ok:false,error:'자동 그룹 제외기관입니다. 제외어 설정을 확인해 주세요.'});
+  rebuildAutomaticGroups({persist:false});
+  const g=state.groups.find(g=>g.type==='organization'&&normalizeOrg(g.organization)===organization);
+  if(!g)return res.status(404).json({ok:false,error:'해당 기관은 2명 이상이 아니거나 자동그룹 대상이 아닙니다.'});
+  saveState();res.json({ok:true,group:{...g,name:groupDisplayName(g)}});
 });
 app.post('/api/groups/:id/delete',auth,(req,res)=>{
   const i=state.groups.findIndex(g=>g.id===req.params.id);if(i<0)return res.status(404).json({ok:false,error:'단체를 찾을 수 없습니다.'});
@@ -590,11 +677,11 @@ app.post('/api/groups/:id/delete',auth,(req,res)=>{
 
 
 app.get('/api/groups/manage',auth,(req,res)=>{
-  ensureCompanionGroups();
+  rebuildAutomaticGroups({persist:false});
   const groups=state.groups.map(g=>{
     const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
     const rep=state.participants.find(p=>p.id===g.representativeId)||null;
-    return {...g,members,representative:rep,total:members.length,arrived:members.filter(p=>p.arrived).length};
+    return {...g,name:groupDisplayName(g),members,representative:rep,total:members.length,arrived:members.filter(p=>p.arrived).length};
   });
   res.json({ok:true,rows:groups});
 });
@@ -703,7 +790,7 @@ app.post('/api/seats/swap',auth,(req,res)=>{
   adminAudit('좌석교환',a,{seat:sa},{seat:sb},`${b.name}와 교환`);saveState();res.json({ok:true,a,b});
 });
 app.post('/api/seats/auto-assign-unassigned',auth,(req,res)=>{
-  ensureCompanionGroups();
+  rebuildAutomaticGroups({persist:false});
   const onlyArrived=bool(req.body?.onlyArrived);
   const targets=state.participants.filter(p=>participantActive(p)&&!p.seat&&(!onlyArrived||p.arrived)&&!p.onsite);
   const targetIds=new Set(targets.map(p=>p.id));
@@ -885,7 +972,7 @@ app.post('/api/import/xlsx/confirm',auth,(req,res)=>{
   state.gifts=[];
   state.meta.importedAt=nowIso();
   state.meta.importSource=h.parsed.name;
-  ensureCompanionGroups();
+  rebuildAutomaticGroups({persist:false});
   adminAudit('XLSX가져오기',{id:'xlsx',name:h.parsed.name},null,{
     participants:state.participants.length,seats:state.seats.length
   });
@@ -922,4 +1009,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.7.0 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.7.1 · :${PORT}`));

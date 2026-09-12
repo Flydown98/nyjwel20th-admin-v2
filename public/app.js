@@ -7,7 +7,7 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.7';$('#statusBadge').classList.add('ok')}
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.7.1';$('#statusBadge').classList.add('ok')}
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
 $('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);if(eventSource)eventSource.close();$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
@@ -33,9 +33,9 @@ function showGroupCheckin(p,g){
   const remaining=g.members.filter(x=>!x.arrived).length,registered=g.total,already=g.arrived;
   let n=Math.max(1,remaining);
   const render=()=>{const seats=Math.min(n,remaining),extra=Math.max(0,n-remaining);$('#stepN').textContent=n;$('#stepInfo').innerHTML=`이번 좌석 배정 <strong>${seats}석</strong>${extra?` · 추가 ${extra}명은 <strong>스탠딩</strong>`:''}`};
-  modal(`<p class="eyebrow">단체 QR 접수</p><h2>${esc(g.name||g.organization||p.organization)}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>이번에 실제로 함께 도착한 인원을 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
+  modal(`<p class="eyebrow">그룹 QR 접수 · ${esc(p.name)} QR</p><h2>${esc(g.name||g.organization||'동반')}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>이번에 실제로 함께 도착한 인원을 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
   $('#minus').onclick=()=>{n=Math.max(1,n-1);render()};$('#plus').onclick=()=>{n=Math.min(99,n+1);render()};$('#cancelGroup').onclick=closeModal;
-  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:'QR접수'})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
+  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:'QR접수',scannedParticipantId:p.id})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
   render();
 }
 $('#manualQrForm').onsubmit=e=>{e.preventDefault();processCode($('#manualQr').value.trim());$('#manualQr').select()};
@@ -103,25 +103,51 @@ $('#participantRows').onclick=async e=>{
 $('#onsiteForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());b.wheelchairUser=f.has('wheelchairUser');b.disabledPerson=f.has('disabledPerson');try{const d=await api('/api/participants/onsite',{method:'POST',body:JSON.stringify(b)});toast(`${d.participant.name} 현장등록 완료 · 스탠딩 안내`,6000);e.currentTarget.reset();e.currentTarget.station.value='현장접수';refreshDashboard()}catch(x){toast(x.message,6000)}};
 
 
+
 let groupManageCache=[];
 async function loadGroups(){
   try{
-    const [s,g]=await Promise.all([api('/api/group-suggestions'),api('/api/groups/manage')]);
+    const [s,g,ex]=await Promise.all([api('/api/group-suggestions'),api('/api/groups/manage'),api('/api/groups/exclusions')]);
     groupManageCache=g.rows;
-    $('#groupSuggestions').innerHTML=s.rows.slice(0,100).map(x=>`<div class="management-card"><div class="top"><div><strong>${esc(x.organization)}</strong><small>${x.count}명 · 미지정 ${x.ungrouped}명</small></div><button data-org="${esc(x.organization)}">기관그룹 활성화</button></div></div>`).join('')||'<p class="muted">기관 그룹 후보가 없습니다.</p>';
-    const reps=g.rows.filter(x=>x.type!=='companion');
+    $('#groupExclusionKeywords').value=(ex.keywords||[]).join('\n');
+
+    $('#groupSuggestions').innerHTML=s.rows.map(x=>`<div class="management-card">
+      <div class="top"><div><strong>${esc(x.organization)}</strong><span class="group-badge">자동 기관그룹</span><small>${x.count}명 · 같은 기관 자동연결</small></div></div>
+      <div class="member-list">${x.members.map(m=>`<span class="member-chip">${esc(m.name)}${m.seat?` · ${esc(m.seat)}`:''}</span>`).join('')}</div>
+    </div>`).join('')||'<p class="muted">현재 자동 기관그룹이 없습니다.</p>';
+
+    const reps=g.rows.filter(x=>x.type==='representative'&&!x.auto);
     const comps=g.rows.filter(x=>x.type==='companion');
-    $('#representativeGroups').innerHTML=reps.map(groupCardHtml).join('')||'<p class="muted">대표자/기관 그룹이 없습니다.</p>';
-    $('#companionGroups').innerHTML=comps.map(groupCardHtml).join('')||'<p class="muted">동반신청 그룹이 없습니다.</p>';
+    $('#representativeGroups').innerHTML=reps.map(groupCardHtml).join('')||'<p class="muted">대표자 그룹이 없습니다.</p>';
+    $('#companionGroups').innerHTML=comps.map(groupCardHtml).join('')||'<p class="muted">기관으로 묶이지 않은 동반 그룹이 없습니다.</p>';
   }catch(e){toast(e.message)}
 }
 function groupCardHtml(g){
+  const typeText=g.type==='companion'?'동반':(g.type==='organization'?'기관':'대표자');
   return `<div class="management-card" data-group="${esc(g.id)}">
-    <div class="top"><div><strong>${esc(g.name||g.organization||g.id)}</strong><small>${g.type==='companion'?'동반신청':'대표자/기관'} · 등록 ${g.total}명 · 도착 ${g.arrived}명 · 대표 ${esc(g.representative?.name||'-')}</small></div>
-    <div class="actions"><button data-editgroup="${esc(g.id)}">수정</button><button data-delgroup="${esc(g.id)}">그룹 해제</button></div></div>
-    <div class="member-list">${g.members.map(m=>`<span class="member-chip ${m.id===g.representativeId?'rep':''}">${m.arrived?'✓':'○'} ${esc(m.name)}${m.id===g.representativeId?' · 대표':''}</span>`).join('')}</div>
+    <div class="top"><div><strong>${esc(g.name||'동반')}</strong><span class="group-badge">${typeText}</span>
+      <small>등록 ${g.total}명 · 도착 ${g.arrived}명${g.type==='companion'?' · 어느 참가자 QR이든 그룹접수 가능':` · 대표 ${esc(g.representative?.name||'-')}`}</small></div>
+    <div class="actions">${g.auto?'':`<button data-editgroup="${esc(g.id)}">수정</button><button data-delgroup="${esc(g.id)}">그룹 해제</button>`}</div></div>
+    <div class="member-list">${g.members.map(m=>`<span class="member-chip ${m.id===g.representativeId&&g.type!=='companion'?'rep':''}">${m.arrived?'✓':'○'} ${esc(m.name)}${m.id===g.representativeId&&g.type!=='companion'?' · 대표':''}</span>`).join('')}</div>
   </div>`;
 }
+$('#saveGroupExclusions')?.addEventListener('click',async()=>{
+  const keywords=$('#groupExclusionKeywords').value.split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean);
+  if(!confirm('제외어를 저장하고 자동 기관/동반 그룹을 다시 구성할까요?'))return;
+  try{
+    const d=await api('/api/groups/exclusions',{method:'POST',body:JSON.stringify({keywords})});
+    toast(`제외어 저장 완료 · 기관그룹 ${d.result.organizationGroups}개 · 동반 ${d.result.companionGroups}개`,6500);
+    loadGroups();refreshDashboard();
+  }catch(e){toast(e.message,7000)}
+});
+$('#rebuildAutoGroups')?.addEventListener('click',async()=>{
+  try{
+    const d=await api('/api/groups/rebuild-auto',{method:'POST',body:'{}'});
+    toast(`자동그룹 재구성 완료 · 기관 ${d.organizationGroups}개 · 동반 ${d.companionGroups}개`,6500);
+    loadGroups();refreshDashboard();
+  }catch(e){toast(e.message,7000)}
+});
+
 async function openGroupEditor(groupId=''){
   const group=groupManageCache.find(x=>x.id===groupId)||null;
   const selected=new Set(group?.memberIds||[]);
@@ -166,11 +192,7 @@ document.querySelectorAll('[data-grouptab]').forEach(b=>b.onclick=()=>{
   ['Auto','Representative','Companion'].forEach(k=>$('#groupTab'+k).classList.toggle('hidden',k.toLowerCase()!==b.dataset.grouptab));
 });
 $('#createManualGroup').onclick=()=>openGroupEditor('');
-$('#groupSuggestions').onclick=async e=>{
-  const b=e.target.closest('[data-org]');if(!b)return;const org=b.dataset.org;
-  if(!confirm(`${org} 소속 참가자를 기관 그룹으로 활성화할까요?`))return;
-  try{await api('/api/groups/create-by-organization',{method:'POST',body:JSON.stringify({organization:org,name:org})});toast('기관 그룹을 활성화했습니다.');loadGroups();refreshDashboard()}catch(x){toast(x.message,6000)}
-};
+$('#groupSuggestions').onclick=()=>{};
 async function groupContainerClick(e){
   const edit=e.target.closest('[data-editgroup]'),del=e.target.closest('[data-delgroup]');
   if(edit)return openGroupEditor(edit.dataset.editgroup);

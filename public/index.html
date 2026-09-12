@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.7.0">
+<link rel="stylesheet" href="/style.css?v=0.7.1">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.7</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.7.1</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
 </nav>
@@ -37,8 +37,14 @@
 
 <section id="view-groups" class="view">
 <article class="card">
-  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">자동 기관 후보 · 대표자 그룹 · 동반신청 그룹을 구분해 관리합니다.</p></div><button id="reloadGroups" class="primary">갱신</button></div>
-  <div class="group-tabs"><button data-grouptab="auto" class="active">기관 후보</button><button data-grouptab="representative">대표자 그룹</button><button data-grouptab="companion">동반신청</button><button id="createManualGroup" class="primary">대표자 그룹 만들기</button></div>
+  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">같은 외부기관은 자동으로 한 그룹으로 묶고, 기관이 없는 동반신청은 '동반'으로 묶습니다. 그룹의 어느 참가자 QR을 찍어도 그룹 접수가 열립니다.</p></div><button id="reloadGroups" class="primary">갱신</button></div>
+  <div class="group-policy-box">
+    <strong>자동 기관묶음 제외어</strong>
+    <p class="muted">아래 단어가 소속기관명에 포함되면 자동 기관그룹에서 제외됩니다. 필요하면 직접 추가·삭제한 뒤 재구성하세요.</p>
+    <textarea id="groupExclusionKeywords" rows="4" placeholder="한 줄에 하나씩"></textarea>
+    <div class="actions"><button id="saveGroupExclusions">제외어 저장 + 자동그룹 재구성</button><button id="rebuildAutoGroups" class="primary">자동그룹 다시 만들기</button></div>
+  </div>
+  <div class="group-tabs"><button data-grouptab="auto" class="active">자동 기관그룹</button><button data-grouptab="representative">대표자 그룹</button><button data-grouptab="companion">동반</button><button id="createManualGroup" class="primary">대표자 그룹 만들기</button></div>
   <div id="groupTabAuto" class="group-pane"><div id="groupSuggestions"></div></div>
   <div id="groupTabRepresentative" class="group-pane hidden"><div id="representativeGroups"></div></div>
   <div id="groupTabCompanion" class="group-pane hidden"><div id="companionGroups"></div></div>
@@ -156,4 +162,4 @@
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.7.0"></script></body></html>
+<script src="/app.js?v=0.7.1"></script></body></html>
