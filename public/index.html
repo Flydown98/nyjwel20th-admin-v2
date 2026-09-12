@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.4.1">
+<link rel="stylesheet" href="/style.css?v=0.4.2">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.4.1</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.4.2</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="backup">백업</button>
 </nav>
@@ -31,7 +31,22 @@
 
 <section id="view-groups" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>단체 지정</h2><p class="muted">같은 소속기관이 2명 이상인 곳을 후보로 보여줍니다. 복지관 이용 여부만으로는 자동 단체 지정하지 않습니다.</p></div><button id="reloadGroups" class="primary">갱신</button></div><div class="two"><div><h3>단체 후보</h3><div id="groupSuggestions"></div></div><div><h3>현재 단체</h3><div id="groupList"></div></div></div></article></section>
 
-<section id="view-seats" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">SEATS</p><h2>좌석 현황</h2><p id="seatCount" class="muted"></p></div><div class="actions"><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats" class="primary">갱신</button></div></div><div id="seatGrid" class="seat-grid"></div></article></section>
+<section id="view-seats" class="view">
+<article class="card">
+  <div class="card-head">
+    <div><p class="eyebrow">SEATS</p><h2>좌석 현황</h2><p id="seatCount" class="muted"></p></div>
+    <div class="actions"><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats" class="primary">갱신</button></div>
+  </div>
+  <div class="seat-legend">
+    <span><i class="legend-dot assigned"></i> 배정·미도착</span>
+    <span><i class="legend-dot arrived"></i> 도착완료</span>
+    <span><i class="legend-line vip"></i> 주요 귀빈/내빈</span>
+    <span><i class="legend-line wheelchair"></i> 장애인·휠체어</span>
+    <span><i class="legend-dot empty"></i> 빈좌석</span>
+  </div>
+  <div class="seat-map-wrap"><div id="seatGrid" class="seat-map"></div></div>
+</article>
+</section>
 
 <section id="view-raffle" class="view"><div class="two"><article class="card"><p class="eyebrow">LUCKY DRAW</p><h2>행운권 추첨</h2><p class="muted">도착 완료 참가자 중 기존 당첨자를 제외하고 추첨합니다.</p><form id="raffleForm" class="stack"><label>상품<select id="raffleProduct"></select></label><label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label><button class="primary">추첨하기</button></form><div id="raffleWinners"></div></article><article class="card"><h2>최근 당첨</h2><div id="raffleHistory"></div></article></div></section>
 
@@ -65,4 +80,4 @@
 </main>
 
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.4.1"></script></body></html>
+<script src="/app.js?v=0.4.2"></script></body></html>

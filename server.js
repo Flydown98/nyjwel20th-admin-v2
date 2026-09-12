@@ -38,7 +38,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.4.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.4.2',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -53,7 +53,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.4.1'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.4.2'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -323,7 +323,7 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.4.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.4.2',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
 app.post('/api/login',(req,res)=>{
   if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
   const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
@@ -471,9 +471,19 @@ app.post('/api/groups/:id/delete',auth,(req,res)=>{
 });
 
 app.get('/api/seats',auth,(req,res)=>{
-  const occ=occupiedSeatSet();
-  const rows=state.seats.map(s=>({...s,occupied:occ.has(str(s.code).toUpperCase()),participant:state.participants.find(p=>str(p.seat).toUpperCase()===str(s.code).toUpperCase())||null}));
-  res.json({ok:true,total:rows.length,rows});
+  const participantMap=new Map();
+  state.participants.filter(p=>participantActive(p)&&p.seat).forEach(p=>participantMap.set(str(p.seat).toUpperCase(),p));
+  const rows=state.seats.map(s=>{
+    const participant=participantMap.get(str(s.code).toUpperCase())||null;
+    return {...s,occupied:Boolean(participant),arrived:Boolean(participant?.arrived),participant};
+  });
+  res.json({
+    ok:true,
+    total:rows.length,
+    assigned:rows.filter(x=>x.occupied).length,
+    arrivedAssigned:rows.filter(x=>x.arrived).length,
+    rows
+  });
 });
 app.post('/api/seats/release-pending',auth,(req,res)=>{
   let count=0;
@@ -599,4 +609,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.4.1 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.4.2 · :${PORT}`));

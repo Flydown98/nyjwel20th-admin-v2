@@ -7,7 +7,7 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.4.1';$('#statusBadge').classList.add('ok')}
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.4.2';$('#statusBadge').classList.add('ok')}
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden')}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
 $('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
@@ -55,8 +55,44 @@ async function loadGroups(){try{const [s,g]=await Promise.all([api('/api/group-s
 $('#reloadGroups').onclick=loadGroups;$('#groupSuggestions').onclick=async e=>{const b=e.target.closest('[data-org]');if(!b)return;const org=b.dataset.org;if(!confirm(`${org} 소속 참가자들을 하나의 단체로 지정할까요?\n연락처가 있는 첫 참가자를 대표자로 사용합니다.`))return;try{await api('/api/groups/create-by-organization',{method:'POST',body:JSON.stringify({organization:org})});toast('단체로 지정했습니다.');loadGroups();refreshDashboard()}catch(x){toast(x.message,6000)}};
 $('#groupList').onclick=async e=>{const b=e.target.closest('[data-delgroup]');if(!b||!confirm('이 단체 지정을 해제할까요?'))return;try{await api(`/api/groups/${b.dataset.delgroup}/delete`,{method:'POST',body:'{}'});loadGroups();refreshDashboard()}catch(x){toast(x.message)}};
 
-async function loadSeats(){try{const d=await api('/api/seats');const occ=d.rows.filter(x=>x.occupied).length;$('#seatCount').textContent=`전체 ${d.total}석 · 현재 배정 ${occ}석`;$('#seatGrid').innerHTML=d.rows.map(s=>`<div class="seat ${s.occupied?'occupied':''} ${!s.enabled?'disabled':''} ${s.wheelchairAssignable?'wheel':''}" title="${esc(s.participant?.name||s.note||'')}"><strong>${esc(s.code)}</strong><br>${s.occupied?esc(s.participant?.name||'배정'):'빈좌석'}</div>`).join('')}catch(e){toast(e.message)}}
-$('#reloadSeats').onclick=loadSeats;$('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자에게 현재 배정된 좌석을 모두 해제할까요?\n도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
+function seatZoneClass(s){
+  const m=String(s.code||'').toUpperCase().match(/^([A-Y])([LR])-(\d{2})$/);
+  if(!m)return '';
+  const row=m[1],side=m[2],n=Number(m[3]);
+  if(['A','B','C'].includes(row)){
+    if(side==='L') return n<=5 ? 'wheelchair' : 'vip';
+    return n<=5 ? 'vip' : 'wheelchair';
+  }
+  if(['D','E','F'].includes(row)) return 'guest';
+  return '';
+}
+function seatCellHtml(s){
+  if(!s)return '<div class="seat-cell disabled"><strong>-</strong><span class="seat-name">미사용</span></div>';
+  const z=seatZoneClass(s);
+  const cls=['seat-cell',z,!s.enabled?'disabled':'',s.arrived?'arrived':(s.occupied?'assigned':'')].filter(Boolean).join(' ');
+  const name=s.participant?.name || (s.occupied?'배정':'빈좌석');
+  return `<div class="${cls}" title="${esc(s.participant?.name||s.note||'')}"><strong>${esc(s.code)}</strong><span class="seat-name">${esc(name)}</span></div>`;
+}
+async function loadSeats(){
+  try{
+    const d=await api('/api/seats');
+    $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석`;
+    const byCode=new Map(d.rows.map(s=>[String(s.code).toUpperCase(),s]));
+    const rows='ABCDEFGHIJKLMNOPQRSTUVWXY'.split('');
+    $('#seatGrid').innerHTML=rows.map(row=>{
+      const left=Array.from({length:10},(_,i)=>seatCellHtml(byCode.get(`${row}L-${String(i+1).padStart(2,'0')}`))).join('');
+      const right=Array.from({length:10},(_,i)=>seatCellHtml(byCode.get(`${row}R-${String(i+1).padStart(2,'0')}`))).join('');
+      return `<div class="seat-row">
+        <div class="seat-row-label">${row}</div>
+        <div class="seat-side">${left}</div>
+        <div class="runway">RUNWAY</div>
+        <div class="seat-side">${right}</div>
+      </div>`;
+    }).join('');
+  }catch(e){toast(e.message)}
+}
+$('#reloadSeats').onclick=loadSeats;
+$('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자에게 현재 배정된 좌석을 모두 해제할까요?\n도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
 
 async function loadRaffle(){try{const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);$('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';$('#raffleHistory').innerHTML=h.rows.slice(0,30).map(x=>`<div class="history-row"><strong>${esc(x.prizeName)} · ${esc(x.participantName)}</strong><small>${esc(x.seat||'좌석없음')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')}</small>${x.received?'<b>수령완료</b>':`<button data-redeem="${x.drawId}" data-pid="${x.participantId}">수령완료</button>`}</div>`).join('')||'<p class="muted">아직 당첨 기록이 없습니다.</p>'}catch(e){toast(e.message)}}
 $('#raffleForm').onsubmit=async e=>{e.preventDefault();if(!confirm('현재 도착 완료 참가자 중에서 추첨할까요?'))return;try{const d=await api('/api/raffle/draw',{method:'POST',body:JSON.stringify({productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value)})});$('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;loadRaffle()}catch(x){toast(x.message,6000)}};
