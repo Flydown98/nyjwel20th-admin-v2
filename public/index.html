@@ -1,146 +1,42 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#172554">
-  <title>20주년 현장 관리자 v2</title>
-  <link rel="stylesheet" href="/style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>20주년 현장 관리자 v2</title><link rel="stylesheet" href="/style.css">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
-  <div id="loginOverlay" class="overlay">
-    <form id="loginForm" class="card login-card">
-      <div class="mark">20</div>
-      <p class="eyebrow">NYJWEL FIELD ADMIN</p>
-      <h1>20주년 현장 관리자 v2</h1>
-      <p class="muted">Cloudtype · Node.js · 행사 당일 현장 시스템</p>
-      <label>관리자 비밀번호<input id="password" type="password" autocomplete="current-password" required></label>
-      <button type="submit" class="primary wide-btn">로그인</button>
-      <p id="loginMessage" class="error"></p>
-    </form>
-  </div>
+<div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.3.1</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<nav id="tabs">
+<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="backup">백업</button>
+</nav>
+<main>
+<section id="view-dashboard" class="view active"><div class="stats">
+<div class="stat"><span>참가자</span><strong id="sParticipants">0</strong></div><div class="stat"><span>참여 예정</span><strong id="sActive">0</strong></div><div class="stat green"><span>도착</span><strong id="sArrived">0</strong></div><div class="stat"><span>현장 신규</span><strong id="sOnsite">0</strong></div><div class="stat"><span>단체</span><strong id="sGroups">0</strong></div><div class="stat"><span>좌석 배정</span><strong id="sSeats">0</strong></div><div class="stat"><span>기념품</span><strong id="sGifts">0</strong></div><div class="stat"><span>문자 대기</span><strong id="sSms">0</strong></div>
+</div><article class="card"><h2>현장 운영</h2><p class="muted">QR 접수·현장 신규접수·좌석·기념품·행운권을 이 서버에서 처리합니다. 현황은 10초마다 자동 갱신됩니다.</p></article></section>
 
-  <header>
-    <div>
-      <p class="eyebrow">남양주시장애인복지관</p>
-      <h1>20주년 현장 관리자 v2 <small>v0.2</small></h1>
-    </div>
-    <div class="header-actions">
-      <span id="statusBadge" class="badge">확인 중</span>
-      <button id="refreshTopBtn" class="ghost">새로고침</button>
-      <button id="logoutBtn" class="ghost">로그아웃</button>
-    </div>
-  </header>
+<section id="view-checkin" class="view"><div class="two"><article class="card"><div class="card-head"><div><p class="eyebrow">QR CHECK-IN</p><h2>QR 스캔</h2></div><button id="toggleScanner" class="primary">카메라 시작</button></div><div id="reader" class="reader">카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.</div></article>
+<article class="card"><h2>수동 QR / 검색코드</h2><form id="manualQrForm" class="stack"><input id="manualQr" placeholder="QR고유코드 또는 접수번호" required><button class="primary">접수 확인</button></form><div id="recentResult" class="result muted">아직 접수하지 않았습니다.</div></article></div></section>
 
-  <nav class="tabs">
-    <button data-view="dashboard" class="active">현황</button>
-    <button data-view="import">엑셀 가져오기</button>
-    <button data-view="participants">참가자</button>
-    <button data-view="seats">좌석설정</button>
-    <button data-view="backup">백업</button>
-  </nav>
+<section id="view-participants" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 관리</h2><p id="participantCount" class="muted"></p></div><button id="reloadParticipants" class="primary">갱신</button></div><div class="filters"><input id="participantSearch" placeholder="이름 · 연락처 · 기관 · QR · 좌석"><select id="participantStatus"><option value="all">전체</option><option value="pending">미도착</option><option value="arrived">도착</option><option value="inactive">미참여</option></select></div><div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>정보</th><th>상태</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div></article></section>
 
-  <main>
-    <section id="view-dashboard" class="view active">
-      <div class="stats-grid">
-        <article class="card stat"><span>참가자</span><strong id="statParticipants">0</strong></article>
-        <article class="card stat"><span>참여 예정</span><strong id="statActive">0</strong></article>
-        <article class="card stat success"><span>도착</span><strong id="statArrived">0</strong></article>
-        <article class="card stat"><span>좌석 설정</span><strong id="statSeats">0</strong></article>
-        <article class="card stat"><span>좌석 배정</span><strong id="statAssignedSeats">0</strong></article>
-        <article class="card stat"><span>단체 그룹</span><strong id="statGroups">0</strong></article>
-        <article class="card stat"><span>기념품 지급</span><strong id="statGifts">0</strong></article>
-        <article class="card stat"><span>문자 대기</span><strong id="statSms">0</strong></article>
-      </div>
-      <article class="card">
-        <div class="card-head"><div><h2>서버 정보</h2><p class="muted">현재 현장 서버에 저장된 데이터 기준입니다.</p></div><button id="refreshDashboardBtn" class="primary">새로고침</button></div>
-        <div id="serverInfo" class="info-grid"></div>
-      </article>
-    </section>
+<section id="view-onsite" class="view"><article class="card narrow"><p class="eyebrow">ON-SITE</p><h2>QR 없이 온 참가자 등록</h2><div class="notice">현장 추가 참가자는 자동 좌석을 배정하지 않습니다. 등록 즉시 <strong>스탠딩 안내</strong> 및 기념품 지급완료로 처리합니다.</div><form id="onsiteForm" class="form-grid"><label>이름<input name="name" required></label><label>연락처<input name="phone" placeholder="선택"></label><label>소속기관<input name="organization"></label><label>접수대<input name="station" value="현장접수"></label><label class="check"><input name="wheelchairUser" type="checkbox"> 휠체어 이용</label><label class="check"><input name="disabledPerson" type="checkbox"> 장애인 당사자</label><label class="wide-field">메모<textarea name="note" rows="3"></textarea></label><button class="primary wide-field">현장 등록</button></form></article></section>
 
-    <section id="view-import" class="view">
-      <article class="card">
-        <p class="eyebrow">XLSX IMPORT</p>
-        <h2>기존 행사 엑셀 가져오기</h2>
-        <p class="muted">엑셀 파일은 서버 메모리에서 읽고 바로 폐기합니다. GitHub에는 업로드하지 않습니다. 최종 반영 전 미리보기를 확인할 수 있습니다.</p>
-        <div class="import-box">
-          <input id="xlsxFile" type="file" accept=".xlsx,.xls">
-          <button id="previewImportBtn" class="primary">엑셀 분석 · 미리보기</button>
-        </div>
-        <div id="importProgress" class="notice hidden"></div>
-      </article>
+<section id="view-groups" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>단체 지정</h2><p class="muted">같은 소속기관이 2명 이상인 곳을 후보로 보여줍니다. 복지관 이용 여부만으로는 자동 단체 지정하지 않습니다.</p></div><button id="reloadGroups" class="primary">갱신</button></div><div class="two"><div><h3>단체 후보</h3><div id="groupSuggestions"></div></div><div><h3>현재 단체</h3><div id="groupList"></div></div></div></article></section>
 
-      <article id="importPreviewCard" class="card hidden">
-        <div class="card-head">
-          <div><p class="eyebrow">PREVIEW</p><h2>가져오기 미리보기</h2><p id="importFileName" class="muted"></p></div>
-          <button id="confirmImportBtn" class="danger">이 내용으로 최종 반영</button>
-        </div>
-        <div id="importSummary" class="stats-grid compact"></div>
-        <div id="importWarnings"></div>
+<section id="view-seats" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">SEATS</p><h2>좌석 현황</h2><p id="seatCount" class="muted"></p></div><div class="actions"><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats" class="primary">갱신</button></div></div><div id="seatGrid" class="seat-grid"></div></article></section>
 
-        <h3>참가자 샘플</h3>
-        <div class="table-wrap"><table><thead><tr><th>접수번호</th><th>이름</th><th>연락처</th><th>소속</th><th>좌석</th><th>상태</th></tr></thead><tbody id="previewParticipants"></tbody></table></div>
+<section id="view-raffle" class="view"><div class="two"><article class="card"><p class="eyebrow">LUCKY DRAW</p><h2>행운권 추첨</h2><p class="muted">도착 완료 참가자 중 기존 당첨자를 제외하고 추첨합니다.</p><form id="raffleForm" class="stack"><label>상품<select id="raffleProduct"></select></label><label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label><button class="primary">추첨하기</button></form><div id="raffleWinners"></div></article><article class="card"><h2>최근 당첨</h2><div id="raffleHistory"></div></article></div></section>
 
-        <h3>좌석 샘플</h3>
-        <div class="table-wrap"><table><thead><tr><th>좌석</th><th>구역</th><th>일반자동</th><th>휠체어자동</th><th>사용</th></tr></thead><tbody id="previewSeats"></tbody></table></div>
-      </article>
-    </section>
+<section id="view-sms" class="view"><div class="two"><article class="card"><p class="eyebrow">SMS</p><h2>행사 전날 안내문자</h2><p class="muted">집 PC 문자나라 중계 프로그램을 Cloudtype relay 주소에 연결하면 대기열을 순차 발송합니다.</p><label>발송대상<select id="smsTarget"><option value="all">개인 + 단체 대표자 전체</option><option value="pending">미도착 대상</option><option value="representatives">단체 대표자만</option></select></label><button id="queuePreSms" class="primary">안내문자 대기열 등록</button></article><article class="card"><h2>최근 문자 대기열</h2><button id="reloadSms">갱신</button><div id="smsList"></div></article></div></section>
 
-    <section id="view-participants" class="view">
-      <article class="card">
-        <div class="card-head">
-          <div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 명단</h2><p id="participantCount" class="muted"></p></div>
-          <button id="reloadParticipantsBtn" class="primary">목록 갱신</button>
-        </div>
-        <div class="filters">
-          <input id="participantSearch" type="search" placeholder="이름 · 연락처 · 소속 · QR · 좌석 검색">
-          <select id="participantStatus">
-            <option value="all">전체</option>
-            <option value="pending">미도착</option>
-            <option value="arrived">도착</option>
-            <option value="inactive">미참여/사용중지</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>접수번호</th><th>참가자</th><th>연락처</th><th>소속기관</th><th>신청</th><th>좌석</th><th>정보</th><th>상태</th></tr></thead>
-            <tbody id="participantRows"></tbody>
-          </table>
-        </div>
-        <p class="muted">검색 결과는 최대 300명까지 표시합니다. v0.3에서 수정·현장등록·QR 접수를 붙입니다.</p>
-      </article>
-    </section>
+<section id="view-backup" class="view"><article class="card"><p class="eyebrow">BACKUP</p><h2>백업 및 내보내기</h2><p class="muted">서버 내부 자동백업은 1분마다 실행됩니다. 행사 중에는 PC에도 JSON을 수시로 내려받아 주세요.</p><div class="actions"><button id="backupNow" class="primary">지금 백업</button><button id="downloadBackup">JSON 다운로드</button><button id="downloadCsv">참가자 CSV 다운로드</button></div>
+<hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">
+<h3>JSON 백업 복원</h3><p class="muted">재배포 후 데이터가 비어 있다면, 이전 버전에서 다운로드한 JSON 백업을 올려 그대로 복원합니다.</p>
+<div class="actions"><input id="restoreFile" type="file" accept=".json"><button id="restoreBackup" class="danger">백업 복원</button></div>
+<pre id="backupOutput">대기 중...</pre></article></section>
+</main>
 
-    <section id="view-seats" class="view">
-      <article class="card">
-        <div class="card-head">
-          <div><p class="eyebrow">SEAT CONFIG</p><h2>좌석설정 가져오기 확인</h2><p id="seatCount" class="muted"></p></div>
-          <button id="reloadSeatsBtn" class="primary">목록 갱신</button>
-        </div>
-        <div class="filters"><input id="seatSearch" type="search" placeholder="좌석코드 · 구역 · 메모 검색"></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>좌석</th><th>행</th><th>측면</th><th>번호</th><th>구역</th><th>일반자동</th><th>휠체어자동</th><th>사용</th><th>메모</th></tr></thead>
-            <tbody id="seatRows"></tbody>
-          </table>
-        </div>
-      </article>
-    </section>
-
-    <section id="view-backup" class="view">
-      <article class="card">
-        <p class="eyebrow">BACKUP</p><h2>현장 데이터 백업</h2>
-        <p class="muted">서버에서는 1분마다 자동 백업합니다. Cloudtype 임시 디스크만 믿지 않도록 행사 중 수시로 PC에도 내려받아 주세요.</p>
-        <div class="actions">
-          <button id="backupBtn" class="primary">지금 백업 만들기</button>
-          <button id="downloadBtn">JSON 백업 다운로드</button>
-        </div>
-        <pre id="output">대기 중...</pre>
-      </article>
-    </section>
-  </main>
-
-  <div id="toast" class="toast hidden"></div>
-  <script src="/app.js"></script>
-</body>
-</html>
+<div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
+<script src="/app.js"></script></body></html>

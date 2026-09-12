@@ -1,187 +1,87 @@
 'use strict';
+const TOKEN_KEY='nyj20_v2_token';let token=localStorage.getItem(TOKEN_KEY)||'',scanner=null,scannerOn=false,scanBusy=false;
+const $=s=>document.querySelector(s),esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
+function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.tm);toast.tm=setTimeout(()=>t.classList.add('hidden'),ms)}
+async function api(p,o={}){const h={...(o.headers||{})};if(o.body&&!(o.body instanceof FormData)&&!h['Content-Type'])h['Content-Type']='application/json';if(token)h.Authorization=`Bearer ${token}`;const r=await fetch(p,{...o,headers:h});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||`HTTP ${r.status}`);Object.assign(e,d);throw e}return d}
+function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove('hidden')}
+function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
+$('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-const TOKEN_KEY='nyj20_v2_token';
-let token=localStorage.getItem(TOKEN_KEY)||'';
-let currentImportId='';
-const $=s=>document.querySelector(s);
-const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
-const yesNo=v=>v?'<span class="yes">예</span>':'<span class="no">아니오</span>';
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.3.1';$('#statusBadge').classList.add('ok')}
+async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden')}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
+$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
+$('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
+function view(n){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${n}`));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===n));if(n==='participants')loadParticipants();if(n==='groups')loadGroups();if(n==='seats')loadSeats();if(n==='raffle')loadRaffle();if(n==='sms')loadSms()}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>view(b.dataset.view));
 
-function toast(msg,ms=3500){
-  const t=$('#toast');t.textContent=msg;t.classList.remove('hidden');
-  clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.add('hidden'),ms);
-}
-function output(v){$('#output').textContent=typeof v==='string'?v:JSON.stringify(v,null,2);}
-
-async function api(path,options={}){
-  const headers={...(options.headers||{})};
-  if(options.body && !(options.body instanceof FormData) && !headers['Content-Type'])headers['Content-Type']='application/json';
-  if(token)headers.Authorization=`Bearer ${token}`;
-  const res=await fetch(path,{...options,headers});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
-  return data;
-}
-
-async function health(){
-  const d=await api('/api/health');
-  $('#statusBadge').textContent=`연결됨 · v${d.version}`;
-  $('#statusBadge').classList.add('ok');
-  return d;
-}
-
-async function dashboard(){
-  const d=await api('/api/bootstrap');
-  const s=d.summary||{};
-  $('#statParticipants').textContent=s.participants||0;
-  $('#statActive').textContent=s.active||0;
-  $('#statArrived').textContent=s.arrived||0;
-  $('#statSeats').textContent=s.seats||0;
-  $('#statAssignedSeats').textContent=s.assignedSeats||0;
-  $('#statGroups').textContent=s.groups||0;
-  $('#statGifts').textContent=s.giftsReceived||0;
-  $('#statSms').textContent=s.smsPending||0;
-  const m=d.meta||{};
-  $('#serverInfo').innerHTML=`
-    <div><span>버전</span><strong>${esc(m.version||'-')}</strong></div>
-    <div><span>최근 변경</span><strong>${esc(m.updatedAt||'-')}</strong></div>
-    <div><span>엑셀 가져오기</span><strong>${esc(m.importedAt||'아직 없음')}</strong></div>
-    <div><span>가져온 파일</span><strong>${esc(m.importSource||'-')}</strong></div>
-    <div><span>행사명</span><strong>${esc(d.settings?.eventName||'-')}</strong></div>
-    <div><span>행사일시</span><strong>${esc(d.settings?.eventDate||'-')}</strong></div>`;
-  return d;
-}
-
-async function refreshCore(){
+async function processCode(code){
+  if(scanBusy)return;scanBusy=true;
   try{
-    await health();await dashboard();
-    $('#loginOverlay').classList.add('hidden');
-  }catch(e){
-    if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden');}
-    toast(e.message,5000);
-  }
+    const d=await api('/api/checkin/lookup',{method:'POST',body:JSON.stringify({code})});
+    if(d.group)showGroupCheckin(d.participant,d.group);
+    else showIndividualCheckin(d.participant);
+  }catch(e){toast(e.message,5000)}
+  finally{scanBusy=false}
 }
-
-function switchView(name){
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));
-  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
-  if(name==='participants')loadParticipants();
-  if(name==='seats')loadSeats();
-  if(name==='dashboard')dashboard().catch(e=>toast(e.message));
+function showIndividualCheckin(p){
+  modal(`<p class="eyebrow">개인 QR 접수</p><h2>${esc(p.name)}</h2><p>${esc(p.organization||'소속 없음')} · ${esc(p.phone||'연락처 없음')}</p><div class="notice">좌석 ${esc(p.seat||'자동배정 예정')} · 기념품 지급완료 처리</div><p class="muted">개인 접수는 잠시 후 자동으로 진행됩니다. 아래 버튼을 누르면 즉시 처리합니다.</p><div class="actions"><button data-now class="primary">바로 접수</button><button data-close>닫기</button></div><div id="modalProgress" class="muted">자동 접수 준비 중...</div>`);
+  let done=false;
+  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:'QR접수'})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} 접수 완료</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · 기념품 지급완료${r.already?'<br>이미 접수된 참가자였습니다.':''}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · 접수완료`;refreshDashboard()}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
+  $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;window.__autoCheckinTimer=setTimeout(run,1400);
 }
-
-async function loadParticipants(){
-  const q=$('#participantSearch').value.trim();
-  const st=$('#participantStatus').value;
-  try{
-    const d=await api(`/api/participants?q=${encodeURIComponent(q)}&status=${encodeURIComponent(st)}&limit=300`);
-    $('#participantCount').textContent=`검색 결과 ${d.total}명 · 화면 최대 300명`;
-    $('#participantRows').innerHTML=d.rows.length?d.rows.map(p=>`
-      <tr>
-        <td>${esc(p.receptionNo)}</td>
-        <td><strong>${esc(p.name||'-')}</strong><small>${esc(p.id)}</small></td>
-        <td>${esc(p.phone||'-')}</td>
-        <td>${esc(p.organization||'-')}</td>
-        <td>${esc(p.requestedCount||1)}명</td>
-        <td>${esc(p.seat||'미배정')}</td>
-        <td>${p.wheelchairUser?'♿ ':''}${p.disabledPerson?'장애인 당사자 ':''}${p.usesCenter?'복지관 이용':''}</td>
-        <td>${p.arrived?'<span class="yes">도착</span>':(p.participationStatus==='미참여'||!p.active?'<span class="no">미참여</span>':'미도착')}</td>
-      </tr>`).join(''):'<tr><td colspan="8">표시할 참가자가 없습니다.</td></tr>';
-  }catch(e){toast(e.message,5000);}
+function showGroupCheckin(p,g){
+  const remaining=g.members.filter(x=>!x.arrived).length,registered=g.total,already=g.arrived;
+  let n=Math.max(1,remaining);
+  const render=()=>{const seats=Math.min(n,remaining),extra=Math.max(0,n-remaining);$('#stepN').textContent=n;$('#stepInfo').innerHTML=`이번 좌석 배정 <strong>${seats}석</strong>${extra?` · 추가 ${extra}명은 <strong>스탠딩</strong>`:''}`};
+  modal(`<p class="eyebrow">단체 QR 접수</p><h2>${esc(g.name||g.organization||p.organization)}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>이번에 실제로 함께 도착한 인원을 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
+  $('#minus').onclick=()=>{n=Math.max(1,n-1);render()};$('#plus').onclick=()=>{n=Math.min(99,n+1);render()};$('#cancelGroup').onclick=closeModal;
+  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:'QR접수'})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard()}catch(e){toast(e.message,6000)}};
+  render();
 }
+$('#manualQrForm').onsubmit=e=>{e.preventDefault();processCode($('#manualQr').value.trim());$('#manualQr').select()};
+$('#toggleScanner').onclick=async()=>{
+  if(scannerOn){try{await scanner.stop();await scanner.clear()}catch(_){}scannerOn=false;$('#toggleScanner').textContent='카메라 시작';$('#reader').innerHTML='카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.';return}
+  if(typeof Html5Qrcode==='undefined')return toast('QR 라이브러리를 불러오지 못했습니다.');
+  scanner=new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:18,qrbox:{width:260,height:260}},text=>processCode(text),()=>{});scannerOn=true;$('#toggleScanner').textContent='카메라 종료'}catch(e){toast('카메라 권한을 확인해 주세요.')}
+};
 
-async function loadSeats(){
-  const q=$('#seatSearch').value.trim();
+async function loadParticipants(){const q=$('#participantSearch').value.trim(),st=$('#participantStatus').value;try{const d=await api(`/api/participants?q=${encodeURIComponent(q)}&status=${st}`);$('#participantCount').textContent=`${d.total}명`;$('#participantRows').innerHTML=d.rows.map(p=>`<tr><td>${p.receptionNo}</td><td><strong>${esc(p.name)}</strong><small>${esc(p.id)}</small></td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(p.seat||'미배정')}</td><td>${p.wheelchairUser?'♿ ':''}${p.onsite?'현장':''}</td><td>${p.arrived?'<b>도착</b>':'미도착'}</td><td><button data-check="${esc(p.id)}">접수</button>${p.arrived?` <button data-undo="${esc(p.id)}">취소</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8">없음</td></tr>'}catch(e){toast(e.message)}}
+$('#reloadParticipants').onclick=loadParticipants;$('#participantSearch').oninput=()=>{clearTimeout(loadParticipants.tm);loadParticipants.tm=setTimeout(loadParticipants,250)};$('#participantStatus').onchange=loadParticipants;
+$('#participantRows').onclick=async e=>{const c=e.target.closest('[data-check]'),u=e.target.closest('[data-undo]');if(c)processCode(c.dataset.check);if(u&&confirm('접수를 취소하고 좌석·기념품 상태도 되돌릴까요?')){try{await api('/api/checkin/undo',{method:'POST',body:JSON.stringify({code:u.dataset.undo})});loadParticipants();refreshDashboard()}catch(x){toast(x.message)}}};
+
+$('#onsiteForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());b.wheelchairUser=f.has('wheelchairUser');b.disabledPerson=f.has('disabledPerson');try{const d=await api('/api/participants/onsite',{method:'POST',body:JSON.stringify(b)});toast(`${d.participant.name} 현장등록 완료 · 스탠딩 안내`,6000);e.currentTarget.reset();e.currentTarget.station.value='현장접수';refreshDashboard()}catch(x){toast(x.message,6000)}};
+
+async function loadGroups(){try{const [s,g]=await Promise.all([api('/api/group-suggestions'),api('/api/groups')]);$('#groupSuggestions').innerHTML=s.rows.slice(0,80).map(x=>`<div class="suggestion"><strong>${esc(x.organization)}</strong><small>${x.count}명 · 미지정 ${x.ungrouped}명</small><button data-org="${esc(x.organization)}">이 기관을 단체로 지정</button></div>`).join('')||'<p class="muted">후보 없음</p>';$('#groupList').innerHTML=g.rows.map(x=>`<div class="group-card"><strong>${esc(x.name||x.organization)}</strong><small>등록 ${x.total}명 · 도착 ${x.arrived}명 · 추가 스탠딩 ${x.extraStanding||0}명</small><div class="group-members">${x.members.map(m=>`<span>${m.arrived?'✓':'○'} ${esc(m.name)}</span>`).join('')}</div><button data-delgroup="${x.id}">단체 해제</button></div>`).join('')||'<p class="muted">지정된 단체 없음</p>'}catch(e){toast(e.message)}}
+$('#reloadGroups').onclick=loadGroups;$('#groupSuggestions').onclick=async e=>{const b=e.target.closest('[data-org]');if(!b)return;const org=b.dataset.org;if(!confirm(`${org} 소속 참가자들을 하나의 단체로 지정할까요?\n연락처가 있는 첫 참가자를 대표자로 사용합니다.`))return;try{await api('/api/groups/create-by-organization',{method:'POST',body:JSON.stringify({organization:org})});toast('단체로 지정했습니다.');loadGroups();refreshDashboard()}catch(x){toast(x.message,6000)}};
+$('#groupList').onclick=async e=>{const b=e.target.closest('[data-delgroup]');if(!b||!confirm('이 단체 지정을 해제할까요?'))return;try{await api(`/api/groups/${b.dataset.delgroup}/delete`,{method:'POST',body:'{}'});loadGroups();refreshDashboard()}catch(x){toast(x.message)}};
+
+async function loadSeats(){try{const d=await api('/api/seats');const occ=d.rows.filter(x=>x.occupied).length;$('#seatCount').textContent=`전체 ${d.total}석 · 현재 배정 ${occ}석`;$('#seatGrid').innerHTML=d.rows.map(s=>`<div class="seat ${s.occupied?'occupied':''} ${!s.enabled?'disabled':''} ${s.wheelchairAssignable?'wheel':''}" title="${esc(s.participant?.name||s.note||'')}"><strong>${esc(s.code)}</strong><br>${s.occupied?esc(s.participant?.name||'배정'):'빈좌석'}</div>`).join('')}catch(e){toast(e.message)}}
+$('#reloadSeats').onclick=loadSeats;$('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자에게 현재 배정된 좌석을 모두 해제할까요?\n도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
+
+async function loadRaffle(){try{const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);$('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';$('#raffleHistory').innerHTML=h.rows.slice(0,30).map(x=>`<div class="history-row"><strong>${esc(x.prizeName)} · ${esc(x.participantName)}</strong><small>${esc(x.seat||'좌석없음')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')}</small>${x.received?'<b>수령완료</b>':`<button data-redeem="${x.drawId}" data-pid="${x.participantId}">수령완료</button>`}</div>`).join('')||'<p class="muted">아직 당첨 기록이 없습니다.</p>'}catch(e){toast(e.message)}}
+$('#raffleForm').onsubmit=async e=>{e.preventDefault();if(!confirm('현재 도착 완료 참가자 중에서 추첨할까요?'))return;try{const d=await api('/api/raffle/draw',{method:'POST',body:JSON.stringify({productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value)})});$('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;loadRaffle()}catch(x){toast(x.message,6000)}};
+$('#raffleHistory').onclick=async e=>{const b=e.target.closest('[data-redeem]');if(!b)return;try{await api('/api/raffle/redeem',{method:'POST',body:JSON.stringify({drawId:b.dataset.redeem,participantId:b.dataset.pid})});loadRaffle()}catch(x){toast(x.message)}};
+
+async function loadSms(){try{const d=await api('/api/sms');$('#smsList').innerHTML=d.rows.slice(0,60).map(x=>`<div class="sms-row"><strong>${esc(x.phone)} · ${esc(x.status)}</strong><small>${esc(x.kind||'')} · ${new Date(x.requestedAt).toLocaleString('ko-KR')}</small><div>${esc(x.message).slice(0,100)}${x.message.length>100?'…':''}</div></div>`).join('')||'<p class="muted">문자 기록 없음</p>'}catch(e){toast(e.message)}}
+$('#reloadSms').onclick=loadSms;$('#queuePreSms').onclick=async()=>{if(!confirm('선택한 대상에게 행사 전날 안내문자를 대기열에 등록할까요?'))return;try{const d=await api('/api/sms/pre-event',{method:'POST',body:JSON.stringify({target:$('#smsTarget').value})});toast(`${d.queued}건 대기열 등록 완료`,6000);loadSms();refreshDashboard()}catch(e){toast(e.message,6000)}};
+
+$('#backupNow').onclick=async()=>{try{const d=await api('/api/backup',{method:'POST',body:'{}'});$('#backupOutput').textContent=JSON.stringify(d,null,2)}catch(e){toast(e.message)}};
+async function downloadAuth(url,name){const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error('다운로드 실패');const blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+$('#downloadBackup').onclick=()=>downloadAuth('/api/backup/download',`nyjwel20th-backup-${new Date().toISOString().slice(0,10)}.json`).catch(e=>toast(e.message));
+$('#downloadCsv').onclick=()=>downloadAuth('/api/export/participants.csv','participants.csv').catch(e=>toast(e.message));
+
+
+$('#restoreBackup').onclick=async()=>{
+  const file=$('#restoreFile').files?.[0];
+  if(!file)return toast('복원할 JSON 백업 파일을 선택해 주세요.');
+  if(!confirm('현재 서버 데이터를 선택한 백업 내용으로 교체할까요?\n복원 직전 자동백업도 생성합니다.'))return;
+  const fd=new FormData();fd.append('file',file);
   try{
-    const d=await api(`/api/seats?q=${encodeURIComponent(q)}&limit=600`);
-    $('#seatCount').textContent=`검색 결과 ${d.total}석`;
-    $('#seatRows').innerHTML=d.rows.length?d.rows.map(s=>`
-      <tr>
-        <td><strong>${esc(s.code)}</strong></td><td>${esc(s.row)}</td><td>${esc(s.side)}</td><td>${esc(s.number)}</td>
-        <td>${esc(s.zone)}</td><td>${yesNo(s.autoAssignable)}</td><td>${yesNo(s.wheelchairAssignable)}</td><td>${yesNo(s.enabled)}</td><td>${esc(s.note||'')}</td>
-      </tr>`).join(''):'<tr><td colspan="9">표시할 좌석이 없습니다.</td></tr>';
-  }catch(e){toast(e.message,5000);}
-}
+    const d=await api('/api/backup/restore',{method:'POST',body:fd});
+    $('#backupOutput').textContent=JSON.stringify(d,null,2);
+    toast(`복원 완료 · 참가자 ${d.participants}명 · 좌석 ${d.seats}석`,7000);
+    await refreshDashboard();
+  }catch(e){toast(e.message,7000)}
+};
 
-function renderImportPreview(d){
-  currentImportId=d.importId;
-  $('#importPreviewCard').classList.remove('hidden');
-  $('#importFileName').textContent=`${d.fileName} · 시트: ${d.sheets.join(', ')}`;
-  const s=d.summary;
-  const cards=[
-    ['참가자',s.participants],['좌석',s.seats],['설정',s.settings],['단체그룹',s.groups],['접수로그',s.checkins],
-    ['기념품 기록',s.gifts],['문자기록',s.smsQueue],['행운추첨',s.raffles],['룰렛상품',s.rouletteProducts],['룰렛기록',s.rouletteHistory]
-  ];
-  $('#importSummary').innerHTML=cards.map(([k,v])=>`<article class="card stat"><span>${esc(k)}</span><strong>${esc(v)}</strong></article>`).join('');
-  const warnings=[];
-  if(s.duplicateQr)warnings.push(`중복 QR 고유코드 ${s.duplicateQr}건`);
-  if(s.blankPhones)warnings.push(`연락처 공란 ${s.blankPhones}명`);
-  if(s.suspiciousPhones)warnings.push(`앞자리 형식 확인이 필요한 연락처 ${s.suspiciousPhones}명`);
-  $('#importWarnings').innerHTML=warnings.length?`<div class="warning"><strong>확인 필요</strong><br>${warnings.map(esc).join(' · ')}</div>`:'<div class="notice">기본 형식 검사에서 큰 문제를 찾지 못했습니다.</div>';
-
-  $('#previewParticipants').innerHTML=d.sampleParticipants.map(p=>`
-    <tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td>${esc(p.organization)}</td><td>${esc(p.seat||'미배정')}</td><td>${esc(p.participationStatus)}</td></tr>`).join('');
-  $('#previewSeats').innerHTML=d.sampleSeats.map(s=>`
-    <tr><td>${esc(s.code)}</td><td>${esc(s.zone)}</td><td>${yesNo(s.autoAssignable)}</td><td>${yesNo(s.wheelchairAssignable)}</td><td>${yesNo(s.enabled)}</td></tr>`).join('');
-}
-
-$('#loginForm').addEventListener('submit',async e=>{
-  e.preventDefault();$('#loginMessage').textContent='';
-  try{
-    const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});
-    token=d.token;localStorage.setItem(TOKEN_KEY,token);await refreshCore();
-  }catch(e){$('#loginMessage').textContent=e.message;}
-});
-$('#logoutBtn').addEventListener('click',()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden');});
-document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
-$('#refreshTopBtn').addEventListener('click',refreshCore);
-$('#refreshDashboardBtn').addEventListener('click',()=>dashboard().then(()=>toast('현황을 갱신했습니다.')).catch(e=>toast(e.message)));
-$('#reloadParticipantsBtn').addEventListener('click',loadParticipants);
-$('#participantSearch').addEventListener('input',()=>{clearTimeout(loadParticipants.timer);loadParticipants.timer=setTimeout(loadParticipants,250);});
-$('#participantStatus').addEventListener('change',loadParticipants);
-$('#reloadSeatsBtn').addEventListener('click',loadSeats);
-$('#seatSearch').addEventListener('input',()=>{clearTimeout(loadSeats.timer);loadSeats.timer=setTimeout(loadSeats,250);});
-
-$('#previewImportBtn').addEventListener('click',async()=>{
-  const file=$('#xlsxFile').files?.[0];
-  if(!file)return toast('XLSX 파일을 먼저 선택해 주세요.');
-  const btn=$('#previewImportBtn');btn.disabled=true;
-  $('#importProgress').textContent='엑셀을 읽고 있습니다...';$('#importProgress').classList.remove('hidden');
-  try{
-    const fd=new FormData();fd.append('file',file);
-    const d=await api('/api/import/xlsx/preview',{method:'POST',body:fd});
-    renderImportPreview(d);
-    toast(`미리보기 완료 · 참가자 ${d.summary.participants}명`);
-  }catch(e){toast(e.message,6000);}
-  finally{btn.disabled=false;$('#importProgress').classList.add('hidden');}
-});
-
-$('#confirmImportBtn').addEventListener('click',async()=>{
-  if(!currentImportId)return toast('먼저 엑셀 미리보기를 실행해 주세요.');
-  if(!confirm('현재 서버의 참가자·좌석·기존 행사 데이터를 이 엑셀 내용으로 교체할까요?\\n\\n교체 직전에 자동 백업을 생성합니다.'))return;
-  const btn=$('#confirmImportBtn');btn.disabled=true;
-  try{
-    const d=await api('/api/import/xlsx/confirm',{method:'POST',body:JSON.stringify({importId:currentImportId})});
-    currentImportId='';
-    toast(`가져오기 완료 · 참가자 ${d.summary.participants}명 · 좌석 ${d.summary.seats}석`,7000);
-    await dashboard();
-    switchView('participants');
-  }catch(e){toast(e.message,7000);}
-  finally{btn.disabled=false;}
-});
-
-$('#backupBtn').addEventListener('click',async()=>{
-  try{const d=await api('/api/backup',{method:'POST',body:'{}'});output(d);toast('백업을 만들었습니다.');}
-  catch(e){output(`ERROR: ${e.message}`);}
-});
-$('#downloadBtn').addEventListener('click',async()=>{
-  try{
-    const res=await fetch('/api/backup/download',{headers:token?{Authorization:`Bearer ${token}`}:{}}); 
-    if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error||`HTTP ${res.status}`);}
-    const blob=await res.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=`nyjwel20th-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);
-  }catch(e){output(`ERROR: ${e.message}`);}
-});
-
-refreshCore();
-setInterval(()=>{if(token && !document.hidden)dashboard().catch(()=>{});},15000);
+init();setInterval(()=>{if(token&&!document.hidden)refreshDashboard().catch(()=>{})},10000);
