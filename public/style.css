@@ -51,3 +51,15 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;bord
   .seat-row{grid-template-columns:36px minmax(560px,1fr) 72px minmax(560px,1fr)}
   .seat-cell{min-height:48px}
 }
+
+/* v0.5 관리 UI */
+.group-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.group-tabs button.active{background:#172554;color:#fff}
+.group-pane{margin-top:10px}.management-card{padding:14px;border:1px solid #e2e8f0;border-radius:13px;margin-bottom:10px}
+.management-card .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.management-card .member-list{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.member-chip{padding:6px 8px;border-radius:999px;background:#f1f5f9;font-size:12px}
+.member-chip.rep{background:#ede9fe;color:#5b21b6;font-weight:800}
+.modal .form-grid.compact{grid-template-columns:1fr 1fr}.participant-pick-list{max-height:330px;overflow:auto;border:1px solid #e2e8f0;border-radius:12px}
+.participant-pick{display:flex;align-items:center;gap:9px;padding:9px 10px;border-bottom:1px solid #e5e7eb}.participant-pick:last-child{border-bottom:0}.participant-pick input{width:auto}
+.seat-cell{cursor:pointer}.seat-cell:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.12)}
+.unassigned-list{max-height:420px;overflow:auto}.unassigned-row{display:flex;justify-content:space-between;gap:10px;padding:9px;border-bottom:1px solid #e5e7eb}
+@media(max-width:700px){.modal .form-grid.compact{grid-template-columns:1fr}}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.4.2">
+<link rel="stylesheet" href="/style.css?v=0.5.0">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.4.2</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.5</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="backup">백업</button>
 </nav>
@@ -25,25 +25,34 @@
 <section id="view-checkin" class="view"><div class="two"><article class="card"><div class="card-head"><div><p class="eyebrow">QR CHECK-IN</p><h2>QR 스캔</h2></div><button id="toggleScanner" class="primary">카메라 시작</button></div><div id="reader" class="reader">카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.</div></article>
 <article class="card"><h2>수동 QR / 검색코드</h2><form id="manualQrForm" class="stack"><input id="manualQr" placeholder="QR고유코드 또는 접수번호" required><button class="primary">접수 확인</button></form><div id="recentResult" class="result muted">아직 접수하지 않았습니다.</div></article></div></section>
 
-<section id="view-participants" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 관리</h2><p id="participantCount" class="muted"></p></div><button id="reloadParticipants" class="primary">갱신</button></div><div class="filters"><input id="participantSearch" placeholder="이름 · 연락처 · 기관 · QR · 좌석"><select id="participantStatus"><option value="all">전체</option><option value="pending">미도착</option><option value="arrived">도착</option><option value="inactive">미참여</option></select></div><div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>정보</th><th>상태</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div></article></section>
+<section id="view-participants" class="view">
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 관리</h2><p id="participantCount" class="muted"></p></div><button id="reloadParticipants" class="primary">갱신</button></div>
+  <div class="filters"><input id="participantSearch" placeholder="이름 · 연락처 · 기관 · QR · 좌석 · 그룹"><select id="participantStatus"><option value="all">전체</option><option value="pending">미도착</option><option value="arrived">도착</option><option value="inactive">미참여/비활성</option></select></div>
+  <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>정보</th><th>상태</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div>
+</article>
+</section>
 
 <section id="view-onsite" class="view"><article class="card narrow"><p class="eyebrow">ON-SITE</p><h2>QR 없이 온 참가자 등록</h2><div class="notice">현장 추가 참가자는 자동 좌석을 배정하지 않습니다. 등록 즉시 <strong>스탠딩 안내</strong> 및 기념품 지급완료로 처리합니다.</div><form id="onsiteForm" class="form-grid"><label>이름<input name="name" required></label><label>연락처<input name="phone" placeholder="선택"></label><label>소속기관<input name="organization"></label><label>접수대<input name="station" value="현장접수"></label><label class="check"><input name="wheelchairUser" type="checkbox"> 휠체어 이용</label><label class="check"><input name="disabledPerson" type="checkbox"> 장애인 당사자</label><label class="wide-field">메모<textarea name="note" rows="3"></textarea></label><button class="primary wide-field">현장 등록</button></form></article></section>
 
-<section id="view-groups" class="view"><article class="card"><div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>단체 지정</h2><p class="muted">같은 소속기관이 2명 이상인 곳을 후보로 보여줍니다. 복지관 이용 여부만으로는 자동 단체 지정하지 않습니다.</p></div><button id="reloadGroups" class="primary">갱신</button></div><div class="two"><div><h3>단체 후보</h3><div id="groupSuggestions"></div></div><div><h3>현재 단체</h3><div id="groupList"></div></div></div></article></section>
+<section id="view-groups" class="view">
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">자동 기관 후보 · 대표자 그룹 · 동반신청 그룹을 구분해 관리합니다.</p></div><button id="reloadGroups" class="primary">갱신</button></div>
+  <div class="group-tabs"><button data-grouptab="auto" class="active">기관 후보</button><button data-grouptab="representative">대표자 그룹</button><button data-grouptab="companion">동반신청</button><button id="createManualGroup" class="primary">대표자 그룹 만들기</button></div>
+  <div id="groupTabAuto" class="group-pane"><div id="groupSuggestions"></div></div>
+  <div id="groupTabRepresentative" class="group-pane hidden"><div id="representativeGroups"></div></div>
+  <div id="groupTabCompanion" class="group-pane hidden"><div id="companionGroups"></div></div>
+</article>
+</section>
 
 <section id="view-seats" class="view">
 <article class="card">
   <div class="card-head">
-    <div><p class="eyebrow">SEATS</p><h2>좌석 현황</h2><p id="seatCount" class="muted"></p></div>
-    <div class="actions"><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats" class="primary">갱신</button></div>
+    <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p></div>
+    <div class="actions"><button id="showUnassigned">미배정자 보기</button><button id="autoAssignAll" class="primary">미배정자 일괄배치</button><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats">갱신</button></div>
   </div>
-  <div class="seat-legend">
-    <span><i class="legend-dot assigned"></i> 배정·미도착</span>
-    <span><i class="legend-dot arrived"></i> 도착완료</span>
-    <span><i class="legend-line vip"></i> 주요 귀빈/내빈</span>
-    <span><i class="legend-line wheelchair"></i> 장애인·휠체어</span>
-    <span><i class="legend-dot empty"></i> 빈좌석</span>
-  </div>
+  <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 주요 귀빈/내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
+  <p class="muted">좌석을 클릭하면 참가자 직접지정·교환·해제가 가능합니다.</p>
   <div class="seat-map-wrap"><div id="seatGrid" class="seat-map"></div></div>
 </article>
 </section>
@@ -80,4 +89,4 @@
 </main>
 
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.4.2"></script></body></html>
+<script src="/app.js?v=0.5.0"></script></body></html>

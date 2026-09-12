@@ -38,7 +38,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.4.2',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.5.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -53,7 +53,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.4.2'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.5.0'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -323,13 +323,14 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.4.2',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.5.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
 app.post('/api/login',(req,res)=>{
   if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
   const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
   res.json({ok:true,token,expiresAt:new Date(expiresAt).toISOString()});
 });
 app.get('/api/bootstrap',auth,(req,res)=>{
+  ensureCompanionGroups();
   const active=state.participants.filter(participantActive);
   const extraGifts=state.groups.reduce((n,g)=>n+num(g.extraGiftCount,0),0);
   res.json({ok:true,serverTime:nowIso(),summary:{
@@ -340,6 +341,59 @@ app.get('/api/bootstrap',auth,(req,res)=>{
     onsite:state.participants.filter(p=>p.onsite).length
   },settings:state.settings,meta:state.meta});
 });
+
+function adminAudit(type, target, beforeValue, afterValue, note=''){
+  state.logs.unshift({
+    id:uuid('audit'), at:nowIso(), type,
+    targetId:target?.id||'', targetName:target?.name||'',
+    before:beforeValue||null, after:afterValue||null, note
+  });
+  state.logs=state.logs.slice(0,10000);
+}
+function participantPublic(p){
+  if(!p)return null;
+  return {...p, group:groupForParticipant(p)?.id||''};
+}
+function companionGroupEntries(){
+  const map=new Map();
+  state.participants.filter(participantActive).forEach(p=>{
+    const key=str(p.companionGroup);
+    if(!key)return;
+    if(!map.has(key))map.set(key,[]);
+    map.get(key).push(p);
+  });
+  return [...map.entries()].filter(([,members])=>members.length>=2).map(([key,members])=>({
+    id:`comp:${key}`, type:'companion', name:`동반그룹 ${key}`, companionGroup:key,
+    representativeId:members.find(x=>x.phone)?.id||members[0].id,
+    memberIds:members.map(x=>x.id), members
+  }));
+}
+function ensureCompanionGroups(){
+  const existing=new Map(state.groups.filter(g=>g.type==='companion').map(g=>[g.companionGroup,g]));
+  companionGroupEntries().forEach(v=>{
+    if(existing.has(v.companionGroup)){
+      const g=existing.get(v.companionGroup);
+      g.memberIds=v.memberIds;
+      if(!v.memberIds.includes(g.representativeId))g.representativeId=v.representativeId;
+      if(!g.name)g.name=v.name;
+    }else{
+      state.groups.push({
+        id:v.id,type:'companion',name:v.name,companionGroup:v.companionGroup,
+        representativeId:v.representativeId,memberIds:v.memberIds,createdAt:nowIso(),
+        extraStanding:0,extraGiftCount:0
+      });
+    }
+  });
+}
+function availableParticipantIds(excludeGroupId=''){
+  const used=new Set(state.groups.filter(g=>g.id!==excludeGroupId && g.type!=='companion').flatMap(g=>g.memberIds||[]));
+  return state.participants.filter(participantActive).filter(p=>!used.has(p.id));
+}
+function findSeatOccupant(code){
+  const c=str(code).toUpperCase();
+  return state.participants.find(p=>participantActive(p)&&str(p.seat).toUpperCase()===c)||null;
+}
+
 app.get('/api/participants',auth,(req,res)=>{
   const q=str(req.query.q).toLowerCase(),status=str(req.query.status||'all');
   let rows=state.participants;
@@ -373,6 +427,44 @@ app.post('/api/participant/:id/update',auth,(req,res)=>{
   ['wheelchairUser','disabledPerson','active'].forEach(k=>{if(k in b)p[k]=bool(b[k])});
   p.modifiedAt=nowIso();saveState();res.json({ok:true,participant:p});
 });
+
+app.post('/api/participants/:id/admin-update',auth,(req,res)=>{
+  const p=state.participants.find(x=>x.id===req.params.id);
+  if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
+  const before={...p};
+  const b=req.body||{};
+  if('name'in b)p.name=str(b.name);
+  if('phone'in b)p.phone=phone(b.phone);
+  if('organization'in b)p.organization=str(b.organization);
+  if('note'in b)p.note=str(b.note);
+  if('participationStatus'in b)p.participationStatus=str(b.participationStatus)||'참여';
+  if('active'in b)p.active=bool(b.active);
+  if('wheelchairUser'in b)p.wheelchairUser=bool(b.wheelchairUser);
+  if('disabledPerson'in b)p.disabledPerson=bool(b.disabledPerson);
+  if('usesCenter'in b)p.usesCenter=bool(b.usesCenter);
+  if('arrived'in b){
+    const newArrived=bool(b.arrived);
+    if(newArrived&&!p.arrived){p.arrived=true;p.arrivedAt=nowIso();}
+    if(!newArrived&&p.arrived){p.arrived=false;p.arrivedAt=null;}
+  }
+  p.modifiedAt=nowIso();
+  adminAudit('참가자수정',p,before,{...p},str(b.auditNote));
+  saveState();
+  res.json({ok:true,participant:p});
+});
+app.get('/api/participants/unassigned',auth,(req,res)=>{
+  const rows=state.participants.filter(p=>participantActive(p)&&!p.seat)
+    .sort((a,b)=>num(a.receptionNo)-num(b.receptionNo));
+  res.json({ok:true,total:rows.length,rows:rows.slice(0,1000)});
+});
+app.get('/api/participants/search',auth,(req,res)=>{
+  const q=str(req.query.q).toLowerCase();
+  const qd=digits(q);
+  let rows=state.participants.filter(participantActive);
+  if(q)rows=rows.filter(p=>`${p.name} ${p.phone} ${p.organization} ${p.id} ${p.seat}`.toLowerCase().includes(q)||(qd.length>=3&&digits(p.phone).includes(qd)));
+  res.json({ok:true,rows:rows.slice(0,80)});
+});
+
 app.post('/api/checkin/individual',auth,(req,res)=>{
   const p=findParticipant(req.body?.code);if(!p)return res.status(404).json({ok:false,error:'QR 참가자를 찾을 수 없습니다.'});
   const g=groupForParticipant(p);if(g)return res.status(409).json({ok:false,error:'단체 참가자입니다.',groupRequired:true,group:g,participant:p});
@@ -380,6 +472,7 @@ app.post('/api/checkin/individual',auth,(req,res)=>{
   saveState();res.json({ok:true,...r});
 });
 app.post('/api/checkin/lookup',auth,(req,res)=>{
+  ensureCompanionGroups();
   const p=findParticipant(req.body?.code);if(!p)return res.status(404).json({ok:false,error:'QR 참가자를 찾을 수 없습니다.'});
   const g=groupForParticipant(p);
   let group=null;
@@ -436,6 +529,7 @@ function isInternalOrganization(name){
 }
 
 app.get('/api/groups',auth,(req,res)=>{
+  ensureCompanionGroups();
   const rows=state.groups.map(g=>{
     const members=g.memberIds.map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
     return {...g,total:members.length,arrived:members.filter(p=>p.arrived).length,members};
@@ -470,6 +564,69 @@ app.post('/api/groups/:id/delete',auth,(req,res)=>{
   const [g]=state.groups.splice(i,1);saveState();res.json({ok:true,group:g});
 });
 
+
+app.get('/api/groups/manage',auth,(req,res)=>{
+  ensureCompanionGroups();
+  const groups=state.groups.map(g=>{
+    const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
+    const rep=state.participants.find(p=>p.id===g.representativeId)||null;
+    return {...g,members,representative:rep,total:members.length,arrived:members.filter(p=>p.arrived).length};
+  });
+  res.json({ok:true,rows:groups});
+});
+app.post('/api/groups/manual',auth,(req,res)=>{
+  const b=req.body||{},ids=[...new Set((b.memberIds||[]).map(str).filter(Boolean))];
+  if(ids.length<2)return res.status(400).json({ok:false,error:'구성원은 2명 이상이어야 합니다.'});
+  const allowed=new Set(availableParticipantIds().map(p=>p.id));
+  const members=ids.map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
+  if(members.length!==ids.length)return res.status(400).json({ok:false,error:'일부 참가자를 찾을 수 없습니다.'});
+  if(ids.some(id=>!allowed.has(id)))return res.status(409).json({ok:false,error:'이미 다른 대표자/기관 그룹에 포함된 참가자가 있습니다.'});
+  const rep=members.find(p=>p.id===str(b.representativeId))||members.find(p=>p.phone)||members[0];
+  const g={id:uuid('grp'),type:'representative',name:str(b.name)||`${rep.name} 대표그룹`,organization:str(b.organization),representativeId:rep.id,memberIds:ids,createdAt:nowIso(),extraStanding:0,extraGiftCount:0};
+  state.groups.push(g);adminAudit('대표자그룹생성',g,null,g);saveState();res.json({ok:true,group:g});
+});
+app.put('/api/groups/:id/manage',auth,(req,res)=>{
+  const g=state.groups.find(x=>x.id===req.params.id);if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
+  const before=JSON.parse(JSON.stringify(g)),b=req.body||{};
+  if('name'in b)g.name=str(b.name);
+  if(Array.isArray(b.memberIds)){
+    const ids=[...new Set(b.memberIds.map(str).filter(Boolean))];
+    if(ids.length<2)return res.status(400).json({ok:false,error:'구성원은 2명 이상이어야 합니다.'});
+    const allowed=new Set(availableParticipantIds(g.id).map(p=>p.id));
+    if(ids.some(id=>!allowed.has(id)&&!(g.memberIds||[]).includes(id)))return res.status(409).json({ok:false,error:'다른 그룹에 포함된 참가자가 있습니다.'});
+    g.memberIds=ids;
+  }
+  if('representativeId'in b && g.memberIds.includes(str(b.representativeId)))g.representativeId=str(b.representativeId);
+  if(!g.memberIds.includes(g.representativeId))g.representativeId=g.memberIds[0];
+  g.modifiedAt=nowIso();adminAudit('그룹수정',g,before,g);saveState();res.json({ok:true,group:g});
+});
+app.post('/api/groups/:id/member-add',auth,(req,res)=>{
+  const g=state.groups.find(x=>x.id===req.params.id);if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
+  const pid=str(req.body?.participantId),p=state.participants.find(x=>x.id===pid);if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
+  if(g.type==='companion'){p.companionGroup=g.companionGroup}
+  else{
+    const allowed=new Set(availableParticipantIds(g.id).map(x=>x.id));
+    if(!allowed.has(pid)&&!(g.memberIds||[]).includes(pid))return res.status(409).json({ok:false,error:'다른 그룹에 포함된 참가자입니다.'});
+  }
+  if(!g.memberIds.includes(pid))g.memberIds.push(pid);
+  adminAudit('그룹구성원추가',g,null,{participantId:pid});saveState();res.json({ok:true});
+});
+app.post('/api/groups/:id/member-remove',auth,(req,res)=>{
+  const g=state.groups.find(x=>x.id===req.params.id);if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
+  const pid=str(req.body?.participantId);
+  g.memberIds=(g.memberIds||[]).filter(id=>id!==pid);
+  const p=state.participants.find(x=>x.id===pid);if(g.type==='companion'&&p)p.companionGroup='';
+  if(g.memberIds.length<2){
+    state.groups=state.groups.filter(x=>x.id!==g.id);
+  }else if(!g.memberIds.includes(g.representativeId))g.representativeId=g.memberIds[0];
+  adminAudit('그룹구성원제거',g,null,{participantId:pid});saveState();res.json({ok:true});
+});
+app.post('/api/groups/:id/representative',auth,(req,res)=>{
+  const g=state.groups.find(x=>x.id===req.params.id);if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
+  const pid=str(req.body?.participantId);if(!(g.memberIds||[]).includes(pid))return res.status(400).json({ok:false,error:'그룹 구성원만 대표자로 지정할 수 있습니다.'});
+  const before=g.representativeId;g.representativeId=pid;adminAudit('그룹대표자변경',g,{representativeId:before},{representativeId:pid});saveState();res.json({ok:true});
+});
+
 app.get('/api/seats',auth,(req,res)=>{
   const participantMap=new Map();
   state.participants.filter(p=>participantActive(p)&&p.seat).forEach(p=>participantMap.set(str(p.seat).toUpperCase(),p));
@@ -489,6 +646,55 @@ app.post('/api/seats/release-pending',auth,(req,res)=>{
   let count=0;
   state.participants.filter(p=>!p.arrived&&participantActive(p)&&p.seat).forEach(p=>{releaseSeat(p);count++});
   saveState();res.json({ok:true,released:count});
+});
+
+
+app.post('/api/seats/:code/assign',auth,(req,res)=>{
+  const code=str(req.params.code).toUpperCase(),seat=seatByCode(code);
+  if(!seat||!seat.enabled)return res.status(404).json({ok:false,error:'사용 가능한 좌석을 찾을 수 없습니다.'});
+  const p=state.participants.find(x=>x.id===str(req.body?.participantId));if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
+  const occupant=findSeatOccupant(code),oldSeat=str(p.seat).toUpperCase();
+  if(occupant&&occupant.id!==p.id){
+    const mode=str(req.body?.mode||'swap');
+    if(mode==='swap'&&oldSeat){
+      occupant.seat=oldSeat;
+    }else{
+      occupant.seat='';
+    }
+    occupant.modifiedAt=nowIso();
+  }
+  p.seat=code;p.modifiedAt=nowIso();
+  adminAudit('좌석직접지정',p,{seat:oldSeat},{seat:code},occupant&&occupant.id!==p.id?`기존 ${occupant.name} ${occupant.seat||'미배정'} 처리`:'');
+  saveState();res.json({ok:true,participant:p,movedOccupant:occupant&&occupant.id!==p.id?occupant:null});
+});
+app.post('/api/seats/:code/release',auth,(req,res)=>{
+  const code=str(req.params.code).toUpperCase(),p=findSeatOccupant(code);
+  if(!p)return res.json({ok:true,released:false});
+  const before=p.seat;p.seat='';p.modifiedAt=nowIso();adminAudit('좌석해제',p,{seat:before},{seat:''});saveState();res.json({ok:true,released:true,participant:p});
+});
+app.post('/api/seats/swap',auth,(req,res)=>{
+  const a=state.participants.find(x=>x.id===str(req.body?.participantA)),b=state.participants.find(x=>x.id===str(req.body?.participantB));
+  if(!a||!b)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
+  const sa=a.seat||'',sb=b.seat||'';a.seat=sb;b.seat=sa;a.modifiedAt=b.modifiedAt=nowIso();
+  adminAudit('좌석교환',a,{seat:sa},{seat:sb},`${b.name}와 교환`);saveState();res.json({ok:true,a,b});
+});
+app.post('/api/seats/auto-assign-unassigned',auth,(req,res)=>{
+  ensureCompanionGroups();
+  const onlyArrived=bool(req.body?.onlyArrived);
+  const targets=state.participants.filter(p=>participantActive(p)&&!p.seat&&(!onlyArrived||p.arrived)&&!p.onsite);
+  const targetIds=new Set(targets.map(p=>p.id));
+  let assigned=0,groupsDone=0;
+  state.groups.forEach(g=>{
+    const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(p=>p&&targetIds.has(p.id));
+    if(members.length>=2){
+      assignContiguous(members);
+      members.forEach(p=>{if(p.seat){assigned++;targetIds.delete(p.id)}});
+      groupsDone++;
+    }
+  });
+  state.participants.filter(p=>targetIds.has(p.id)).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{if(assignOne(p))assigned++});
+  adminAudit('좌석일괄배치',{id:'bulk',name:'미배정자'},null,{assigned,groupsDone,onlyArrived});
+  saveState();res.json({ok:true,assigned,groupsDone,remaining:state.participants.filter(p=>participantActive(p)&&!p.seat&&!p.onsite).length});
 });
 
 app.get('/api/raffle/products',auth,(req,res)=>res.json({ok:true,rows:state.rouletteProducts}));
@@ -609,4 +815,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.4.2 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.5.0 · :${PORT}`));
