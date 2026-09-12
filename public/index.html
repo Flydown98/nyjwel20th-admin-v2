@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.6.0">
+<link rel="stylesheet" href="/style.css?v=0.7.0">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.6</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.7</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
-<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
+<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
 </nav>
 <main>
 <section id="view-dashboard" class="view active"><div class="stats">
@@ -57,7 +57,23 @@
 </article>
 </section>
 
-<section id="view-raffle" class="view"><div class="two"><article class="card"><p class="eyebrow">LUCKY DRAW</p><h2>행운권 추첨</h2><p class="muted">도착 완료 참가자 중 기존 당첨자를 제외하고 추첨합니다.</p><form id="raffleForm" class="stack"><label>상품<select id="raffleProduct"></select></label><label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label><button class="primary">추첨하기</button></form><div id="raffleWinners"></div></article><article class="card"><h2>최근 당첨</h2><div id="raffleHistory"></div></article></div></section>
+<section id="view-raffle" class="view">
+<div class="two">
+  <article class="card">
+    <p class="eyebrow">LUCKY DRAW · CINEMATIC</p>
+    <h2>행운권 추첨</h2>
+    <p class="muted">400명 이름을 룰렛에 모두 그리지 않습니다. 서버는 전체 대상자 중에서 공정하게 추첨하고, 화면에는 두근두근한 연출만 보여준 뒤 마지막에 당첨자를 공개합니다.</p>
+    <form id="raffleForm" class="stack">
+      <label>상품<select id="raffleProduct"></select></label>
+      <label>대상<select id="raffleFilter"><option value="all">도착 완료 전체</option><option value="usesCenter">복지관 이용인만</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
+      <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label>
+      <button class="primary big-action">두근두근 추첨 시작</button>
+    </form>
+    <div id="raffleWinners"></div>
+  </article>
+  <article class="card"><div class="card-head"><h2>최근 당첨</h2><button id="reloadRaffleHistory">갱신</button></div><div id="raffleHistory"></div></article>
+</div>
+</section>
 
 <section id="view-sms" class="view">
 <div class="two">
@@ -81,6 +97,15 @@
 </div>
 </section>
 
+
+
+<section id="view-logs" class="view">
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">AUDIT LOG</p><h2>관리자 작업 로그</h2><p id="logCount" class="muted"></p></div><button id="reloadLogs" class="primary">갱신</button></div>
+  <div class="filters"><input id="logSearch" placeholder="작업유형 · 참가자 · 그룹 · 비고 검색"><select id="logLimit"><option value="200">최근 200건</option><option value="500">최근 500건</option><option value="1000">최근 1000건</option></select></div>
+  <div class="table-wrap"><table><thead><tr><th>시간</th><th>작업</th><th>대상</th><th>내용</th></tr></thead><tbody id="logRows"></tbody></table></div>
+</article>
+</section>
 
 <section id="view-data" class="view">
   <article class="card">
@@ -122,5 +147,13 @@
 <pre id="backupOutput">대기 중...</pre></article></section>
 </main>
 
+<div id="raffleStage" class="raffle-stage hidden">
+  <div class="raffle-stage-inner">
+    <div id="raffleStageLabel" class="raffle-stage-label">행운의 주인공은?</div>
+    <div id="raffleStageName" class="raffle-stage-name">READY</div>
+    <div id="raffleStageSub" class="raffle-stage-sub"></div>
+    <button id="raffleStageClose" class="hidden">닫기</button>
+  </div>
+</div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.6.0"></script></body></html>
+<script src="/app.js?v=0.7.0"></script></body></html>

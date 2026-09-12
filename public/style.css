@@ -67,3 +67,17 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;bord
 /* v0.6 데이터 가져오기 */
 #xlsxPreviewSummary .stat{min-height:94px}
 #xlsxImportFile{max-width:520px}
+
+/* v0.7 cinematic raffle + logs */
+.big-action{font-size:18px;padding:15px 18px}
+.raffle-stage{position:fixed;inset:0;z-index:2000;background:radial-gradient(circle at center,#312e81 0,#111827 48%,#020617 100%);display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden}
+.raffle-stage.hidden{display:none}
+.raffle-stage::before{content:"";position:absolute;width:120vmax;height:120vmax;background:conic-gradient(from 0deg,transparent,rgba(255,255,255,.08),transparent,rgba(168,85,247,.16),transparent);animation:spinStage 8s linear infinite}
+.raffle-stage-inner{position:relative;z-index:2;text-align:center;width:min(900px,92vw);padding:32px}
+.raffle-stage-label{font-size:clamp(20px,3vw,40px);font-weight:900;letter-spacing:.08em;margin-bottom:24px;color:#ddd6fe}
+.raffle-stage-name{font-size:clamp(42px,9vw,110px);font-weight:1000;letter-spacing:-.04em;text-shadow:0 0 32px rgba(196,181,253,.65);min-height:1.2em}
+.raffle-stage-sub{margin-top:20px;font-size:clamp(16px,2vw,28px);color:#cbd5e1;min-height:40px}
+.raffle-stage.reveal .raffle-stage-name{animation:winnerPop .75s cubic-bezier(.2,1.6,.4,1);color:#fde68a;text-shadow:0 0 45px rgba(253,230,138,.85)}
+.raffle-stage button{margin-top:30px;font-size:18px;padding:13px 30px}
+@keyframes spinStage{to{transform:rotate(360deg)}}@keyframes winnerPop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
+.log-json{font-size:11px;white-space:pre-wrap;color:#64748b;max-width:620px}

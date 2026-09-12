@@ -7,11 +7,11 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.6';$('#statusBadge').classList.add('ok')}
-async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden')}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
+async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.7';$('#statusBadge').classList.add('ok')}
+async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
-$('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
-function view(n){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${n}`));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===n));if(n==='participants')loadParticipants();if(n==='groups')loadGroups();if(n==='seats')loadSeats();if(n==='raffle')loadRaffle();if(n==='sms')loadSms()}
+$('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);if(eventSource)eventSource.close();$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
+function view(n){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${n}`));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===n));if(n==='participants')loadParticipants();if(n==='groups')loadGroups();if(n==='seats')loadSeats();if(n==='raffle')loadRaffle();if(n==='sms')loadSms();if(n==='logs')loadLogs()}
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>view(b.dataset.view));
 
 async function processCode(code){
@@ -241,9 +241,85 @@ $('#autoAssignAll').onclick=async()=>{
   try{const d=await api('/api/seats/auto-assign-unassigned',{method:'POST',body:JSON.stringify({onlyArrived:false})});toast(`일괄배치 완료 · ${d.assigned}명 · 남은 미배정 ${d.remaining}명`,7000);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
 };
 
-async function loadRaffle(){try{const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);$('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';$('#raffleHistory').innerHTML=h.rows.slice(0,30).map(x=>`<div class="history-row"><strong>${esc(x.prizeName)} · ${esc(x.participantName)}</strong><small>${esc(x.seat||'좌석없음')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')}</small>${x.received?'<b>수령완료</b>':`<button data-redeem="${x.drawId}" data-pid="${x.participantId}">수령완료</button>`}</div>`).join('')||'<p class="muted">아직 당첨 기록이 없습니다.</p>'}catch(e){toast(e.message)}}
-$('#raffleForm').onsubmit=async e=>{e.preventDefault();if(!confirm('현재 도착 완료 참가자 중에서 추첨할까요?'))return;try{const d=await api('/api/raffle/draw',{method:'POST',body:JSON.stringify({productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value)})});$('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;loadRaffle()}catch(x){toast(x.message,6000)}};
-$('#raffleHistory').onclick=async e=>{const b=e.target.closest('[data-redeem]');if(!b)return;try{await api('/api/raffle/redeem',{method:'POST',body:JSON.stringify({drawId:b.dataset.redeem,participantId:b.dataset.pid})});loadRaffle()}catch(x){toast(x.message)}};
+
+async function loadRaffle(){
+  try{
+    const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
+    $('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';
+    renderRaffleHistory(h.rows);
+  }catch(e){toast(e.message)}
+}
+function renderRaffleHistory(rows){
+  $('#raffleHistory').innerHTML=rows.slice(0,50).map(x=>`<div class="history-row">
+    <strong>${esc(x.prizeName)} · ${esc(x.participantName)}</strong>
+    <small>${esc(x.seat||'좌석없음')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')} · ${x.enabled===false?'당첨취소':'유효'}</small>
+    ${x.enabled===false?'':(x.received?'<b>수령완료</b>':`<button data-redeem="${x.drawId}" data-pid="${x.participantId}">수령완료</button> <button data-cancelwin="${x.drawId}" data-pid="${x.participantId}">당첨취소</button>`)}
+  </div>`).join('')||'<p class="muted">아직 당첨 기록이 없습니다.</p>';
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+async function runCinematicRaffle(prep){
+  const stage=$('#raffleStage'),name=$('#raffleStageName'),label=$('#raffleStageLabel'),sub=$('#raffleStageSub'),close=$('#raffleStageClose');
+  stage.classList.remove('hidden','reveal');close.classList.add('hidden');label.textContent=prep.product.name;sub.textContent=`추첨 대상 ${prep.poolSize}명`;
+  const samples=prep.sample.length?prep.sample:[{name:'행운의 주인공'}];
+  for(const n of ['3','2','1']){name.textContent=n;await sleep(650)}
+  let delay=55;
+  for(let i=0;i<38;i++){
+    const p=samples[Math.floor(Math.random()*samples.length)];
+    name.textContent=p.name;
+    sub.textContent=p.organization||p.seat||`추첨 대상 ${prep.poolSize}명`;
+    await sleep(delay);
+    if(i>24)delay+=18;
+  }
+  name.textContent='...';sub.textContent='결과를 확정하는 중입니다';
+  const result=await api('/api/raffle/commit',{method:'POST',body:JSON.stringify({token:prep.token})});
+  stage.classList.add('reveal');
+  if(result.winners.length===1){
+    const w=result.winners[0];name.textContent=w.participantName;sub.textContent=`${w.seat||'좌석없음'} · ${result.product.name}`;
+  }else{
+    name.textContent=`${result.winners.length}명 당첨!`;
+    sub.innerHTML=result.winners.map(w=>`${esc(w.participantName)} (${esc(w.seat||'좌석없음')})`).join(' · ');
+  }
+  close.classList.remove('hidden');
+  return result;
+}
+$('#raffleForm').onsubmit=async e=>{
+  e.preventDefault();
+  if(!confirm('현재 조건에 맞는 도착 완료 참가자를 대상으로 추첨을 시작할까요?'))return;
+  try{
+    const prep=await api('/api/raffle/prepare',{method:'POST',body:JSON.stringify({
+      productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value),filter:$('#raffleFilter').value
+    })});
+    const result=await runCinematicRaffle(prep);
+    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(result.product.name)}</h3>${result.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;
+    loadRaffle();
+  }catch(x){$('#raffleStage').classList.add('hidden');toast(x.message,7000)}
+};
+$('#raffleStageClose').onclick=()=>{$('#raffleStage').classList.add('hidden','reveal')};
+$('#reloadRaffleHistory').onclick=loadRaffle;
+$('#raffleHistory').onclick=async e=>{
+  const r=e.target.closest('[data-redeem]'),c=e.target.closest('[data-cancelwin]');
+  try{
+    if(r){await api('/api/raffle/redeem',{method:'POST',body:JSON.stringify({drawId:r.dataset.redeem,participantId:r.dataset.pid})});loadRaffle()}
+    if(c&&confirm('이 당첨을 취소할까요? 취소하면 이 참가자는 다음 추첨 대상에 다시 포함됩니다.')){await api('/api/raffle/cancel',{method:'POST',body:JSON.stringify({drawId:c.dataset.cancelwin,participantId:c.dataset.pid})});loadRaffle()}
+  }catch(x){toast(x.message)}
+};
+
+async function loadLogs(){
+  try{
+    const q=$('#logSearch')?.value.trim()||'',limit=$('#logLimit')?.value||200;
+    const d=await api(`/api/logs?q=${encodeURIComponent(q)}&limit=${limit}`);
+    $('#logCount').textContent=`검색 결과 ${d.total}건`;
+    $('#logRows').innerHTML=d.rows.map(x=>`<tr>
+      <td>${x.at?new Date(x.at).toLocaleString('ko-KR'):'-'}</td>
+      <td><strong>${esc(x.type||'-')}</strong></td>
+      <td>${esc(x.targetName||x.targetId||'-')}</td>
+      <td><div>${esc(x.note||'')}</div>${x.after?`<div class="log-json">${esc(JSON.stringify(x.after))}</div>`:''}</td>
+    </tr>`).join('')||'<tr><td colspan="4">로그가 없습니다.</td></tr>';
+  }catch(e){toast(e.message)}
+}
+$('#reloadLogs')?.addEventListener('click',loadLogs);
+$('#logSearch')?.addEventListener('input',()=>{clearTimeout(loadLogs.tm);loadLogs.tm=setTimeout(loadLogs,250)});
+$('#logLimit')?.addEventListener('change',loadLogs);
 
 async function loadSms(){
   try{
@@ -366,6 +442,35 @@ $('#xlsxConfirmBtn')?.addEventListener('click',async()=>{
   }catch(e){toast(e.message,8000)}
   finally{btn.disabled=false}
 });
+
+
+let eventSource=null,eventRefreshTimer=null;
+function currentViewName(){
+  const v=document.querySelector('.view.active');return v?.id?.replace('view-','')||'dashboard';
+}
+function scheduleLiveRefresh(){
+  if(document.hidden||scanBusy||!$('#modalWrap')?.classList.contains('hidden')||!$('#raffleStage')?.classList.contains('hidden'))return;
+  clearTimeout(eventRefreshTimer);
+  eventRefreshTimer=setTimeout(async()=>{
+    const v=currentViewName();
+    try{
+      await refreshDashboard();
+      if(v==='participants')loadParticipants();
+      else if(v==='groups')loadGroups();
+      else if(v==='seats')loadSeats();
+      else if(v==='raffle')loadRaffle();
+      else if(v==='sms')loadSms();
+      else if(v==='logs')loadLogs();
+    }catch(_){}
+  },300);
+}
+function connectLiveEvents(){
+  if(eventSource){try{eventSource.close()}catch(_){}}
+  if(!token)return;
+  eventSource=new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
+  eventSource.addEventListener('state',scheduleLiveRefresh);
+  eventSource.onerror=()=>{};
+}
 
 init();setInterval(()=>{if(token&&!document.hidden)refreshDashboard().catch(()=>{})},10000);
 

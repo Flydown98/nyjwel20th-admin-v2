@@ -38,7 +38,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.6.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.7.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -53,7 +53,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.6.0'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.7.0'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -80,11 +80,21 @@ function loadState(){
 }
 let state=loadState();
 
+const sseClients=new Set();
+function broadcastEvent(type='state',payload={}){
+  const data=`event: ${type}\ndata: ${JSON.stringify({type,at:nowIso(),...payload})}\n\n`;
+  for(const res of [...sseClients]){
+    try{res.write(data)}catch(_){sseClients.delete(res)}
+  }
+}
+
+
 function saveState(){
   state.meta.updatedAt=nowIso();
   const tmp=STATE_FILE+'.tmp';
   fs.writeFileSync(tmp,JSON.stringify(state,null,2),'utf8');
   fs.renameSync(tmp,STATE_FILE);
+  broadcastEvent('state',{updatedAt:state.meta.updatedAt});
 }
 function backupNow(label='auto'){
   try{
@@ -323,12 +333,26 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.6.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.7.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
 app.post('/api/login',(req,res)=>{
   if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
   const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
   res.json({ok:true,token,expiresAt:new Date(expiresAt).toISOString()});
 });
+
+app.get('/api/events',(req,res)=>{
+  const token=str(req.query.token),session=sessions.get(token);
+  if(!session||session.expiresAt<=Date.now())return res.status(401).end();
+  res.setHeader('Content-Type','text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control','no-cache, no-transform');
+  res.setHeader('Connection','keep-alive');
+  res.flushHeaders?.();
+  res.write(`event: ready\ndata: ${JSON.stringify({ok:true,at:nowIso()})}\n\n`);
+  sseClients.add(res);
+  const keepalive=setInterval(()=>{try{res.write(': ping\n\n')}catch(_){}},25000);
+  req.on('close',()=>{clearInterval(keepalive);sseClients.delete(res)});
+});
+
 app.get('/api/bootstrap',auth,(req,res)=>{
   ensureCompanionGroups();
   const active=state.participants.filter(participantActive);
@@ -697,26 +721,89 @@ app.post('/api/seats/auto-assign-unassigned',auth,(req,res)=>{
   saveState();res.json({ok:true,assigned,groupsDone,remaining:state.participants.filter(p=>participantActive(p)&&!p.seat&&!p.onsite).length});
 });
 
+
+app.get('/api/logs',auth,(req,res)=>{
+  const q=str(req.query.q).toLowerCase();
+  const type=str(req.query.type);
+  const limit=Math.max(20,Math.min(1000,num(req.query.limit,300)));
+  let rows=[...state.logs,...state.checkins.map(x=>({
+    id:`checkin-${x.at}-${x.participantId}`,at:x.at,type:x.action||'접수로그',
+    targetId:x.participantId,targetName:x.name,note:`${x.station||''} ${x.note||''}`.trim(),
+    before:null,after:{seat:x.seat}
+  }))].filter(Boolean);
+  if(type)rows=rows.filter(x=>str(x.type)===type);
+  if(q)rows=rows.filter(x=>`${x.type} ${x.targetId} ${x.targetName} ${x.note}`.toLowerCase().includes(q));
+  rows.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));
+  res.json({ok:true,total:rows.length,rows:rows.slice(0,limit)});
+});
+
+
+const rafflePreparations=new Map();
+function eligibleRafflePool(filter='all'){
+  const wonIds=new Set(state.rouletteHistory.filter(x=>x.enabled!==false).map(x=>x.participantId));
+  let pool=state.participants.filter(p=>p.arrived&&participantActive(p)&&!wonIds.has(p.id));
+  if(filter==='usesCenter')pool=pool.filter(p=>p.usesCenter);
+  if(filter==='disabledPerson')pool=pool.filter(p=>p.disabledPerson);
+  if(filter==='wheelchair')pool=pool.filter(p=>p.wheelchairUser);
+  return pool;
+}
+function cryptoPickUnique(pool,count){
+  const copy=[...pool],out=[];
+  while(out.length<count&&copy.length){
+    const i=crypto.randomInt(0,copy.length);
+    out.push(copy.splice(i,1)[0]);
+  }
+  return out;
+}
 app.get('/api/raffle/products',auth,(req,res)=>res.json({ok:true,rows:state.rouletteProducts}));
-app.post('/api/raffle/draw',auth,(req,res)=>{
-  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1)));
+app.post('/api/raffle/prepare',auth,(req,res)=>{
+  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'all');
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
   if(!product.enabled)return res.status(400).json({ok:false,error:'사용 중지된 상품입니다.'});
-  const wonIds=new Set(state.rouletteHistory.filter(x=>x.enabled!==false).map(x=>x.participantId));
-  const pool=state.participants.filter(p=>p.arrived&&participantActive(p)&&!wonIds.has(p.id));
+  const pool=eligibleRafflePool(filter);
   if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
-  const shuffled=[...pool].sort(()=>Math.random()-.5).slice(0,count);
-  const drawId=uuid('draw');
-  const records=shuffled.map((p,i)=>({drawId,drawnAt:nowIso(),prizeNo:product.number,prizeName:product.name,method:'랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false}));
+  const token=uuid('raffle');
+  const sample=cryptoPickUnique(pool,Math.min(40,pool.length)).map(p=>({id:p.id,name:p.name,seat:p.seat,organization:p.organization}));
+  rafflePreparations.set(token,{createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id)});
+  setTimeout(()=>rafflePreparations.delete(token),10*60*1000).unref?.();
+  res.json({ok:true,token,product,count,filter,poolSize:pool.length,sample});
+});
+app.post('/api/raffle/commit',auth,(req,res)=>{
+  const token=str(req.body?.token),prep=rafflePreparations.get(token);
+  if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다. 다시 시작해 주세요.'});
+  const currentPool=eligibleRafflePool(prep.filter).filter(p=>prep.poolIds.includes(p.id));
+  if(currentPool.length<prep.count)return res.status(400).json({ok:false,error:'추첨 대상이 변경되어 다시 준비해야 합니다.'});
+  const product=state.rouletteProducts.find(x=>str(x.number)===str(prep.productNo))||{number:prep.productNo,name:prep.productName};
+  const winners=cryptoPickUnique(currentPool,prep.count);
+  const drawId=uuid('draw'),drawnAt=nowIso();
+  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'시네마틱 랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false,filter:prep.filter}));
+  state.rouletteHistory.push(...records);
+  adminAudit('행운권추첨',{id:drawId,name:product.name},null,{winnerIds:winners.map(p=>p.id),count:records.length,filter:prep.filter},`대상 ${currentPool.length}명`);
+  rafflePreparations.delete(token);
+  saveState();
+  res.json({ok:true,drawId,product,winners:records,poolSize:currentPool.length});
+});
+app.post('/api/raffle/draw',auth,(req,res)=>{
+  const filter=str(req.body?.filter||'all'),productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1)));
+  const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
+  const pool=eligibleRafflePool(filter);
+  if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
+  const winners=cryptoPickUnique(pool,count),drawId=uuid('draw'),drawnAt=nowIso();
+  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false,filter}));
   state.rouletteHistory.push(...records);saveState();res.json({ok:true,drawId,product,winners:records,poolSize:pool.length});
 });
-app.get('/api/raffle/history',auth,(req,res)=>res.json({ok:true,rows:[...state.rouletteHistory].reverse().slice(0,300)}));
+app.get('/api/raffle/history',auth,(req,res)=>res.json({ok:true,rows:[...state.rouletteHistory].reverse().slice(0,500)}));
 app.post('/api/raffle/redeem',auth,(req,res)=>{
   const r=state.rouletteHistory.find(x=>x.drawId===str(req.body?.drawId)&&x.participantId===str(req.body?.participantId));
   if(!r)return res.status(404).json({ok:false,error:'당첨 기록을 찾을 수 없습니다.'});
-  r.received=true;r.receivedAt=nowIso();saveState();res.json({ok:true,record:r});
+  r.received=true;r.receivedAt=nowIso();adminAudit('경품수령',r,null,{received:true});saveState();res.json({ok:true,record:r});
 });
-
+app.post('/api/raffle/cancel',auth,(req,res)=>{
+  const drawId=str(req.body?.drawId),participantId=str(req.body?.participantId);
+  const r=state.rouletteHistory.find(x=>x.drawId===drawId&&x.participantId===participantId);
+  if(!r)return res.status(404).json({ok:false,error:'당첨 기록을 찾을 수 없습니다.'});
+  r.enabled=false;r.canceledAt=nowIso();adminAudit('당첨취소',r,{enabled:true},{enabled:false});saveState();res.json({ok:true});
+});
 
 app.get('/api/sms/status',auth,(req,res)=>res.json({
   ok:true,
@@ -835,4 +922,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.6.0 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.7.0 · :${PORT}`));
