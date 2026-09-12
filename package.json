@@ -1,0 +1,16 @@
+{
+  "name": "nyjwel20th-admin-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Namyangju Welfare Center 20th anniversary field admin starter",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

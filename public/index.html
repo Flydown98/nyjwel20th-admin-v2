@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>20주년 현장 관리자 v2</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="loginOverlay" class="overlay">
+    <form id="loginForm" class="card login-card">
+      <div class="mark">20</div>
+      <p class="eyebrow">NYJWEL FIELD ADMIN</p>
+      <h1>20주년 현장 관리자 v2</h1>
+      <p class="muted">Cloudtype + Node.js 기본 연결 테스트</p>
+      <label>관리자 비밀번호
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="primary">로그인</button>
+      <p id="loginMessage" class="error"></p>
+    </form>
+  </div>
+
+  <header>
+    <div>
+      <p class="eyebrow">남양주시장애인복지관</p>
+      <h1>20주년 현장 관리자 v2</h1>
+    </div>
+    <div class="header-actions">
+      <span id="statusBadge" class="badge">확인 중</span>
+      <button id="logoutBtn" class="ghost">로그아웃</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="grid">
+      <article class="card stat"><span>서버 상태</span><strong id="serverState">-</strong></article>
+      <article class="card stat"><span>참가자</span><strong id="participants">0</strong></article>
+      <article class="card stat"><span>체크인</span><strong id="checkins">0</strong></article>
+      <article class="card stat"><span>문자 대기</span><strong id="smsPending">0</strong></article>
+    </section>
+
+    <section class="card">
+      <h2>1단계 서버 테스트</h2>
+      <p class="muted">여기까지 정상 작동하면 다음 단계에서 참가자·QR·좌석·기념품·행운권 기능을 붙입니다.</p>
+      <div class="actions">
+        <button id="refreshBtn" class="primary">서버 새로고침</button>
+        <button id="writeBtn">테스트 저장</button>
+        <button id="backupBtn">지금 백업 만들기</button>
+        <button id="downloadBtn">백업 다운로드</button>
+      </div>
+      <pre id="output">대기 중...</pre>
+    </section>
+
+    <section class="card">
+      <h2>현재 버전에서 확인할 것</h2>
+      <ul>
+        <li>Cloudtype 주소로 페이지가 열린다.</li>
+        <li>환경변수 ADMIN_PASSWORD로 로그인된다.</li>
+        <li>서버 상태가 정상으로 나온다.</li>
+        <li>테스트 저장 후 새로고침해도 서버가 살아 있다.</li>
+        <li>백업 JSON 다운로드가 된다.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
