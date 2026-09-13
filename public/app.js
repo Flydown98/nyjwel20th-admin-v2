@@ -1,5 +1,14 @@
 'use strict';
-const FRONTEND_VERSION='0.9.2';
+const FRONTEND_VERSION='0.9.3';
+
+function displaySeat(code){
+  const raw=String(code||'').toUpperCase();
+  const m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);
+  if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;
+  const n=raw.match(/^([A-Y])(\d{1,2})$/);
+  return n?`${n[1]}${Number(n[2])}`:raw;
+}
+
 const STATION_KEY='nyj20_station_name';
 
 window.addEventListener('error',e=>{
@@ -30,7 +39,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.2';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.3';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -103,15 +112,14 @@ async function loadParticipants(){
     const d=await api(`/api/participants?q=${encodeURIComponent(q)}&status=${st}`);
     $('#participantCount').textContent=`${d.total}명`;
     $('#participantRows').innerHTML=d.rows.map(p=>`<tr>
-      <td>${p.receptionNo}</td>
-      <td><strong>${esc(p.name)}</strong><small>${esc(p.id)}</small></td>
-      <td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td>
-      <td>${esc(p.seat||'미배정')}</td>
-      <td>${p.wheelchairUser?'♿ ':''}${p.disabledPerson?'장애인당사자 ':''}${p.usesCenter?'복지관이용 ':''}${p.onsite?'현장접수':''}</td>
-      <td>${p.arrived?'<b class="yes">도착</b>':(p.participationStatus==='미참여'||p.active===false?'<span class="no">미참여</span>':'미도착')}</td>
-      <td><button data-sms-history="${esc(p.id)}">문자확인</button></td>
-      <td><button data-edit="${esc(p.id)}">수정</button> <button data-check="${esc(p.id)}">접수</button>${p.arrived?` <button data-undo="${esc(p.id)}">접수취소</button>`:''}</td>
-    </tr>`).join('')||'<tr><td colspan="8">없음</td></tr>';
+      <td class="p-no">${p.receptionNo}</td>
+      <td class="p-name"><strong>${esc(p.name)}</strong><small>${p.wheelchairUser?'♿ ':''}${p.usesCenter?'복지관 이용':''}</small></td>
+      <td class="p-org">${esc(p.organization||'-')}</td>
+      <td class="p-phone">${esc(p.phone||'-')}</td>
+      <td class="p-seat"><strong>${esc(displaySeat(p.seat)||'미배정')}</strong></td>
+      <td class="p-status">${p.arrived?'<b class="yes">도착</b>':(p.participationStatus==='미참여'||p.active===false?'<span class="no">미참여</span>':'미도착')}</td>
+      <td class="p-actions"><button data-edit="${esc(p.id)}">수정</button><button data-check="${esc(p.id)}">접수</button>${p.arrived?`<button data-undo="${esc(p.id)}">취소</button>`:''}<button data-sms-history="${esc(p.id)}">문자</button></td>
+    </tr>`).join('')||'<tr><td colspan="7">없음</td></tr>';
   }catch(e){toast(e.message)}
 }
 async function openParticipantEdit(id){
@@ -123,7 +131,7 @@ async function openParticipantEdit(id){
         <label>연락처<input name="phone" value="${esc(p.phone||'')}"></label>
         <label>소속기관<input name="organization" value="${esc(p.organization||'')}"></label>
         <label>참여상태<select name="participationStatus"><option ${p.participationStatus==='참여'?'selected':''}>참여</option><option ${p.participationStatus==='미참여'?'selected':''}>미참여</option><option ${p.participationStatus==='취소'?'selected':''}>취소</option><option ${p.participationStatus==='비활성'?'selected':''}>비활성</option></select></label>
-        <label>좌석<input value="${esc(p.seat||'미배정')}" disabled></label>
+        <label>좌석<input value="${esc(displaySeat(p.seat)||'미배정')}" disabled></label>
         <label>도착상태<select name="arrived"><option value="true" ${p.arrived?'selected':''}>도착</option><option value="false" ${!p.arrived?'selected':''}>미도착</option></select></label>
         <label class="check"><input type="checkbox" name="wheelchairUser" ${p.wheelchairUser?'checked':''}> 휠체어 이용</label>
         <label class="check"><input type="checkbox" name="disabledPerson" ${p.disabledPerson?'checked':''}> 장애인 당사자</label>
@@ -221,7 +229,7 @@ async function openGroupEditor(groupId=''){
   const selected=new Set(group?.memberIds||[]);
   const searchAndRender=async()=>{
     const q=$('#groupMemberSearch').value.trim(),d=await api(`/api/participants/search?q=${encodeURIComponent(q)}`);
-    $('#groupMemberList').innerHTML=d.rows.map(p=>`<label class="participant-pick"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${esc(p.phone||'')} · ${esc(p.seat||'미배정')}</small></span></label>`).join('');
+    $('#groupMemberList').innerHTML=d.rows.map(p=>`<label class="participant-pick"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${esc(p.phone||'')} · ${esc(displaySeat(p.seat)||'미배정')}</small></span></label>`).join('');
     $('#groupMemberList').querySelectorAll('input').forEach(ch=>ch.onchange=()=>{ch.checked?selected.add(ch.value):selected.delete(ch.value);renderRep()});
   };
   const renderRep=()=>{
@@ -311,27 +319,34 @@ function seatZoneClass(s){
   if(['A','B','C'].includes(row)){if(side==='L')return n<=5?'wheelchair':'vip';return n<=5?'vip':'wheelchair'}
   if(['D','E','F'].includes(row))return 'guest';return '';
 }
-function seatCellHtml(s){
-  if(!s)return '<div class="seat-cell disabled"><strong>-</strong><span class="seat-name">미사용</span></div>';
+function seatCellHtml(s,displayNo){
+  if(!s)return '<div class="seat-cell disabled"><strong>-</strong></div>';
   const z=seatZoneClass(s),cls=['seat-cell',z,!s.enabled?'disabled':'',s.arrived?'arrived':(s.occupied?'assigned':'')].filter(Boolean).join(' ');
-  const name=s.participant?.name||(s.occupied?'배정':'빈좌석');
-  return `<div class="${cls}" data-seat="${esc(s.code)}" title="${esc(s.participant?.name||s.note||'')}"><strong>${esc(s.code)}</strong><span class="seat-name">${esc(name)}</span></div>`;
+  const name=s.participant?.name||'';
+  return `<div class="${cls}" data-seat="${esc(s.code)}" title="${esc(displaySeat(s.code))}${name?' · '+esc(name):''}">
+    <strong>${displayNo}</strong>${name?`<span class="seat-name">${esc(name)}</span>`:''}
+  </div>`;
 }
 async function loadSeats(){
   try{
     const d=await api('/api/seats');seatCache=d.rows;
     $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석`;
     const byCode=new Map(d.rows.map(s=>[String(s.code).toUpperCase(),s])),rows='ABCDEFGHIJKLMNOPQRSTUVWXY'.split('');
-    $('#seatGrid').innerHTML=rows.map(row=>{
-      const left=Array.from({length:10},(_,i)=>seatCellHtml(byCode.get(`${row}L-${String(i+1).padStart(2,'0')}`))).join('');
-      const right=Array.from({length:10},(_,i)=>seatCellHtml(byCode.get(`${row}R-${String(i+1).padStart(2,'0')}`))).join('');
-      return `<div class="seat-row"><div class="seat-row-label">${row}</div><div class="seat-side">${left}</div><div class="runway">RUNWAY</div><div class="seat-side">${right}</div></div>`;
+
+    const header=`<div class="seat-number-header"><span></span>${Array.from({length:20},(_,i)=>`<b class="${i===10?'after-aisle':''}">${i+1}</b>`).join('')}</div>`;
+    $('#seatGrid').innerHTML=header+rows.map(row=>{
+      const seats=Array.from({length:20},(_,i)=>{
+        const n=i+1;
+        const raw=n<=10?`${row}L-${String(n).padStart(2,'0')}`:`${row}R-${String(n-10).padStart(2,'0')}`;
+        return seatCellHtml(byCode.get(raw),n);
+      }).join('');
+      return `<div class="seat-row compact-row"><div class="seat-row-label">${row}</div><div class="seat-twenty">${seats}</div></div>`;
     }).join('');
   }catch(e){toast(e.message)}
 }
 async function openSeatManager(code){
   const s=seatCache.find(x=>x.code===code);if(!s)return;
-  modal(`<p class="eyebrow">SEAT MANAGER</p><h2>${esc(code)}</h2>
+  modal(`<p class="eyebrow">SEAT MANAGER</p><h2>${esc(displaySeat(code))}</h2>
     <div class="notice">${s.participant?`현재 배정: <strong>${esc(s.participant.name)}</strong> · ${s.arrived?'도착완료':'미도착'}`:'현재 빈좌석입니다.'}</div>
     <label>참가자 검색<input id="seatParticipantSearch" placeholder="이름 / 기관 / 연락처 / QR"></label>
     <div id="seatParticipantList" class="participant-pick-list"></div>
@@ -339,7 +354,7 @@ async function openSeatManager(code){
   $('#closeSeatManager').onclick=closeModal;
   const render=async()=>{
     const d=await api(`/api/participants/search?q=${encodeURIComponent($('#seatParticipantSearch').value.trim())}`);
-    $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(p.seat||'미배정')}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
+    $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(displaySeat(p.seat)||'미배정')}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
   };
   $('#seatParticipantSearch').oninput=()=>{clearTimeout(render.tm);render.tm=setTimeout(render,200)};await render();
   $('#seatParticipantList').onclick=async e=>{
@@ -347,7 +362,7 @@ async function openSeatManager(code){
     const p=(await api(`/api/participant/${encodeURIComponent(b.dataset.seatassign)}`)).participant;
     let mode='swap';
     if(s.participant&&s.participant.id!==p.id){
-      mode=confirm(`${code}에는 ${s.participant.name}님이 있습니다.\n${p.name}님의 기존 좌석과 교환할까요?\n\n확인=교환 / 취소=기존 참가자를 미배정으로 하고 지정`) ? 'swap':'replace';
+      mode=confirm(`${displaySeat(code)}에는 ${s.participant.name}님이 있습니다.\n${p.name}님의 기존 좌석과 교환할까요?\n\n확인=교환 / 취소=기존 참가자를 미배정으로 하고 지정`) ? 'swap':'replace';
     }
     try{await api(`/api/seats/${encodeURIComponent(code)}/assign`,{method:'POST',body:JSON.stringify({participantId:p.id,mode})});toast('좌석을 지정했습니다.');closeModal();loadSeats();refreshDashboard()}catch(x){toast(x.message,6000)}
   };
@@ -813,7 +828,7 @@ function renderXlsxPreview(d){
   if(s.duplicateQr)warnings.push(`중복 QR ${s.duplicateQr}건`);
   if(s.blankPhones)warnings.push(`연락처 공란 ${s.blankPhones}명`);
   $('#xlsxPreviewWarnings').innerHTML=warnings.length?`<div class="warning"><strong>확인 필요</strong><br>${warnings.map(esc).join(' · ')}</div>`:'<div class="successbox">기본 형식 검사에서 큰 문제를 찾지 못했습니다.</div>';
-  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(p.seat||'미배정')}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
+  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(displaySeat(p.seat)||'미배정')}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
   $('#xlsxPreviewSeats').innerHTML=d.sampleSeats.map(s=>`<tr><td>${esc(s.code)}</td><td>${esc(s.zone||'-')}</td><td>${s.autoAssignable?'예':'아니오'}</td><td>${s.wheelchairAssignable?'예':'아니오'}</td><td>${s.enabled?'예':'아니오'}</td></tr>`).join('');
 }
 $('#xlsxPreviewBtn')?.addEventListener('click',async()=>{

@@ -27,7 +27,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.2';
+const FRONTEND_VERSION = '0.9.3';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.2',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.3',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.2'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.3'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -242,6 +242,22 @@ function occupiedSeatSet(excludeIds=[]){
   return new Set(state.participants.filter(p=>participantActive(p)&&p.seat&&!ex.has(p.id)).map(p=>str(p.seat).toUpperCase()));
 }
 function seatByCode(code){return state.seats.find(s=>str(s.code).toUpperCase()===str(code).toUpperCase())}
+
+function displaySeatCode(code){
+  const raw=str(code).toUpperCase();
+  if(!raw)return '';
+  // 기존 내부코드 GL-01 / GR-01은 데이터 호환을 위해 유지하고,
+  // 화면·문자에는 G1 ~ G20 형식으로 표시한다.
+  const m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);
+  if(m){
+    const row=m[1],n=num(m[3]);
+    return `${row}${m[2]==='L'?n:n+10}`;
+  }
+  const n=raw.match(/^([A-Y])(\d{1,2})$/);
+  if(n)return `${n[1]}${num(n[2])}`;
+  return raw;
+}
+
 function assignableSeats(wheelchair=false, excludeIds=[]){
   const occ=occupiedSeatSet(excludeIds);
   return state.seats.filter(s=>{
@@ -447,16 +463,31 @@ function queueSms(phone,message,kind='checkin',participantId=''){
 }
 
 function seatGuideKeyForParticipant(p){
-  const ref=`p:${num(p?.receptionNo,0)}`;
-  const sig=crypto.createHmac('sha256',ADMIN_PASSWORD).update(`seat-guide:${ref}`).digest('hex').slice(0,12);
-  return `${ref}.${sig}`;
+  const receptionNo=Math.max(0,num(p?.receptionNo,0));
+  const ref=receptionNo.toString(36);
+  const sig=crypto.createHmac('sha256',ADMIN_PASSWORD).update(`seat-guide-short:${ref}`).digest('hex').slice(0,6);
+  return `${ref}-${sig}`;
 }
 function seatGuideUrl(p){
   if(!p)return '';
-  return `${PUBLIC_BASE_URL}/s/${encodeURIComponent(seatGuideKeyForParticipant(p))}`;
+  return `${PUBLIC_BASE_URL}/s/${seatGuideKeyForParticipant(p)}`;
 }
 function verifySeatGuideKey(key){
-  const m=str(key).match(/^(p:\d+)\.([a-f0-9]{12})$/i);
+  const raw=str(key).toLowerCase();
+
+  // v0.9.3 단축키: /s/<접수번호base36>-<서명6자리>
+  let m=raw.match(/^([0-9a-z]+)-([a-f0-9]{6})$/i);
+  if(m){
+    const expected=crypto.createHmac('sha256',ADMIN_PASSWORD).update(`seat-guide-short:${m[1]}`).digest('hex').slice(0,6);
+    const a=Buffer.from(expected),b=Buffer.from(m[2]);
+    if(a.length===b.length&&crypto.timingSafeEqual(a,b)){
+      const receptionNo=parseInt(m[1],36);
+      return state.participants.find(p=>num(p.receptionNo,0)===receptionNo)||null;
+    }
+  }
+
+  // 이미 발송된 v0.8.5~0.9.2 링크도 계속 열리도록 호환
+  m=str(key).match(/^(p:\d+)\.([a-f0-9]{12})$/i);
   if(!m)return null;
   const expected=crypto.createHmac('sha256',ADMIN_PASSWORD).update(`seat-guide:${m[1]}`).digest('hex').slice(0,12);
   const a=Buffer.from(expected),b=Buffer.from(m[2].toLowerCase());
@@ -465,7 +496,7 @@ function verifySeatGuideKey(key){
   return state.participants.find(p=>num(p.receptionNo,0)===receptionNo)||null;
 }
 function checkinMessage(p,extra=''){
-  const seat=p.seat||'스탠딩/현장안내';
+  const seat=p.seat?displaySeatCode(p.seat):'스탠딩/현장안내';
   const guide=seatGuideUrl(p);
   return `[남양주시장애인복지관]\n${p.name}님 현장 접수가 완료되었습니다.\n좌석: ${seat}\n좌석배치도: ${guide}\n기념품: 지급완료${extra?`\n${extra}`:''}\n개관 20주년 기념행사에 함께해 주셔서 감사합니다.`;
 }
@@ -667,7 +698,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.2',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.3',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -676,7 +707,7 @@ app.get('/api/public/seat-guide',(req,res)=>{
   const p=verifySeatGuideKey(req.query.k);
   if(!p)return res.status(404).json({ok:false,error:'유효하지 않거나 만료된 좌석 안내 링크입니다.'});
   res.setHeader('Cache-Control','no-store');
-  res.json({ok:true,name:str(p.name),seat:str(p.seat),arrived:Boolean(p.arrived),eventName:state.settings.eventName||'남양주시장애인복지관 개관 20주년 기념행사'});
+  res.json({ok:true,name:str(p.name),seat:displaySeatCode(p.seat),rawSeat:str(p.seat),arrived:Boolean(p.arrived),eventName:state.settings.eventName||'남양주시장애인복지관 개관 20주년 기념행사'});
 });
 
 
@@ -755,7 +786,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.2',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.3',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -924,7 +955,7 @@ app.post('/api/checkin/group',auth,(req,res)=>{
     || members.find(p=>p.phone);
   let sms=null;
   if(smsTarget?.phone&&state.settings.checkinSmsEnabled!==false){
-    const seats=selected.map(p=>p.seat).filter(Boolean);
+    const seats=selected.map(p=>displaySeatCode(p.seat)).filter(Boolean);
     const extraText=extras?`추가 ${extras}명은 좌석 미배정(스탠딩 안내)입니다.`:'';
     sms=queueAndSendSms(smsTarget.phone,`[남양주시장애인복지관]\n${displayName} 현장 접수가 완료되었습니다.\n이번 접수 ${actual}명 / 좌석 ${checkCount}석\n${seats.length?'좌석: '+seats.join(', ')+'\n':''}${extraText}${extraText?'\n':''}좌석배치도: ${seatGuideUrl(smsTarget)}\n기념품: ${actual}명 지급완료\n감사합니다.`,'group-checkin',smsTarget.id);
   }
@@ -1353,7 +1384,7 @@ app.post('/api/raffle/commit',auth,(req,res)=>{
   if(remaining<prep.count)return res.status(400).json({ok:false,error:`상품 남은 수량이 ${remaining}개입니다.`});
   const winners=cryptoPickUnique(currentPool,prep.count);
   const drawId=uuid('draw'),drawnAt=nowIso();
-  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'777 스톱 랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false,filter:prep.filter}));
+  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'777 스톱 랜덤',participantId:p.id,participantName:p.name,seat:displaySeatCode(p.seat),rank:i+1,enabled:true,received:false,filter:prep.filter}));
   state.rouletteHistory.push(...records);
   adminAudit('행운권추첨',{id:drawId,name:product.name},null,{winnerIds:winners.map(p=>p.id),count:records.length,filter:prep.filter},`대상 ${currentPool.length}명`);
   rafflePreparations.delete(token);
@@ -1369,7 +1400,7 @@ app.post('/api/raffle/draw',auth,(req,res)=>{
   const pool=eligibleRafflePool(filter);
   if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
   const winners=cryptoPickUnique(pool,count),drawId=uuid('draw'),drawnAt=nowIso();
-  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false,filter}));
+  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'랜덤',participantId:p.id,participantName:p.name,seat:displaySeatCode(p.seat),rank:i+1,enabled:true,received:false,filter}));
   state.rouletteHistory.push(...records);saveState();res.json({ok:true,drawId,product,winners:records,poolSize:pool.length});
 });
 app.get('/api/raffle/history',auth,(req,res)=>res.json({ok:true,rows:[...state.rouletteHistory].reverse().slice(0,500)}));

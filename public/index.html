@@ -57,7 +57,7 @@
 <article class="card">
   <div class="card-head"><div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 관리</h2><p id="participantCount" class="muted"></p></div><button type="button" id="reloadParticipants" class="primary">갱신</button></div>
   <div class="filters"><input id="participantSearch" placeholder="이름 · 연락처 · 기관 · QR · 좌석 · 그룹"><select id="participantStatus"><option value="all">전체</option><option value="pending">미도착</option><option value="arrived">도착</option><option value="inactive">미참여/비활성</option></select></div>
-  <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>정보</th><th>상태</th><th>문자</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>기관</th><th>연락처</th><th>좌석</th><th>상태</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div>
 </article>
 </section>
 
@@ -86,11 +86,11 @@
 <section id="view-seats" class="view">
 <article class="card">
   <div class="card-head">
-    <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p></div>
+    <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p><p class="seat-format-note">표시 형식: A1 ~ Y20 · 10번과 11번 사이가 중앙 통로</p></div>
     <div class="actions"><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="finalAutoAssign" class="primary">최종 자동배치</button><button type="button" id="resetGeneralSeats">G~Y 일반좌석 초기화</button><button type="button" id="autoAssignAll">미배정자 간단배치</button><button type="button" id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button type="button" id="reloadSeats">갱신</button></div>
   </div>
   <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 주요 귀빈/내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
-  <p class="muted">좌석을 클릭하면 참가자 직접지정·교환·해제가 가능합니다.</p>
+  <p class="muted">좌석은 왼쪽부터 1~20번으로 표시합니다. 예: G열 왼쪽 첫 좌석은 G1, 오른쪽 끝은 G20. 좌석을 클릭하면 직접지정·교환·해제가 가능합니다.</p>
   <div class="seat-map-wrap"><div id="seatGrid" class="seat-map"></div></div>
 </article>
 </section>

@@ -39,3 +39,19 @@ h1{margin:7px 0 5px;font-size:27px;letter-spacing:-.04em}
 }
 
 .pub-seat.gap{background:transparent;border-color:transparent;box-shadow:none}.empty-side{min-height:8px}
+
+/* v0.9.3 · 휴대폰 한눈 좌석표 */
+.seat-map-public{gap:2px}
+.public-number-header{display:grid;grid-template-columns:13px repeat(20,minmax(0,1fr));gap:1px;align-items:end;margin-bottom:3px}
+.public-number-header b{font-size:6px;color:#fff;text-align:center;opacity:.92}
+.public-number-header b.aisle-start{margin-left:4px}
+.seat-row-public.twenty{display:grid;grid-template-columns:13px 1fr;gap:1px;min-height:7px}
+.public-twenty{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:1px}
+.public-twenty .pub-seat{aspect-ratio:1/1;border-radius:1px;min-width:0}
+.public-twenty .pub-seat.aisle-start{margin-left:4px}
+.seat-row-public.twenty .row-label{font-size:6px}
+@media(max-width:390px){
+  .cinema{padding-left:5px;padding-right:5px}
+  .public-number-header{grid-template-columns:11px repeat(20,minmax(0,1fr))}
+  .seat-row-public.twenty{grid-template-columns:11px 1fr}
+}

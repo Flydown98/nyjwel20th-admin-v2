@@ -392,3 +392,44 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 
 .group-subhead{margin:18px 0 8px;padding-top:14px;border-top:1px solid #e5dceb;color:#5e338c}
 .management-card .group-badge.override{background:#fff3cd;color:#7a4b00}
+
+/* v0.9.3 · 1~20 좌석번호 / 현장용 초압축 좌석표 */
+.seat-format-note{margin:3px 0 0;font-size:11px;color:#64748b}
+.seat-map-wrap{overflow:auto;padding:4px 0 8px}
+.seat-map{min-width:760px!important;gap:3px!important}
+.seat-number-header{display:grid;grid-template-columns:30px repeat(20,minmax(24px,1fr));gap:2px;align-items:end;position:sticky;top:0;z-index:3;background:#fff;padding:3px 0 5px;border-bottom:1px solid #e2e8f0}
+.seat-number-header b{text-align:center;font-size:10px;color:#475569}
+.seat-number-header b.after-aisle{margin-left:8px}
+.seat-row.compact-row{display:grid!important;grid-template-columns:30px 1fr!important;gap:3px!important;align-items:center}
+.seat-row.compact-row .seat-row-label{font-size:12px!important}
+.seat-twenty{display:grid;grid-template-columns:repeat(20,minmax(24px,1fr));gap:2px}
+.seat-twenty .seat-cell:nth-child(11){margin-left:8px}
+.seat-cell{min-height:28px!important;height:28px!important;padding:2px!important;border-radius:4px!important;font-size:8px!important;line-height:1!important;overflow:hidden}
+.seat-cell strong{font-size:9px!important}
+.seat-cell .seat-name{font-size:7px!important;margin-top:1px!important;line-height:1!important}
+#participantRows td{padding:7px 6px!important;vertical-align:middle}
+#participantRows .p-no{width:48px;text-align:center;color:#64748b}
+#participantRows .p-name{min-width:90px}
+#participantRows .p-name small{display:block;font-size:10px;color:#64748b;margin-top:2px}
+#participantRows .p-org{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#participantRows .p-phone{white-space:nowrap}
+#participantRows .p-seat{width:58px;white-space:nowrap}
+#participantRows .p-status{width:54px;white-space:nowrap}
+#participantRows .p-actions{white-space:nowrap}
+#participantRows .p-actions button{padding:5px 7px;margin:1px;font-size:10px}
+@media(max-width:720px){
+  .seat-map-wrap{margin-left:-8px;margin-right:-8px}
+  .seat-map{min-width:0!important;width:100%!important}
+  .seat-number-header{grid-template-columns:18px repeat(20,minmax(0,1fr));gap:1px}
+  .seat-number-header b{font-size:7px}
+  .seat-number-header b.after-aisle{margin-left:4px}
+  .seat-row.compact-row{grid-template-columns:18px 1fr!important;gap:1px!important}
+  .seat-row.compact-row .seat-row-label{font-size:9px!important}
+  .seat-twenty{grid-template-columns:repeat(20,minmax(0,1fr));gap:1px}
+  .seat-twenty .seat-cell:nth-child(11){margin-left:4px}
+  .seat-cell{min-height:15px!important;height:15px!important;border-radius:2px!important;padding:0!important;border-width:1px!important}
+  .seat-cell strong{font-size:6px!important}
+  .seat-cell .seat-name{display:none!important}
+  #view-participants .table-wrap{overflow-x:auto}
+  #view-participants table{min-width:660px;font-size:11px}
+}
