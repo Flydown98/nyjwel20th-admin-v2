@@ -45,7 +45,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.8.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.8.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -72,7 +72,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.8.0'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.8.1'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -551,7 +551,7 @@ app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.8.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.8.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1028,7 +1028,8 @@ app.get('/api/logs',auth,(req,res)=>{
 
 
 const rafflePreparations=new Map();
-function eligibleRafflePool(filter='all'){
+
+function eligibleRafflePool(filter='usesCenter'){
   const wonIds=new Set(state.rouletteHistory.filter(x=>x.enabled!==false).map(x=>x.participantId));
   let pool=state.participants.filter(p=>p.arrived&&participantActive(p)&&!wonIds.has(p.id));
   if(filter==='usesCenter')pool=pool.filter(p=>p.usesCenter);
@@ -1044,37 +1045,54 @@ function cryptoPickUnique(pool,count){
   }
   return out;
 }
-app.get('/api/raffle/products',auth,(req,res)=>res.json({ok:true,rows:state.rouletteProducts}));
+function productDrawnCount(productNo){
+  return state.rouletteHistory.filter(x=>x.enabled!==false&&str(x.prizeNo)===str(productNo)).length;
+}
+function productRemaining(product){
+  const qty=Math.max(0,num(product?.quantity,0));
+  if(!Number.isFinite(qty)||qty<=0)return 999999;
+  return Math.max(0,qty-productDrawnCount(product.number));
+}
+app.get('/api/raffle/products',auth,(req,res)=>{
+  const rows=state.rouletteProducts.map(x=>({...x,drawn:productDrawnCount(x.number),remaining:productRemaining(x)}));
+  res.json({ok:true,rows});
+});
 app.post('/api/raffle/prepare',auth,(req,res)=>{
-  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'all');
+  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
   if(!product.enabled)return res.status(400).json({ok:false,error:'사용 중지된 상품입니다.'});
+  const remaining=productRemaining(product);
+  if(remaining<count)return res.status(400).json({ok:false,error:`${product.name} 남은 수량이 ${remaining}개입니다.`});
   const pool=eligibleRafflePool(filter);
   if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
   const token=uuid('raffle');
-  const sample=cryptoPickUnique(pool,Math.min(40,pool.length)).map(p=>({id:p.id,name:p.name,seat:p.seat,organization:p.organization}));
+  const sample=cryptoPickUnique(pool,Math.min(70,pool.length)).map(p=>({id:p.id,name:p.name,seat:p.seat,organization:p.organization}));
   rafflePreparations.set(token,{createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id)});
   setTimeout(()=>rafflePreparations.delete(token),10*60*1000).unref?.();
-  res.json({ok:true,token,product,count,filter,poolSize:pool.length,sample});
+  res.json({ok:true,token,product:{...product,remaining},count,filter,poolSize:pool.length,sample});
 });
 app.post('/api/raffle/commit',auth,(req,res)=>{
   const token=str(req.body?.token),prep=rafflePreparations.get(token);
   if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다. 다시 시작해 주세요.'});
   const currentPool=eligibleRafflePool(prep.filter).filter(p=>prep.poolIds.includes(p.id));
   if(currentPool.length<prep.count)return res.status(400).json({ok:false,error:'추첨 대상이 변경되어 다시 준비해야 합니다.'});
-  const product=state.rouletteProducts.find(x=>str(x.number)===str(prep.productNo))||{number:prep.productNo,name:prep.productName};
+  const product=state.rouletteProducts.find(x=>str(x.number)===str(prep.productNo))||{number:prep.productNo,name:prep.productName,quantity:999};
+  const remaining=productRemaining(product);
+  if(remaining<prep.count)return res.status(400).json({ok:false,error:`상품 남은 수량이 ${remaining}개입니다.`});
   const winners=cryptoPickUnique(currentPool,prep.count);
   const drawId=uuid('draw'),drawnAt=nowIso();
-  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'시네마틱 랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false,filter:prep.filter}));
+  const records=winners.map((p,i)=>({drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'777 스톱 랜덤',participantId:p.id,participantName:p.name,seat:p.seat,rank:i+1,enabled:true,received:false,filter:prep.filter}));
   state.rouletteHistory.push(...records);
   adminAudit('행운권추첨',{id:drawId,name:product.name},null,{winnerIds:winners.map(p=>p.id),count:records.length,filter:prep.filter},`대상 ${currentPool.length}명`);
   rafflePreparations.delete(token);
   saveState();
-  res.json({ok:true,drawId,product,winners:records,poolSize:currentPool.length});
+  res.json({ok:true,drawId,product:{...product,remaining:productRemaining(product)},winners:records,poolSize:currentPool.length});
 });
 app.post('/api/raffle/draw',auth,(req,res)=>{
-  const filter=str(req.body?.filter||'all'),productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1)));
+  const filter=str(req.body?.filter||'usesCenter'),productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1)));
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
+  const remaining=productRemaining(product);
+  if(remaining<count)return res.status(400).json({ok:false,error:`${product.name} 남은 수량이 ${remaining}개입니다.`});
   const pool=eligibleRafflePool(filter);
   if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
   const winners=cryptoPickUnique(pool,count),drawId=uuid('draw'),drawnAt=nowIso();

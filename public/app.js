@@ -309,10 +309,12 @@ $('#finalAutoAssign')?.addEventListener('click',async()=>{
 
 
 
+async 
 async function loadRaffle(){
   try{
     const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
-    $('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';
+    $('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · 남음 ${Number.isFinite(Number(x.remaining))?x.remaining:x.quantity}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';
+    $('#raffleFilter').value='usesCenter';
     renderRaffleHistory(h.rows);
   }catch(e){toast(e.message)}
 }
@@ -324,70 +326,126 @@ function renderRaffleHistory(rows){
   </div>`).join('')||'<p class="muted">아직 당첨 기록이 없습니다.</p>';
 }
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-async function runCinematicRaffle(prep){
-  const stage=$('#raffleStage'),name=$('#raffleStageName'),label=$('#raffleStageLabel'),sub=$('#raffleStageSub'),close=$('#raffleStageClose');
-  stage.classList.remove('hidden','reveal');close.classList.add('hidden');label.textContent=prep.product.name;sub.textContent=`추첨 대상 ${prep.poolSize}명`;
-  const samples=prep.sample.length?prep.sample:[{name:'행운의 주인공'}];
-  for(const n of ['3','2','1']){name.textContent=n;await sleep(650)}
-  let delay=55;
-  for(let i=0;i<38;i++){
-    const p=samples[Math.floor(Math.random()*samples.length)];
-    name.textContent=p.name;
-    sub.textContent=p.organization||p.seat||`추첨 대상 ${prep.poolSize}명`;
-    await sleep(delay);
-    if(i>24)delay+=18;
+let raffleRun=null;
+let raffleAudioCtx=null;
+function raffleAudio(){
+  try{
+    if(!raffleAudioCtx)raffleAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(raffleAudioCtx.state==='suspended')raffleAudioCtx.resume();
+    return raffleAudioCtx;
+  }catch(_){return null}
+}
+function tone(freq=880,duration=.05,volume=.045,type='square',delay=0){
+  const ctx=raffleAudio();if(!ctx)return;
+  const t=ctx.currentTime+delay,o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.0001,t+duration);
+  o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+duration);
+}
+function spinTone(){tone(1180,.028,.018,'square')}
+function stopTick(i){tone([1040,880,720,560][Math.min(i,3)],.07,.055,'square')}
+function fanfare(){
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,.22,.06,'triangle',i*.11));
+  tone(1318.5,.45,.07,'triangle',.48);
+}
+function raffleName(p){return `${p.name}${p.seat?` (${p.seat})`:''}`}
+function showRaffleStage(prep){
+  let stage=$('#raffleStage');
+  if(!stage){
+    stage=document.createElement('div');stage.id='raffleStage';stage.className='hidden';
+    stage.innerHTML=`<div class="raffle-stage-inner">
+      <div id="raffleStageLabel"></div>
+      <div class="slot-window"><div id="raffleStageName">READY</div></div>
+      <div id="raffleStageSub"></div>
+      <div class="raffle-space-hint" id="raffleSpaceHint">SPACE 를 눌러 멈추기</div>
+      <button id="raffleStageClose" class="hidden">닫기</button>
+    </div>`;
+    document.body.appendChild(stage);
+    $('#raffleStageClose').onclick=()=>{stage.classList.add('hidden');raffleRun=null};
   }
-  name.textContent='...';sub.textContent='결과를 확정하는 중입니다';
-  const result=await api('/api/raffle/commit',{method:'POST',body:JSON.stringify({token:prep.token})});
-  stage.classList.add('reveal');
+  stage.classList.remove('hidden','reveal');
+  $('#raffleStageClose').classList.add('hidden');
+  $('#raffleStageLabel').textContent=`${prep.product.name} · 남은 상품 ${prep.product.remaining}개`;
+  $('#raffleStageSub').textContent=`복지관 이용인 추첨 대상 ${prep.poolSize}명 · SPACE로 정지`;
+  $('#raffleSpaceHint').textContent='SPACE 를 눌러 멈추기';
+  $('#raffleSpaceHint').classList.remove('hidden');
+  return stage;
+}
+async function run777Raffle(prep){
+  const stage=showRaffleStage(prep),name=$('#raffleStageName'),sub=$('#raffleStageSub'),hint=$('#raffleSpaceHint'),close=$('#raffleStageClose');
+  const samples=prep.sample.length?prep.sample:[{name:'행운의 주인공',seat:''}];
+  const run={prep,stopRequested:false,finished:false,index:0,timer:null};raffleRun=run;
+  raffleAudio();
+
+  name.classList.add('spinning');name.textContent='START!';
+  await sleep(350);
+
+  // 스페이스를 누를 때까지 빠르게 계속 회전한다.
+  while(!run.stopRequested){
+    const p=samples[run.index++%samples.length];
+    name.textContent=raffleName(p);name.classList.remove('tick');void name.offsetWidth;name.classList.add('tick');
+    spinTone();
+    await sleep(62);
+  }
+
+  hint.textContent='당첨자를 확정합니다...';
+  // 실제 당첨자는 멈춤 요청 후 서버에서 공정하게 확정.
+  const resultPromise=api('/api/raffle/commit',{method:'POST',body:JSON.stringify({token:prep.token})});
+
+  // 777 슬롯처럼 4단계 감속
+  const slow=[120,210,360,560];
+  for(let i=0;i<slow.length;i++){
+    const p=samples[run.index++%samples.length];
+    name.textContent=raffleName(p);name.classList.remove('tick');void name.offsetWidth;name.classList.add('tick');
+    stopTick(i);
+    await sleep(slow[i]);
+  }
+
+  sub.textContent='...';
+  const result=await resultPromise;
+  stage.classList.add('reveal');name.classList.remove('spinning');
   if(result.winners.length===1){
-    const w=result.winners[0];name.textContent=w.participantName;sub.textContent=`${w.seat||'좌석없음'} · ${result.product.name}`;
+    const w=result.winners[0];name.textContent=`${w.participantName}${w.seat?` (${w.seat})`:''}`;
+    sub.textContent=`🎉 ${result.product.name} 당첨!`;
   }else{
     name.textContent=`${result.winners.length}명 당첨!`;
     sub.innerHTML=result.winners.map(w=>`${esc(w.participantName)} (${esc(w.seat||'좌석없음')})`).join(' · ');
   }
-  close.classList.remove('hidden');
+  fanfare();hint.classList.add('hidden');close.classList.remove('hidden');run.finished=true;
   return result;
 }
+function requestRaffleStop(){
+  if(!raffleRun||raffleRun.finished||raffleRun.stopRequested)return;
+  raffleRun.stopRequested=true;
+  tone(1500,.09,.07,'square');
+}
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'&&raffleRun&&!raffleRun.finished){
+    e.preventDefault();requestRaffleStop();
+  }
+});
 $('#raffleForm').onsubmit=async e=>{
   e.preventDefault();
-  if(!confirm('현재 조건에 맞는 도착 완료 참가자를 대상으로 추첨을 시작할까요?'))return;
+  if(raffleRun&&!raffleRun.finished)return toast('현재 추첨이 진행 중입니다.');
   try{
     const prep=await api('/api/raffle/prepare',{method:'POST',body:JSON.stringify({
       productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value),filter:$('#raffleFilter').value
     })});
-    const result=await runCinematicRaffle(prep);
+    const result=await run777Raffle(prep);
     $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(result.product.name)}</h3>${result.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;
     loadRaffle();
-  }catch(x){$('#raffleStage').classList.add('hidden');toast(x.message,7000)}
+  }catch(x){
+    $('#raffleStage')?.classList.add('hidden');
+    raffleRun=null;toast(x.message,7000)
+  }
 };
-$('#raffleStageClose').onclick=()=>{$('#raffleStage').classList.add('hidden','reveal')};
 $('#reloadRaffleHistory').onclick=loadRaffle;
 $('#raffleHistory').onclick=async e=>{
   const r=e.target.closest('[data-redeem]'),c=e.target.closest('[data-cancelwin]');
   try{
     if(r){await api('/api/raffle/redeem',{method:'POST',body:JSON.stringify({drawId:r.dataset.redeem,participantId:r.dataset.pid})});loadRaffle()}
-    if(c&&confirm('이 당첨을 취소할까요? 취소하면 이 참가자는 다음 추첨 대상에 다시 포함됩니다.')){await api('/api/raffle/cancel',{method:'POST',body:JSON.stringify({drawId:c.dataset.cancelwin,participantId:c.dataset.pid})});loadRaffle()}
-  }catch(x){toast(x.message)}
+    if(c&&confirm('이 당첨을 취소할까요? 취소하면 이 참가자는 다시 추첨 대상이 됩니다.')){await api('/api/raffle/cancel',{method:'POST',body:JSON.stringify({drawId:c.dataset.cancelwin,participantId:c.dataset.pid})});loadRaffle()}
+  }catch(x){toast(x.message,7000)}
 };
-
-async function loadLogs(){
-  try{
-    const q=$('#logSearch')?.value.trim()||'',limit=$('#logLimit')?.value||200;
-    const d=await api(`/api/logs?q=${encodeURIComponent(q)}&limit=${limit}`);
-    $('#logCount').textContent=`검색 결과 ${d.total}건`;
-    $('#logRows').innerHTML=d.rows.map(x=>`<tr>
-      <td>${x.at?new Date(x.at).toLocaleString('ko-KR'):'-'}</td>
-      <td><strong>${esc(x.type||'-')}</strong></td>
-      <td>${esc(x.targetName||x.targetId||'-')}</td>
-      <td><div>${esc(x.note||'')}</div>${x.after?`<div class="log-json">${esc(JSON.stringify(x.after))}</div>`:''}</td>
-    </tr>`).join('')||'<tr><td colspan="4">로그가 없습니다.</td></tr>';
-  }catch(e){toast(e.message)}
-}
-$('#reloadLogs')?.addEventListener('click',loadLogs);
-$('#logSearch')?.addEventListener('input',()=>{clearTimeout(loadLogs.tm);loadLogs.tm=setTimeout(loadLogs,250)});
-$('#logLimit')?.addEventListener('change',loadLogs);
-
 
 async function loadSmsGroups(){
   try{

@@ -93,3 +93,27 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;bord
 .settings-ok{padding:10px;border-radius:10px;background:#ecfdf5;margin:6px 0}
 .settings-off{padding:10px;border-radius:10px;background:#f8fafc;margin:6px 0}
 #roleBadge{background:#eef2ff;color:#4338ca}
+
+/* v0.8.1 · 777 슬롯형 행운권 추첨 */
+#raffleStage{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at 50% 45%,#24103d 0,#0d0816 46%,#050308 100%);display:flex;align-items:center;justify-content:center;color:#fff;overflow:hidden}
+#raffleStage.hidden{display:none!important}
+#raffleStage::before{content:"";position:absolute;inset:-20%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.04) 0 3deg,transparent 3deg 9deg);animation:raffleGlow 8s linear infinite}
+@keyframes raffleGlow{to{transform:rotate(360deg)}}
+.raffle-stage-inner{position:relative;z-index:2;width:min(1180px,92vw);text-align:center}
+#raffleStageLabel{font-size:clamp(18px,2.5vw,32px);font-weight:800;letter-spacing:.08em;opacity:.9;margin-bottom:26px}
+.slot-window{position:relative;margin:auto;width:min(1040px,92vw);padding:20px;border:3px solid rgba(255,255,255,.25);border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.04));box-shadow:0 0 80px rgba(164,89,255,.28),inset 0 0 30px rgba(255,255,255,.06)}
+.slot-window::before,.slot-window::after{content:"";position:absolute;left:3%;right:3%;height:2px;background:rgba(255,255,255,.28)}
+.slot-window::before{top:28%}.slot-window::after{bottom:28%}
+#raffleStageName{display:flex;align-items:center;justify-content:center;min-height:190px;padding:20px;font-size:clamp(48px,8vw,108px);font-weight:1000;letter-spacing:-.04em;text-shadow:0 4px 30px rgba(0,0,0,.7);white-space:nowrap}
+#raffleStageName.spinning{filter:blur(.7px);transform:scale(.995)}
+#raffleStageName.tick{animation:slotTick .12s ease-out}
+@keyframes slotTick{0%{transform:translateY(-12px);opacity:.45}100%{transform:translateY(0);opacity:1}}
+#raffleStageSub{font-size:clamp(17px,2.2vw,27px);margin-top:22px;min-height:38px;opacity:.9}
+.raffle-space-hint{margin-top:34px;font-size:clamp(18px,2.2vw,28px);font-weight:900;animation:spacePulse 1s ease-in-out infinite}
+@keyframes spacePulse{50%{opacity:.38;transform:scale(.97)}}
+#raffleStage.reveal .slot-window{animation:winnerFlash .85s ease-out 2}
+#raffleStage.reveal #raffleStageName{font-size:clamp(52px,8.6vw,116px);text-shadow:0 0 22px rgba(255,255,255,.7),0 0 60px rgba(250,204,21,.65)}
+@keyframes winnerFlash{0%,100%{transform:scale(1)}40%{transform:scale(1.045);box-shadow:0 0 120px rgba(250,204,21,.8)}}
+#raffleStageClose{margin-top:30px;font-size:18px;padding:12px 24px}
+.raffle-help{margin-top:12px;padding:12px;border-radius:12px;background:#f8fafc}
+kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border-radius:7px;padding:2px 8px;background:#fff;font-weight:900}
