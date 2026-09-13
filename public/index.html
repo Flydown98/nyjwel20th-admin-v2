@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.8.3">
+<link rel="stylesheet" href="/style.css?v=0.8.4">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="20주년 관리자">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.8.3</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.8.4</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
 </nav>
@@ -70,14 +71,14 @@
 <section id="view-raffle" class="view">
 <div class="two">
   <article class="card">
-    <p class="eyebrow">LUCKY DRAW · 777 STOP</p>
+    <p class="eyebrow">LUCKY DRAW · PREMIUM STAGE</p>
     <h2>복지관 이용인 행운권 추첨</h2>
-    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 이름(좌석번호)이 빠르게 돌아가고, 스페이스바를 누르면 감속 후 당첨자가 확정됩니다.</p>
+    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 이름과 좌석번호가 하나의 세로 릴로 흐르고, 스페이스바를 누르면 자연스럽게 감속한 뒤 당첨자를 공개합니다.</p>
     <form id="raffleForm" class="stack">
       <label>상품<select id="raffleProduct"></select></label>
       <label>대상<select id="raffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
       <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label>
-      <button class="primary big-action">777 추첨 준비</button>
+      <button class="primary big-action">행운권 추첨 시작</button>
     </form>
     <details class="raffle-product-manager" open>
       <summary><strong>행운권 상품 · 수량 관리</strong></summary>
@@ -89,7 +90,7 @@
       <div id="raffleProductList"></div>
     </details>
     <div class="raffle-help">
-      <strong>진행</strong> · 추첨 준비 → 화면 회전 시작 → <kbd>SPACE</kbd> → 띠·띠·띠 감속 → 당첨!
+      <strong>진행</strong> · 추첨 시작 → 세로 릴 회전 → <kbd>SPACE</kbd> → 자연스러운 감속 → 당첨자 공개
     </div>
     <div id="raffleWinners"></div>
   </article>
@@ -227,13 +228,48 @@ RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
 </section>
 </main>
 
-<div id="raffleStage" class="raffle-stage hidden">
+<div id="raffleStage" class="raffle-stage hidden" aria-live="polite">
+  <div class="raffle-ambient">
+    <div class="raffle-glow glow-a"></div>
+    <div class="raffle-glow glow-b"></div>
+    <div class="raffle-beam beam-a"></div>
+    <div class="raffle-beam beam-b"></div>
+    <div id="raffleParticles" class="raffle-particles"></div>
+  </div>
+
   <div class="raffle-stage-inner">
-    <div id="raffleStageLabel" class="raffle-stage-label">행운의 주인공은?</div>
-    <div id="raffleStageName" class="raffle-stage-name">READY</div>
-    <div id="raffleStageSub" class="raffle-stage-sub"></div>
-    <button id="raffleStageClose" class="hidden">닫기</button>
+    <div class="raffle-brand">
+      <span class="raffle-brand-kicker">NYJWEL · 20TH ANNIVERSARY</span>
+      <span class="raffle-brand-line"></span>
+    </div>
+
+    <div id="raffleStageLabel" class="raffle-stage-label">LUCKY DRAW</div>
+    <div id="raffleStageProduct" class="raffle-product-pill">행운상품</div>
+
+    <div class="raffle-reel-shell">
+      <div class="raffle-reel-edge edge-top"></div>
+      <div class="raffle-reel-viewport" id="raffleReelViewport">
+        <div id="raffleReelTrack" class="raffle-reel-track"></div>
+        <div class="raffle-reel-focus"></div>
+        <div class="raffle-reel-fade fade-top"></div>
+        <div class="raffle-reel-fade fade-bottom"></div>
+      </div>
+      <div class="raffle-reel-edge edge-bottom"></div>
+    </div>
+
+    <div id="raffleStageName" class="raffle-stage-name sr-only">READY</div>
+    <div id="raffleStageSub" class="raffle-stage-sub">SPACE를 눌러 추첨을 멈춰주세요</div>
+    <div id="raffleSpaceHint" class="raffle-space-hint"><span class="space-key">SPACE</span><span>STOP</span></div>
+
+    <div id="raffleWinnerPanel" class="raffle-winner-panel hidden">
+      <div class="winner-kicker">CONGRATULATIONS</div>
+      <div id="raffleWinnerName" class="winner-name"></div>
+      <div id="raffleWinnerSeat" class="winner-seat"></div>
+      <div id="raffleWinnerPrize" class="winner-prize"></div>
+    </div>
+
+    <button type="button" id="raffleStageClose" class="raffle-stage-close hidden">추첨 화면 닫기</button>
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.8.3"></script></body></html>
+<script src="/app.js?v=0.8.4"></script></body></html>

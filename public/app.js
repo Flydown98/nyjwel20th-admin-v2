@@ -24,7 +24,7 @@ $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeM
 async function refreshDashboard(){
   const d=await api('/api/bootstrap'),s=d.summary;appSettings=d.settings||{};currentRole=d.role||currentRole||'admin';localStorage.setItem(ROLE_KEY,currentRole);
   $('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;
-  $('#statusBadge').textContent='연결됨 · v0.8.3';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
+  $('#statusBadge').textContent='연결됨 · v0.8.4';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
 }
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;currentRole=d.role||'admin';localStorage.setItem(TOKEN_KEY,token);localStorage.setItem(ROLE_KEY,currentRole);await init()}catch(e){$('#loginMessage').textContent=e.message}});
@@ -323,7 +323,6 @@ $('#finalAutoAssign')?.addEventListener('click',async()=>{
 
 
 
-async 
 async function loadRaffle(){
   try{
     const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
@@ -377,81 +376,157 @@ function fanfare(){
   tone(1318.5,.45,.07,'triangle',.48);
 }
 function raffleName(p){return `${p.name}${p.seat?` (${p.seat})`:''}`}
-function showRaffleStage(prep){
-  let stage=$('#raffleStage');
-  if(!stage){
-    stage=document.createElement('div');stage.id='raffleStage';stage.className='hidden';
-    stage.innerHTML=`<div class="raffle-stage-inner">
-      <div id="raffleStageLabel"></div>
-      <div class="slot-window"><div id="raffleStageName">READY</div></div>
-      <div id="raffleStageSub"></div>
-      <div class="raffle-space-hint" id="raffleSpaceHint">SPACE 를 눌러 멈추기</div>
-      <button id="raffleStageClose" class="hidden">닫기</button>
-    </div>`;
-    document.body.appendChild(stage);
-    $('#raffleStageClose').onclick=()=>{stage.classList.add('hidden');raffleRun=null};
+const RAFFLE_ITEM_H=126;
+
+function createRaffleParticles(count=52){
+  const box=$('#raffleParticles'); if(!box)return;
+  box.innerHTML='';
+  for(let i=0;i<count;i++){
+    const el=document.createElement('i');
+    el.className='raffle-particle';
+    el.style.left=`${Math.random()*100}%`;
+    el.style.setProperty('--dur',`${2.1+Math.random()*2.6}s`);
+    el.style.setProperty('--drift',`${Math.round(Math.random()*260-130)}px`);
+    el.style.setProperty('--rot',`${Math.round(Math.random()*900-450)}deg`);
+    el.style.animationDelay=`${Math.random()*.55}s`;
+    if(i%3===0){el.style.width='3px';el.style.height='12px'}
+    box.appendChild(el);
   }
-  stage.classList.remove('hidden','reveal');
+  setTimeout(()=>{if(box)box.innerHTML=''},5200);
+}
+
+function raffleItemHtml(p){
+  return `<div class="raffle-reel-item"><span class="person">${esc(p.name||'행운의 주인공')}</span>${p.seat?`<span class="seat">(${esc(p.seat)})</span>`:''}</div>`;
+}
+function buildSpinTrack(samples){
+  const seq=[];
+  const safe=samples.length?samples:[{name:'행운의 주인공',seat:''}];
+  // 같은 묶음을 4번 반복해서 Web Animations 반복 지점이 자연스럽게 이어지게 함.
+  for(let r=0;r<4;r++)safe.forEach(p=>seq.push(p));
+  $('#raffleReelTrack').innerHTML=seq.map(raffleItemHtml).join('');
+}
+function raffleBaseY(){return ($('#raffleReelViewport')?.clientHeight||390)/2-RAFFLE_ITEM_H/2}
+function startPremiumReel(samples){
+  const track=$('#raffleReelTrack');
+  buildSpinTrack(samples);
+  const oneLoop=Math.max(1,samples.length)*RAFFLE_ITEM_H;
+  const base=raffleBaseY();
+  track.getAnimations().forEach(x=>x.cancel());
+  track.style.transform=`translateY(${base}px)`;
+  const duration=Math.max(1250,Math.min(2400,samples.length*46));
+  return track.animate(
+    [{transform:`translateY(${base}px)`},{transform:`translateY(${base-oneLoop}px)`}],
+    {duration,iterations:Infinity,easing:'linear'}
+  );
+}
+async function stopPremiumReel(samples,winner){
+  const track=$('#raffleReelTrack');
+  track.getAnimations().forEach(x=>x.cancel());
+
+  // 마지막에 실제 당첨자가 정확히 중앙에 도착하도록 정지용 트랙을 새로 구성
+  const seq=[];
+  const safe=samples.length?samples:[winner];
+  const fillerCount=22;
+  for(let i=0;i<fillerCount;i++)seq.push(safe[Math.floor(Math.random()*safe.length)]);
+  seq.push(winner);
+  track.innerHTML=seq.map(raffleItemHtml).join('');
+
+  const base=raffleBaseY();
+  const target=base-(seq.length-1)*RAFFLE_ITEM_H;
+  track.style.transform=`translateY(${base}px)`;
+
+  // 감속음 — 처음엔 촘촘하고 뒤로 갈수록 벌어짐
+  [260,430,650,920,1260,1670,2140].forEach((ms,i)=>{
+    setTimeout(()=>stopTick(Math.min(i,3)),ms);
+  });
+
+  const anim=track.animate(
+    [{transform:`translateY(${base}px)`},{transform:`translateY(${target}px)`}],
+    {duration:2850,easing:'cubic-bezier(.08,.68,.12,1)',fill:'forwards'}
+  );
+  await anim.finished.catch(()=>{});
+  track.style.transform=`translateY(${target}px)`;
+}
+
+function showRaffleStage(prep){
+  const stage=$('#raffleStage');
+  stage.classList.remove('hidden','reveal','stopping');
+  stage.classList.add('spinning');
+  $('#raffleWinnerPanel').classList.add('hidden');
   $('#raffleStageClose').classList.add('hidden');
-  $('#raffleStageLabel').textContent=`${prep.product.name} · 남은 상품 ${prep.product.remaining}개`;
-  $('#raffleStageSub').textContent=`복지관 이용인 추첨 대상 ${prep.poolSize}명 · SPACE로 정지`;
-  $('#raffleSpaceHint').textContent='SPACE 를 눌러 멈추기';
   $('#raffleSpaceHint').classList.remove('hidden');
+  $('#raffleStageLabel').textContent='LUCKY DRAW';
+  $('#raffleStageProduct').textContent=`${prep.product.name} · 남은 수량 ${prep.product.remaining}개`;
+  $('#raffleStageSub').textContent=`복지관 이용인 ${prep.poolSize}명 중 추첨 · SPACE를 눌러 멈춰주세요`;
+  $('#raffleWinnerName').textContent='';
+  $('#raffleWinnerSeat').textContent='';
+  $('#raffleWinnerPrize').textContent='';
   return stage;
 }
+
 async function run777Raffle(prep){
-  const stage=showRaffleStage(prep),name=$('#raffleStageName'),sub=$('#raffleStageSub'),hint=$('#raffleSpaceHint'),close=$('#raffleStageClose');
+  const stage=showRaffleStage(prep);
   const samples=prep.sample.length?prep.sample:[{name:'행운의 주인공',seat:''}];
-  const run={prep,stopRequested:false,finished:false,index:0,timer:null};raffleRun=run;
+  const run={prep,stopRequested:false,finished:false,spinAnim:null}; raffleRun=run;
   raffleAudio();
 
-  name.classList.add('spinning');name.textContent='START!';
-  await sleep(350);
+  run.spinAnim=startPremiumReel(samples);
 
-  // 스페이스를 누를 때까지 빠르게 계속 회전한다.
-  while(!run.stopRequested){
-    const p=samples[run.index++%samples.length];
-    name.textContent=raffleName(p);name.classList.remove('tick');void name.offsetWidth;name.classList.add('tick');
-    spinTone();
-    await sleep(62);
-  }
+  // 사용자가 SPACE를 누를 때까지 실제로 계속 회전
+  while(!run.stopRequested)await sleep(60);
 
-  hint.textContent='당첨자를 확정합니다...';
-  // 실제 당첨자는 멈춤 요청 후 서버에서 공정하게 확정.
-  const resultPromise=api('/api/raffle/commit',{method:'POST',body:JSON.stringify({token:prep.token})});
+  stage.classList.remove('spinning');
+  stage.classList.add('stopping');
+  $('#raffleSpaceHint').classList.add('hidden');
+  $('#raffleStageSub').textContent='당첨자를 결정하고 있습니다';
 
-  // 777 슬롯처럼 4단계 감속
-  const slow=[120,210,360,560];
-  for(let i=0;i<slow.length;i++){
-    const p=samples[run.index++%samples.length];
-    name.textContent=raffleName(p);name.classList.remove('tick');void name.offsetWidth;name.classList.add('tick');
-    stopTick(i);
-    await sleep(slow[i]);
-  }
+  // SPACE를 누른 시점에 서버가 실제 당첨자를 공정하게 확정
+  const result=await api('/api/raffle/commit',{method:'POST',body:JSON.stringify({token:prep.token})});
+  const first=result.winners[0];
+  const winnerForReel={name:first.participantName,seat:first.seat||''};
 
-  sub.textContent='...';
-  const result=await resultPromise;
-  stage.classList.add('reveal');name.classList.remove('spinning');
+  await stopPremiumReel(samples,winnerForReel);
+
+  stage.classList.remove('stopping');
+  stage.classList.add('reveal');
+  fanfare();
+  createRaffleParticles(64);
+
+  const panel=$('#raffleWinnerPanel');
+  panel.classList.remove('hidden');
+
   if(result.winners.length===1){
-    const w=result.winners[0];name.textContent=`${w.participantName}${w.seat?` (${w.seat})`:''}`;
-    sub.textContent=`🎉 ${result.product.name} 당첨!`;
+    $('#raffleWinnerName').textContent=first.participantName;
+    $('#raffleWinnerSeat').textContent=first.seat?`좌석 ${first.seat}`:'좌석 미배정';
+    $('#raffleWinnerPrize').textContent=result.product.name;
   }else{
-    name.textContent=`${result.winners.length}명 당첨!`;
-    sub.innerHTML=result.winners.map(w=>`${esc(w.participantName)} (${esc(w.seat||'좌석없음')})`).join(' · ');
+    $('#raffleWinnerName').textContent=`${result.winners.length}명 당첨`;
+    $('#raffleWinnerSeat').textContent=result.winners.map(w=>`${w.participantName} ${w.seat?`(${w.seat})`:''}`).join(' · ');
+    $('#raffleWinnerPrize').textContent=result.product.name;
   }
-  fanfare();hint.classList.add('hidden');close.classList.remove('hidden');run.finished=true;
+
+  $('#raffleStageSub').textContent='';
+  $('#raffleStageClose').classList.remove('hidden');
+  run.finished=true;
   return result;
 }
 function requestRaffleStop(){
   if(!raffleRun||raffleRun.finished||raffleRun.stopRequested)return;
   raffleRun.stopRequested=true;
-  tone(1500,.09,.07,'square');
+  tone(1480,.10,.065,'triangle');
 }
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'&&raffleRun&&!raffleRun.finished){
     e.preventDefault();requestRaffleStop();
   }
 });
+$('#raffleStageClose').onclick=()=>{
+  const stage=$('#raffleStage');
+  stage.classList.add('hidden');
+  stage.classList.remove('spinning','stopping','reveal');
+  $('#raffleReelTrack')?.getAnimations().forEach(x=>x.cancel());
+  raffleRun=null;
+};
 
 $('#raffleProductAddForm')?.addEventListener('submit',async e=>{
   e.preventDefault();
