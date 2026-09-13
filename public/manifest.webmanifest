@@ -2,9 +2,23 @@
   "name": "남양주시장애인복지관 20주년 현장 관리자",
   "short_name": "20주년 관리자",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f5f7fb",
-  "theme_color": "#172554",
-  "orientation": "any",
-  "icons": []
+  "theme_color": "#5e338c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

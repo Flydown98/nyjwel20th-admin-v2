@@ -24,7 +24,7 @@ $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeM
 async function refreshDashboard(){
   const d=await api('/api/bootstrap'),s=d.summary;appSettings=d.settings||{};currentRole=d.role||currentRole||'admin';localStorage.setItem(ROLE_KEY,currentRole);
   $('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;
-  $('#statusBadge').textContent='연결됨 · v0.8.4';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
+  $('#statusBadge').textContent='연결됨 · v0.8.5';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
 }
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;currentRole=d.role||'admin';localStorage.setItem(TOKEN_KEY,token);localStorage.setItem(ROLE_KEY,currentRole);await init()}catch(e){$('#loginMessage').textContent=e.message}});
@@ -825,17 +825,28 @@ function connectLiveEvents(){
 init();setInterval(()=>{if(token&&!document.hidden)refreshDashboard().catch(()=>{})},10000);
 
 let deferredInstallPrompt=null;
+function standaloneMode(){return window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
+function syncInstallButton(){
+  const b=$('#installApp');if(!b)return;
+  if(standaloneMode()){b.classList.add('hidden');return}
+  b.classList.remove('hidden');
+}
 window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();deferredInstallPrompt=e;
-  $('#installApp')?.classList.remove('hidden');
+  e.preventDefault();deferredInstallPrompt=e;syncInstallButton();
 });
+window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;syncInstallButton();toast('앱 설치가 완료되었습니다.')});
 $('#installApp')?.addEventListener('click',async()=>{
-  if(!deferredInstallPrompt){toast('이 브라우저에서는 홈 화면 추가 메뉴를 이용해 주세요.');return}
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt=null;
-  $('#installApp')?.classList.add('hidden');
+  if(standaloneMode())return toast('이미 앱으로 실행 중입니다.');
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;syncInstallButton();return;
+  }
+  const isiOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(isiOS)toast('iPhone/iPad: Safari의 공유 버튼 → 홈 화면에 추가를 눌러주세요.',7000);
+  else toast('브라우저 메뉴(⋮)에서 “앱 설치” 또는 “홈 화면에 추가”를 선택해주세요.',7000);
 });
+syncInstallButton();
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
