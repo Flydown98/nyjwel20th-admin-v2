@@ -1,4 +1,18 @@
 'use strict';
+
+window.addEventListener('error',e=>{
+  try{
+    const b=document.querySelector('#jsErrorBanner');
+    if(b){b.classList.remove('hidden');b.textContent=`화면 오류: ${e.message||'알 수 없는 오류'} · 새로고침 후 계속되면 이 문구를 알려주세요.`}
+  }catch(_){}
+});
+window.addEventListener('unhandledrejection',e=>{
+  try{
+    const b=document.querySelector('#jsErrorBanner');
+    if(b){b.classList.remove('hidden');b.textContent=`요청 오류: ${e.reason?.message||e.reason||'알 수 없는 오류'}`}
+  }catch(_){}
+});
+
 const TOKEN_KEY='nyj20_v2_token',ROLE_KEY='nyj20_v2_role';let token=localStorage.getItem(TOKEN_KEY)||'',currentRole=localStorage.getItem(ROLE_KEY)||'admin',appSettings={},scanner=null,scannerOn=false,scanBusy=false;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.tm);toast.tm=setTimeout(()=>t.classList.add('hidden'),ms)}
@@ -10,7 +24,7 @@ $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeM
 async function refreshDashboard(){
   const d=await api('/api/bootstrap'),s=d.summary;appSettings=d.settings||{};currentRole=d.role||currentRole||'admin';localStorage.setItem(ROLE_KEY,currentRole);
   $('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;
-  $('#statusBadge').textContent='연결됨 · v0.8';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
+  $('#statusBadge').textContent='연결됨 · v0.8.3';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
 }
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;currentRole=d.role||'admin';localStorage.setItem(TOKEN_KEY,token);localStorage.setItem(ROLE_KEY,currentRole);await init()}catch(e){$('#loginMessage').textContent=e.message}});
@@ -327,9 +341,9 @@ function renderRaffleProducts(rows){
     <input data-product-name="${esc(x.number)}" value="${esc(x.name)}" aria-label="상품명">
     <input data-product-qty="${esc(x.number)}" type="number" min="${Math.max(1,x.drawn)}" max="9999" value="${x.quantity}" aria-label="총 수량">
     <div class="actions">
-      <button data-product-save="${esc(x.number)}">저장</button>
-      <button data-product-toggle="${esc(x.number)}">${x.enabled?'중지':'사용'}</button>
-      <button data-product-delete="${esc(x.number)}" class="danger">${x.drawn>0?'중지':'삭제'}</button>
+      <button type="button" data-product-save="${esc(x.number)}">저장</button>
+      <button type="button" data-product-toggle="${esc(x.number)}">${x.enabled?'중지':'사용'}</button>
+      <button type="button" data-product-delete="${esc(x.number)}" class="danger">${x.drawn>0?'중지':'삭제'}</button>
     </div>
   </div>`).join('')||'<p class="muted">등록된 상품이 없습니다. 위에서 상품명과 수량을 추가하세요.</p>';
 }
@@ -453,19 +467,22 @@ $('#raffleProductList')?.addEventListener('click',async e=>{
   const save=e.target.closest('[data-product-save]'),toggle=e.target.closest('[data-product-toggle]'),del=e.target.closest('[data-product-delete]');
   try{
     if(save){
-      const no=save.dataset.productSave;
-      const name=$(`[data-product-name="${CSS.escape(no)}"]`).value.trim();
-      const quantity=Number($(`[data-product-qty="${CSS.escape(no)}"]`).value);
+      e.preventDefault();
+      const no=save.dataset.productSave,row=save.closest('[data-product]');
+      const name=row.querySelector('[data-product-name]').value.trim();
+      const quantity=Number(row.querySelector('[data-product-qty]').value);
       await api(`/api/raffle/products/${encodeURIComponent(no)}/update`,{method:'POST',body:JSON.stringify({name,quantity})});
       toast('상품 정보를 저장했습니다.');loadRaffle();
     }
     if(toggle){
+      e.preventDefault();
       const no=toggle.dataset.productToggle;
       const row=toggle.closest('[data-product]'),currently=toggle.textContent.trim()==='중지';
       await api(`/api/raffle/products/${encodeURIComponent(no)}/update`,{method:'POST',body:JSON.stringify({enabled:!currently})});
       loadRaffle();
     }
     if(del){
+      e.preventDefault();
       const no=del.dataset.productDelete;
       if(!confirm('이 상품을 삭제/중지할까요? 이미 당첨기록이 있으면 기록 보호를 위해 사용중지 처리됩니다.'))return;
       await api(`/api/raffle/products/${encodeURIComponent(no)}/delete`,{method:'POST',body:'{}'});
@@ -747,3 +764,20 @@ $('#installApp')?.addEventListener('click',async()=>{
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
+
+
+// v0.8.3 fallback: 정적 버튼이 캐시/DOM 차이로 직접 바인딩되지 않은 경우에도 동작하도록 보조.
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  try{
+    if(b.id==='externalBackupNow' && !b.dataset.fallbackBusy){
+      b.dataset.fallbackBusy='1'; setTimeout(()=>delete b.dataset.fallbackBusy,800);
+      // 기존 리스너가 없는 환경에서만 사용: 버튼 클릭 후 상태가 갱신되지 않으면 직접 요청
+      setTimeout(async()=>{
+        if(document.hidden)return;
+        try{await loadBackupStatus()}catch(_){}
+      },900);
+    }
+  }catch(_){}
+});
+
