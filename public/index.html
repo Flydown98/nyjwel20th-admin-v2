@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.7.1">
+<link rel="stylesheet" href="/style.css?v=0.8.0">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.7.1</small></h1></div><div class="header-actions"><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.8</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><button id="installApp" class="hidden">앱 설치</button><button id="topRefresh">새로고침</button><button id="logoutBtn">로그아웃</button></div></header>
 <nav id="tabs">
-<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
+<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
 </nav>
 <main>
 <section id="view-dashboard" class="view active"><div class="stats">
@@ -44,6 +44,10 @@
     <textarea id="groupExclusionKeywords" rows="4" placeholder="한 줄에 하나씩"></textarea>
     <div class="actions"><button id="saveGroupExclusions">제외어 저장 + 자동그룹 재구성</button><button id="rebuildAutoGroups" class="primary">자동그룹 다시 만들기</button></div>
   </div>
+  <details class="management-card" style="margin-top:10px">
+    <summary><strong>자동그룹에서 직접 제외한 기관/동반 보기 · 복원</strong></summary>
+    <div id="excludedGroupsList" style="margin-top:10px"></div>
+  </details>
   <div class="group-tabs"><button data-grouptab="auto" class="active">자동 기관그룹</button><button data-grouptab="representative">대표자 그룹</button><button data-grouptab="companion">동반</button><button id="createManualGroup" class="primary">대표자 그룹 만들기</button></div>
   <div id="groupTabAuto" class="group-pane"><div id="groupSuggestions"></div></div>
   <div id="groupTabRepresentative" class="group-pane hidden"><div id="representativeGroups"></div></div>
@@ -55,7 +59,7 @@
 <article class="card">
   <div class="card-head">
     <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p></div>
-    <div class="actions"><button id="showUnassigned">미배정자 보기</button><button id="autoAssignAll" class="primary">미배정자 일괄배치</button><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats">갱신</button></div>
+    <div class="actions"><button id="showUnassigned">미배정자 보기</button><button id="finalAutoAssign" class="primary">최종 자동배치</button><button id="resetGeneralSeats">G~Y 일반좌석 초기화</button><button id="autoAssignAll">미배정자 간단배치</button><button id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button id="reloadSeats">갱신</button></div>
   </div>
   <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 주요 귀빈/내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
   <p class="muted">좌석을 클릭하면 참가자 직접지정·교환·해제가 가능합니다.</p>
@@ -98,6 +102,14 @@
       <button class="primary">이 번호로 발송</button>
     </form>
     <p class="muted">행사 전날 안내문자는 일괄 자동발송하지 않고 필요한 대상에게 개별 발송하는 방향으로 운영합니다.</p>
+    <hr style="margin:18px 0;border:0;border-top:1px solid #e2e8f0">
+    <h3>그룹 문자 발송</h3>
+    <form id="groupSmsForm" class="stack">
+      <select id="groupSmsSelect" required><option value="">그룹 선택</option></select>
+      <select id="groupSmsMode"><option value="representative">대표/연락 가능한 1명에게</option><option value="all">그룹 전체 연락처에</option></select>
+      <textarea id="groupSmsMessage" rows="5" placeholder="그룹에 보낼 문자 내용" required></textarea>
+      <button class="primary">그룹 문자 발송</button>
+    </form>
   </article>
   <article class="card"><h2>최근 문자 발송이력</h2><div id="smsList"></div></article>
 </div>
@@ -111,6 +123,40 @@
   <div class="filters"><input id="logSearch" placeholder="작업유형 · 참가자 · 그룹 · 비고 검색"><select id="logLimit"><option value="200">최근 200건</option><option value="500">최근 500건</option><option value="1000">최근 1000건</option></select></div>
   <div class="table-wrap"><table><thead><tr><th>시간</th><th>작업</th><th>대상</th><th>내용</th></tr></thead><tbody id="logRows"></tbody></table></div>
 </article>
+</section>
+
+
+<section id="view-settings" class="view">
+<div class="two">
+  <article class="card">
+    <p class="eyebrow">SYSTEM SETTINGS</p><h2>행사 · 현장 설정</h2>
+    <form id="settingsForm" class="form-grid">
+      <label>행사명<input name="eventName"></label>
+      <label>행사일시<input name="eventDate"></label>
+      <label>행사장소<input name="eventVenue"></label>
+      <label>주최<input name="eventHost"></label>
+      <label>신청 정원<input name="applicationCapacity" type="number" min="1"></label>
+      <label>개인 자동접수 대기(ms)<input name="individualAutoCheckinDelayMs" type="number" min="300"></label>
+      <label>접수완료 팝업 닫힘(ms)<input name="checkinPopupCloseMs" type="number" min="300"></label>
+      <label>외부백업 주기(초)<input name="externalBackupIntervalSec" type="number" min="30"></label>
+      <label>외부 시점백업 주기(분)<input name="externalSnapshotIntervalMin" type="number" min="1"></label>
+      <label class="check"><input type="checkbox" name="checkinSmsEnabled"> QR 접수 문자 자동발송</label>
+      <label class="check"><input type="checkbox" name="autoSeatAssignOnCheckin"> QR 접수 즉시 좌석 자동배정</label>
+      <label class="check"><input type="checkbox" name="externalBackupEnabled"> Google Drive 외부백업 사용</label>
+      <label class="check"><input type="checkbox" name="autoRestoreExternalIfEmpty"> 서버 데이터가 비면 Drive 최신백업 자동복원</label>
+      <button class="primary wide-field">설정 저장</button>
+    </form>
+  </article>
+  <article class="card">
+    <p class="eyebrow">ROLE ACCESS</p><h2>역할별 관리자</h2>
+    <p class="muted">Cloudtype 환경변수에 역할별 비밀번호를 넣으면 같은 주소에서 역할별 화면을 제한할 수 있습니다.</p>
+    <div id="rolePasswordStatus"></div>
+    <pre>RECEPTION_PASSWORD=접수담당 비밀번호
+SEAT_PASSWORD=좌석담당 비밀번호
+RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
+    <p class="muted">환경변수를 넣지 않으면 기존 ADMIN_PASSWORD만 사용됩니다.</p>
+  </article>
+</div>
 </section>
 
 <section id="view-data" class="view">
@@ -146,11 +192,27 @@
   </article>
 </section>
 
-<section id="view-backup" class="view"><article class="card"><p class="eyebrow">BACKUP</p><h2>백업 및 내보내기</h2><p class="muted">서버 내부 자동백업은 1분마다 실행됩니다. 행사 중에는 PC에도 JSON을 수시로 내려받아 주세요.</p><div class="actions"><button id="backupNow" class="primary">지금 백업</button><button id="downloadBackup">JSON 다운로드</button><button id="downloadCsv">참가자 CSV 다운로드</button></div>
-<hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">
-<h3>JSON 백업 복원</h3><p class="muted">재배포 후 데이터가 비어 있다면, 이전 버전에서 다운로드한 JSON 백업을 올려 그대로 복원합니다.</p>
-<div class="actions"><input id="restoreFile" type="file" accept=".json"><button id="restoreBackup" class="danger">백업 복원</button></div>
-<pre id="backupOutput">대기 중...</pre></article></section>
+<section id="view-backup" class="view">
+<div class="two">
+<article class="card">
+  <p class="eyebrow">LOCAL BACKUP</p><h2>Cloudtype 임시디스크 백업</h2>
+  <p class="muted">1분마다 서버 내부 롤링백업을 만들고 최근 자동백업 약 240개를 유지합니다.</p>
+  <div class="actions"><button id="backupNow" class="primary">지금 로컬백업</button><button id="downloadBackup">JSON 다운로드</button><button id="downloadCsv">참가자 CSV 다운로드</button><button id="reloadLocalBackups">백업 목록</button></div>
+  <div id="localBackupList"></div>
+  <hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">
+  <h3>내 PC의 JSON 백업 복원</h3>
+  <div class="actions"><input id="restoreFile" type="file" accept=".json"><button id="restoreBackup" class="danger">JSON 복원</button></div>
+  <pre id="backupOutput">대기 중...</pre>
+</article>
+<article class="card">
+  <p class="eyebrow">GOOGLE DRIVE BACKUP</p><h2>외부 백업 · 복원</h2>
+  <div id="externalBackupStatus" class="notice">상태 확인 중...</div>
+  <div class="actions"><button id="externalBackupNow" class="primary">지금 Drive 백업</button><button id="externalSnapshotNow">시점 백업 생성</button><button id="externalRestoreLatest" class="danger">Drive 최신백업 복원</button><button id="reloadExternalBackups">Drive 목록</button></div>
+  <div id="externalBackupList"></div>
+  <p class="muted">Google Drive는 현장 요청 처리와 분리된 비동기 보험용 백업입니다. Drive가 느리거나 실패해도 QR 접수 자체는 계속 동작합니다.</p>
+</article>
+</div>
+</section>
 </main>
 
 <div id="raffleStage" class="raffle-stage hidden">
@@ -162,4 +224,4 @@
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.7.1"></script></body></html>
+<script src="/app.js?v=0.8.0"></script></body></html>

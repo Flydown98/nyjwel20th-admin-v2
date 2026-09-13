@@ -1,5 +1,5 @@
 'use strict';
-const TOKEN_KEY='nyj20_v2_token';let token=localStorage.getItem(TOKEN_KEY)||'',scanner=null,scannerOn=false,scanBusy=false;
+const TOKEN_KEY='nyj20_v2_token',ROLE_KEY='nyj20_v2_role';let token=localStorage.getItem(TOKEN_KEY)||'',currentRole=localStorage.getItem(ROLE_KEY)||'admin',appSettings={},scanner=null,scannerOn=false,scanBusy=false;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.tm);toast.tm=setTimeout(()=>t.classList.add('hidden'),ms)}
 async function api(p,o={}){const h={...(o.headers||{})};if(o.body&&!(o.body instanceof FormData)&&!h['Content-Type'])h['Content-Type']='application/json';if(token)h.Authorization=`Bearer ${token}`;const r=await fetch(p,{...o,headers:h});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||`HTTP ${r.status}`);Object.assign(e,d);throw e}return d}
@@ -7,11 +7,28 @@ function modal(html){$('#modal').innerHTML=html;$('#modalWrap').classList.remove
 function closeModal(){clearTimeout(window.__autoCheckinTimer);$('#modalWrap').classList.add('hidden');$('#modal').innerHTML=''}
 $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeModal()});
 
-async function refreshDashboard(){const d=await api('/api/bootstrap'),s=d.summary;$('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;$('#statusBadge').textContent='연결됨 · v0.7.1';$('#statusBadge').classList.add('ok')}
+async function refreshDashboard(){
+  const d=await api('/api/bootstrap'),s=d.summary;appSettings=d.settings||{};currentRole=d.role||currentRole||'admin';localStorage.setItem(ROLE_KEY,currentRole);
+  $('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;
+  $('#statusBadge').textContent='연결됨 · v0.8';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
+}
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
-$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;localStorage.setItem(TOKEN_KEY,token);await init()}catch(e){$('#loginMessage').textContent=e.message}});
-$('#logoutBtn').onclick=()=>{token='';localStorage.removeItem(TOKEN_KEY);if(eventSource)eventSource.close();$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
-function view(n){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${n}`));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===n));if(n==='participants')loadParticipants();if(n==='groups')loadGroups();if(n==='seats')loadSeats();if(n==='raffle')loadRaffle();if(n==='sms')loadSms();if(n==='logs')loadLogs()}
+$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;currentRole=d.role||'admin';localStorage.setItem(TOKEN_KEY,token);localStorage.setItem(ROLE_KEY,currentRole);await init()}catch(e){$('#loginMessage').textContent=e.message}});
+$('#logoutBtn').onclick=()=>{token='';currentRole='admin';localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(ROLE_KEY);if(eventSource)eventSource.close();$('#loginOverlay').classList.remove('hidden')};$('#topRefresh').onclick=()=>refreshDashboard().then(()=>toast('갱신했습니다.'));
+
+function applyRoleUI(){
+  const allowed={
+    admin:['dashboard','checkin','participants','onsite','groups','seats','raffle','sms','logs','settings','data','backup'],
+    reception:['dashboard','checkin','participants','onsite','groups','sms'],
+    seat:['dashboard','participants','groups','seats'],
+    raffle:['dashboard','raffle']
+  }[currentRole]||['dashboard'];
+  document.querySelectorAll('#tabs [data-view]').forEach(b=>b.classList.toggle('hidden',!allowed.includes(b.dataset.view)));
+  const active=currentViewName?.();
+  if(active&&!allowed.includes(active))view('dashboard');
+}
+
+function view(n){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${n}`));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===n));if(n==='participants')loadParticipants();if(n==='groups')loadGroups();if(n==='seats')loadSeats();if(n==='raffle')loadRaffle();if(n==='sms')loadSms();if(n==='logs')loadLogs();if(n==='settings')loadSettings();if(n==='backup'){loadBackupStatus();loadLocalBackups()}}
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>view(b.dataset.view));
 
 async function processCode(code){
@@ -26,8 +43,8 @@ async function processCode(code){
 function showIndividualCheckin(p){
   modal(`<p class="eyebrow">개인 QR 접수</p><h2>${esc(p.name)}</h2><p>${esc(p.organization||'소속 없음')} · ${esc(p.phone||'연락처 없음')}</p><div class="notice">좌석 ${esc(p.seat||'자동배정 예정')} · 기념품 지급완료 처리</div><p class="muted">개인 접수는 잠시 후 자동으로 진행됩니다. 아래 버튼을 누르면 즉시 처리합니다.</p><div class="actions"><button data-now class="primary">바로 접수</button><button data-close>닫기</button></div><div id="modalProgress" class="muted">자동 접수 준비 중...</div>`);
   let done=false;
-  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:'QR접수'})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,850)}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
-  $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;window.__autoCheckinTimer=setTimeout(run,1400);
+  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:'QR접수'})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,Number(appSettings.checkinPopupCloseMs||850))}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
+  $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;window.__autoCheckinTimer=setTimeout(run,Number(appSettings.individualAutoCheckinDelayMs||1400));
 }
 function showGroupCheckin(p,g){
   const remaining=g.members.filter(x=>!x.arrived).length,registered=g.total,already=g.arrived;
@@ -76,6 +93,8 @@ async function openParticipantEdit(id){
         <label class="check"><input type="checkbox" name="wheelchairUser" ${p.wheelchairUser?'checked':''}> 휠체어 이용</label>
         <label class="check"><input type="checkbox" name="disabledPerson" ${p.disabledPerson?'checked':''}> 장애인 당사자</label>
         <label class="check"><input type="checkbox" name="usesCenter" ${p.usesCenter?'checked':''}> 복지관 이용</label>
+        <label>좌석 분류<select name="seatCategory"><option value="auto" ${(p.seatCategory||'auto')==='auto'?'selected':''}>자동/일반</option><option value="vip" ${p.seatCategory==='vip'?'selected':''}>VIP</option><option value="guest" ${p.seatCategory==='guest'?'selected':''}>내빈</option><option value="wheelchair" ${p.seatCategory==='wheelchair'?'selected':''}>휠체어 우선</option></select></label>
+        <label class="check"><input type="checkbox" name="seatLocked" ${p.seatLocked?'checked':''}> 현재 좌석 고정(일괄배치 보호)</label>
         <label class="check"><input type="checkbox" name="active" ${p.active!==false?'checked':''}> 활성</label>
         <label class="wide-field">메모<textarea name="note" rows="3">${esc(p.note||'')}</textarea></label>
         <div class="wide-field actions"><button class="primary">저장</button><button type="button" id="participantEditClose">닫기</button></div>
@@ -83,7 +102,7 @@ async function openParticipantEdit(id){
     $('#participantEditClose').onclick=closeModal;
     $('#participantEditForm').onsubmit=async e=>{
       e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());
-      b.wheelchairUser=f.has('wheelchairUser');b.disabledPerson=f.has('disabledPerson');b.usesCenter=f.has('usesCenter');b.active=f.has('active');b.arrived=b.arrived==='true';
+      b.wheelchairUser=f.has('wheelchairUser');b.disabledPerson=f.has('disabledPerson');b.usesCenter=f.has('usesCenter');b.seatLocked=f.has('seatLocked');b.active=f.has('active');b.arrived=b.arrived==='true';
       try{await api(`/api/participants/${encodeURIComponent(id)}/admin-update`,{method:'POST',body:JSON.stringify(b)});toast('참가자 정보를 저장했습니다.');closeModal();loadParticipants();refreshDashboard()}catch(x){toast(x.message,6000)}
     };
   }catch(e){toast(e.message)}
@@ -107,12 +126,12 @@ $('#onsiteForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.cu
 let groupManageCache=[];
 async function loadGroups(){
   try{
-    const [s,g,ex]=await Promise.all([api('/api/group-suggestions'),api('/api/groups/manage'),api('/api/groups/exclusions')]);
+    const [s,g,ex,excluded]=await Promise.all([api('/api/group-suggestions'),api('/api/groups/manage'),api('/api/groups/exclusions'),api('/api/groups/excluded')]);
     groupManageCache=g.rows;
     $('#groupExclusionKeywords').value=(ex.keywords||[]).join('\n');
 
     $('#groupSuggestions').innerHTML=s.rows.map(x=>`<div class="management-card">
-      <div class="top"><div><strong>${esc(x.organization)}</strong><span class="group-badge">자동 기관그룹</span><small>${x.count}명 · 같은 기관 자동연결</small></div></div>
+      <div class="top"><div><strong>${esc(x.organization)}</strong><span class="group-badge">자동 기관그룹</span><small>${x.count}명 · 같은 기관 자동연결</small></div><button data-autoexclude="${esc(x.groupId)}">이 기관 자동묶음 제외</button></div>
       <div class="member-list">${x.members.map(m=>`<span class="member-chip">${esc(m.name)}${m.seat?` · ${esc(m.seat)}`:''}</span>`).join('')}</div>
     </div>`).join('')||'<p class="muted">현재 자동 기관그룹이 없습니다.</p>';
 
@@ -120,6 +139,11 @@ async function loadGroups(){
     const comps=g.rows.filter(x=>x.type==='companion');
     $('#representativeGroups').innerHTML=reps.map(groupCardHtml).join('')||'<p class="muted">대표자 그룹이 없습니다.</p>';
     $('#companionGroups').innerHTML=comps.map(groupCardHtml).join('')||'<p class="muted">기관으로 묶이지 않은 동반 그룹이 없습니다.</p>';
+    const excludedRows=[
+      ...(excluded.organizations||[]).map(value=>({type:'organization',value,label:`기관 · ${value}`})),
+      ...(excluded.companions||[]).map(value=>({type:'companion',value,label:`동반 · ${value}`}))
+    ];
+    $('#excludedGroupsList').innerHTML=excludedRows.map(x=>`<div class="backup-row"><span>${esc(x.label)}</span><button data-restoreexcluded="${esc(x.type)}" data-value="${esc(x.value)}">복원</button></div>`).join('')||'<p class="muted">직접 제외한 자동그룹이 없습니다.</p>';
   }catch(e){toast(e.message)}
 }
 function groupCardHtml(g){
@@ -192,7 +216,15 @@ document.querySelectorAll('[data-grouptab]').forEach(b=>b.onclick=()=>{
   ['Auto','Representative','Companion'].forEach(k=>$('#groupTab'+k).classList.toggle('hidden',k.toLowerCase()!==b.dataset.grouptab));
 });
 $('#createManualGroup').onclick=()=>openGroupEditor('');
-$('#groupSuggestions').onclick=()=>{};
+$('#groupSuggestions').onclick=async e=>{
+  const b=e.target.closest('[data-autoexclude]');if(!b)return;
+  if(!confirm('이 자동 기관그룹을 제외할까요? 참가자는 삭제되지 않으며 나중에 복원할 수 있습니다.'))return;
+  try{await api(`/api/groups/${encodeURIComponent(b.dataset.autoexclude)}/delete`,{method:'POST',body:'{}'});toast('자동 기관그룹에서 제외했습니다.');loadGroups();refreshDashboard()}catch(x){toast(x.message,6500)}
+};
+$('#excludedGroupsList')?.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-restoreexcluded]');if(!b)return;
+  try{await api('/api/groups/restore-excluded',{method:'POST',body:JSON.stringify({type:b.dataset.restoreexcluded,value:b.dataset.value})});toast('자동그룹을 복원했습니다.');loadGroups();refreshDashboard()}catch(x){toast(x.message,6500)}
+});
 async function groupContainerClick(e){
   const edit=e.target.closest('[data-editgroup]'),del=e.target.closest('[data-delgroup]');
   if(edit)return openGroupEditor(edit.dataset.editgroup);
@@ -262,6 +294,19 @@ $('#autoAssignAll').onclick=async()=>{
   if(!confirm('현재 미배정 참가자를 좌석설정의 자동배정 가능 좌석에 일괄 배치할까요?\n대표자/동반 그룹은 가능한 경우 연속좌석을 우선합니다.'))return;
   try{const d=await api('/api/seats/auto-assign-unassigned',{method:'POST',body:JSON.stringify({onlyArrived:false})});toast(`일괄배치 완료 · ${d.assigned}명 · 남은 미배정 ${d.remaining}명`,7000);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
 };
+$('#resetGeneralSeats')?.addEventListener('click',async()=>{
+  if(!confirm('G~Y 일반석만 초기화할까요?\nA~F 특수구역과 "좌석 고정" 참가자는 유지됩니다.'))return;
+  try{const d=await api('/api/seats/reset-general',{method:'POST',body:'{}'});toast(`일반좌석 ${d.released}석 초기화 완료`,6500);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
+});
+$('#finalAutoAssign')?.addEventListener('click',async()=>{
+  if(!confirm('최종 자동배치를 실행할까요?\n\nVIP → 내빈 → 휠체어 → 대표자/동반/기관 연속좌석 → 일반 신청순으로 배치합니다.\nG~Y 기존 일반석은 초기화되며 좌석 고정 참가자는 유지됩니다.'))return;
+  try{
+    const d=await api('/api/seats/final-auto-assign',{method:'POST',body:JSON.stringify({resetGeneral:true})});
+    toast(`최종배치 완료 · VIP ${d.vip} · 내빈 ${d.guest} · 휠체어 ${d.wheelchair} · 일반 ${d.general} · 미배정 ${d.remaining}`,9000);
+    loadSeats();refreshDashboard();
+  }catch(e){toast(e.message,9000)}
+});
+
 
 
 async function loadRaffle(){
@@ -343,7 +388,16 @@ $('#reloadLogs')?.addEventListener('click',loadLogs);
 $('#logSearch')?.addEventListener('input',()=>{clearTimeout(loadLogs.tm);loadLogs.tm=setTimeout(loadLogs,250)});
 $('#logLimit')?.addEventListener('change',loadLogs);
 
+
+async function loadSmsGroups(){
+  try{
+    const d=await api('/api/groups/manage');
+    $('#groupSmsSelect').innerHTML='<option value="">그룹 선택</option>'+d.rows.map(g=>`<option value="${esc(g.id)}">${esc(g.name||g.organization||'동반')} · ${g.total}명</option>`).join('');
+  }catch(_){}
+}
+
 async function loadSms(){
+  loadSmsGroups();
   try{
     const [d,st]=await Promise.all([api('/api/sms'),api('/api/sms/status')]);
     const box=$('#smsStatusBox');
@@ -384,8 +438,79 @@ $('#manualSmsForm')?.addEventListener('submit',async e=>{
     loadSms();
   }catch(x){toast(x.message,7000)}
 });
+$('#groupSmsForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const groupId=$('#groupSmsSelect').value,message=$('#groupSmsMessage').value.trim(),mode=$('#groupSmsMode').value;
+  if(!groupId||!message)return toast('그룹과 문자 내용을 입력해 주세요.');
+  if(!confirm(`선택한 그룹에 문자를 발송할까요?\n방식: ${mode==='all'?'전체 연락처':'대표/연락 가능한 1명'}`))return;
+  try{
+    const d=await api('/api/sms/send-group',{method:'POST',body:JSON.stringify({groupId,message,mode})});
+    toast(`${d.groupName} · ${d.queued}건 발송 요청`,7000);$('#groupSmsMessage').value='';loadSms();
+  }catch(x){toast(x.message,7000)}
+});
 
-$('#backupNow').onclick=async()=>{try{const d=await api('/api/backup',{method:'POST',body:'{}'});$('#backupOutput').textContent=JSON.stringify(d,null,2)}catch(e){toast(e.message)}};
+
+
+async function loadSettings(){
+  try{
+    const d=await api('/api/settings'),s=d.settings||{},f=$('#settingsForm');
+    ['eventName','eventDate','eventVenue','eventHost','applicationCapacity','individualAutoCheckinDelayMs','checkinPopupCloseMs','externalBackupIntervalSec','externalSnapshotIntervalMin'].forEach(k=>{if(f.elements[k])f.elements[k].value=s[k]??''});
+    ['checkinSmsEnabled','autoSeatAssignOnCheckin','externalBackupEnabled','autoRestoreExternalIfEmpty'].forEach(k=>{if(f.elements[k])f.elements[k].checked=s[k]!==false});
+    $('#rolePasswordStatus').innerHTML=[
+      ['현장 접수',d.rolePasswords.reception],['좌석 담당',d.rolePasswords.seat],['추첨 담당',d.rolePasswords.raffle],['Google Drive 외부백업',d.externalBackupConfigured]
+    ].map(([n,on])=>`<div class="${on?'settings-ok':'settings-off'}"><strong>${esc(n)}</strong> · ${on?'설정됨':'미설정'}</div>`).join('');
+  }catch(e){toast(e.message,7000)}
+}
+$('#settingsForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());
+  ['applicationCapacity','individualAutoCheckinDelayMs','checkinPopupCloseMs','externalBackupIntervalSec','externalSnapshotIntervalMin'].forEach(k=>b[k]=Number(b[k]));
+  ['checkinSmsEnabled','autoSeatAssignOnCheckin','externalBackupEnabled','autoRestoreExternalIfEmpty'].forEach(k=>b[k]=f.has(k));
+  try{const d=await api('/api/settings',{method:'POST',body:JSON.stringify(b)});appSettings=d.settings;toast('설정을 저장했습니다.');refreshDashboard()}catch(x){toast(x.message,7000)}
+});
+
+async function loadLocalBackups(){
+  try{
+    const d=await api('/api/backup/local-list');
+    $('#localBackupList').innerHTML=d.rows.slice(0,30).map(x=>`<div class="backup-row"><span><strong>${esc(x.name)}</strong><small>${new Date(x.modifiedAt).toLocaleString('ko-KR')} · ${(x.size/1024).toFixed(1)}KB</small></span><button data-localrestore="${esc(x.name)}">복원</button></div>`).join('')||'<p class="muted">로컬 백업 없음</p>';
+  }catch(e){toast(e.message)}
+}
+$('#reloadLocalBackups')?.addEventListener('click',loadLocalBackups);
+$('#localBackupList')?.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-localrestore]');if(!b)return;
+  if(!confirm(`${b.dataset.localrestore} 로컬 백업으로 복원할까요?`))return;
+  try{const d=await api('/api/backup/local-restore',{method:'POST',body:JSON.stringify({name:b.dataset.localrestore})});toast(`복원 완료 · 참가자 ${d.participants}명`,7000);refreshDashboard();loadLocalBackups()}catch(x){toast(x.message,7000)}
+});
+async function loadBackupStatus(){
+  try{
+    const d=await api('/api/external-backup/status'),box=$('#externalBackupStatus');
+    box.className=d.configured?(d.lastError?'warning':'successbox'):'warning';
+    box.innerHTML=d.configured
+      ? `<strong>Google Drive 연결 설정됨</strong><br>최근 성공: ${d.lastSuccessAt?new Date(d.lastSuccessAt).toLocaleString('ko-KR'):'아직 없음'}${d.lastError?`<br>최근 오류: ${esc(d.lastError)}`:''}`
+      : '<strong>미설정</strong><br>GDRIVE_BACKUP_URL / GDRIVE_BACKUP_TOKEN 환경변수를 설정하세요.';
+  }catch(e){toast(e.message)}
+}
+async function loadExternalBackups(){
+  try{
+    const d=await api('/api/external-backup/list');
+    $('#externalBackupList').innerHTML=(d.rows||[]).map(x=>`<div class="backup-row"><span><strong>${esc(x.name)}</strong><small>${x.updatedAt?new Date(x.updatedAt).toLocaleString('ko-KR'):''} · ${x.size?Math.round(x.size/1024)+'KB':''}</small></span><button data-externalrestore="${esc(x.name)}">이 시점으로 복원</button></div>`).join('')||'<p class="muted">Drive 백업 없음</p>';
+    loadBackupStatus();
+  }catch(e){toast(e.message,7000)}
+}
+$('#reloadExternalBackups')?.addEventListener('click',loadExternalBackups);
+$('#externalBackupNow')?.addEventListener('click',async()=>{try{await api('/api/external-backup/now',{method:'POST',body:JSON.stringify({snapshot:false})});toast('Google Drive 최신백업 완료',6500);loadBackupStatus()}catch(e){toast(e.message,8000)}});
+$('#externalSnapshotNow')?.addEventListener('click',async()=>{try{await api('/api/external-backup/now',{method:'POST',body:JSON.stringify({snapshot:true})});toast('Google Drive 시점백업 완료',6500);loadExternalBackups()}catch(e){toast(e.message,8000)}});
+$('#externalRestoreLatest')?.addEventListener('click',async()=>{
+  if(!confirm('Google Drive의 latest.json으로 현재 서버 상태를 복원할까요? 현재 상태는 복원 직전 로컬백업됩니다.'))return;
+  try{const d=await api('/api/external-backup/restore',{method:'POST',body:JSON.stringify({name:'latest.json'})});toast(`Drive 복원 완료 · 참가자 ${d.participants}명`,8000);refreshDashboard();loadBackupStatus()}catch(e){toast(e.message,9000)}
+});
+$('#externalBackupList')?.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-externalrestore]');if(!b)return;
+  if(!confirm(`${b.dataset.externalrestore} 시점으로 복원할까요?`))return;
+  try{const d=await api('/api/external-backup/restore',{method:'POST',body:JSON.stringify({name:b.dataset.externalrestore})});toast(`Drive 복원 완료 · 참가자 ${d.participants}명`,8000);refreshDashboard()}catch(x){toast(x.message,9000)}
+});
+
+
+$('#backupNow').onclick=async()=>{try{const d=await api('/api/backup',{method:'POST',body:'{}'});$('#backupOutput').textContent=JSON.stringify(d,null,2);loadLocalBackups()}catch(e){toast(e.message)}};
 async function downloadAuth(url,name){const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error('다운로드 실패');const blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
 $('#downloadBackup').onclick=()=>downloadAuth('/api/backup/download',`nyjwel20th-backup-${new Date().toISOString().slice(0,10)}.json`).catch(e=>toast(e.message));
 $('#downloadCsv').onclick=()=>downloadAuth('/api/export/participants.csv','participants.csv').catch(e=>toast(e.message));
@@ -483,6 +608,8 @@ function scheduleLiveRefresh(){
       else if(v==='raffle')loadRaffle();
       else if(v==='sms')loadSms();
       else if(v==='logs')loadLogs();
+      else if(v==='settings')loadSettings();
+      else if(v==='backup')loadBackupStatus();
     }catch(_){}
   },300);
 }

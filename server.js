@@ -17,6 +17,13 @@ const MUNJANARA_ID = String(process.env.MUNJANARA_ID || '');
 const MUNJANARA_PW = String(process.env.MUNJANARA_PW || '');
 const MUNJANARA_SENDER = String(process.env.MUNJANARA_SENDER || '');
 const MUNJANARA_TEST_RECEIVER = String(process.env.MUNJANARA_TEST_RECEIVER || '');
+
+const GDRIVE_BACKUP_URL = String(process.env.GDRIVE_BACKUP_URL || '');
+const GDRIVE_BACKUP_TOKEN = String(process.env.GDRIVE_BACKUP_TOKEN || '');
+const RECEPTION_PASSWORD = String(process.env.RECEPTION_PASSWORD || '');
+const SEAT_PASSWORD = String(process.env.SEAT_PASSWORD || '');
+const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
+
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const BACKUP_INTERVAL_MS = 60 * 1000;
 const ROOT = __dirname;
@@ -38,12 +45,24 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.7.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.8.0',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
       eventVenue:'남양주금곡실내체육관',
-      checkinSmsEnabled:true
+      eventHost:'남양주시장애인복지관',
+      applicationCapacity:450,
+      checkinSmsEnabled:true,
+      autoSeatAssignOnCheckin:true,
+      individualAutoCheckinDelayMs:1400,
+      checkinPopupCloseMs:850,
+      externalBackupEnabled:true,
+      externalBackupIntervalSec:60,
+      externalSnapshotIntervalMin:10,
+      autoRestoreExternalIfEmpty:true,
+      groupExclusionKeywords:[],
+      excludedOrganizations:[],
+      excludedCompanionGroups:[]
     },
     participants:[], groups:[], seats:[], checkins:[], gifts:[],
     raffles:[], rouletteHistory:[], rouletteProducts:[], smsQueue:[], logs:[]
@@ -53,7 +72,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.7.1'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.8.0'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -120,9 +139,50 @@ setInterval(()=>{
 function auth(req,res,next){
   const h=req.headers.authorization||'';
   const token=h.startsWith('Bearer ')?h.slice(7):'';
-  const s=sessions.get(token);
-  if(!s||s.expiresAt<=Date.now()) return res.status(401).json({ok:false,error:'로그인이 필요합니다.'});
+  const session=sessions.get(token);
+  if(!session||session.expiresAt<=Date.now()) return res.status(401).json({ok:false,error:'로그인이 필요합니다.'});
+  req.adminRole=session.role||'admin';
+  req.sessionToken=token;
   next();
+}
+function passwordRole(password){
+  const p=str(password);
+  if(p===ADMIN_PASSWORD)return 'admin';
+  if(RECEPTION_PASSWORD && p===RECEPTION_PASSWORD)return 'reception';
+  if(SEAT_PASSWORD && p===SEAT_PASSWORD)return 'seat';
+  if(RAFFLE_PASSWORD && p===RAFFLE_PASSWORD)return 'raffle';
+  return '';
+}
+function roleLabel(role){
+  return ({admin:'메인 관리자',reception:'현장 접수',seat:'좌석 담당',raffle:'추첨 담당'})[role]||role;
+}
+function roleGate(req,res,next){
+  if(req.method==='OPTIONS')return next();
+  const h=req.headers.authorization||'';
+  const token=h.startsWith('Bearer ')?h.slice(7):'';
+  const session=sessions.get(token);
+  if(!session||session.expiresAt<=Date.now())return next();
+  const role=session.role||'admin';
+  if(role==='admin')return next();
+  const p=req.path, m=req.method;
+  const readOK =
+    p==='/bootstrap' ||
+    p.startsWith('/participants') || p.startsWith('/participant/') ||
+    p.startsWith('/groups') || p.startsWith('/group-suggestions') ||
+    p.startsWith('/seats') ||
+    (role==='raffle' && p.startsWith('/raffle')) ||
+    (role==='reception' && p.startsWith('/sms/status')) ||
+    (role==='reception' && p.startsWith('/sms'));
+  if(m==='GET' && readOK)return next();
+
+  if(role==='reception'){
+    if(p.startsWith('/checkin/') || p==='/participants/onsite' || /\/participants\/[^/]+\/admin-update$/.test(p) ||
+       p.startsWith('/groups/') || p==='/groups/manual' || p==='/groups/rebuild-auto' ||
+       p==='/sms/send-one' || p==='/sms/send-group') return next();
+  }
+  if(role==='seat' && p.startsWith('/seats/'))return next();
+  if(role==='raffle' && p.startsWith('/raffle/'))return next();
+  return res.status(403).json({ok:false,error:`${roleLabel(role)} 권한으로는 이 기능을 사용할 수 없습니다.`});
 }
 
 function participantActive(p){return p.active!==false && str(p.participationStatus||'참여')!=='미참여'}
@@ -174,6 +234,53 @@ function assignContiguous(people){
   return people.map(p=>p.seat).filter(Boolean);
 }
 function releaseSeat(p){const old=p.seat||'';p.seat='';return old}
+
+function seatCodeCategory(code){
+  const m=str(code).toUpperCase().match(/^([A-Y])([LR])-(\d{2})$/);
+  if(!m)return 'general';
+  const row=m[1], side=m[2], n=num(m[3]);
+  if(['A','B','C'].includes(row)){
+    const inner=(side==='L'&&n>=6)||(side==='R'&&n<=5);
+    return inner?'vip':'wheelchair';
+  }
+  if(['D','E','F'].includes(row))return 'guest';
+  return 'general';
+}
+function seatsForCategory(category,excludeIds=[]){
+  const occ=occupiedSeatSet(excludeIds);
+  return state.seats.filter(x=>x.enabled!==false&&!occ.has(str(x.code).toUpperCase())&&seatCodeCategory(x.code)===category)
+    .sort((a,b)=>(num(a.sortOrder)-num(b.sortOrder))||str(a.code).localeCompare(str(b.code)));
+}
+function assignOneCategory(p,category,excludeIds=[]){
+  if(p.seat&&seatByCode(p.seat))return p.seat;
+  const pool=seatsForCategory(category,excludeIds);
+  if(!pool.length)return '';
+  p.seat=pool[0].code;return p.seat;
+}
+function assignContiguousCategory(people,category){
+  const need=people.filter(p=>!p.seat);
+  if(!need.length)return people.map(p=>p.seat).filter(Boolean);
+  const pool=seatsForCategory(category,people.map(p=>p.id));
+  const groups=new Map();
+  pool.forEach(seat=>{
+    const key=`${seat.row}|${seat.side}`;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(seat);
+  });
+  for(const seats of groups.values()){
+    seats.sort((a,b)=>num(a.number)-num(b.number));
+    for(let i=0;i<=seats.length-need.length;i++){
+      const slice=seats.slice(i,i+need.length);
+      if(slice.every((x,j)=>j===0||num(x.number)===num(slice[j-1].number)+1)){
+        need.forEach((p,j)=>p.seat=slice[j].code);
+        return people.map(p=>p.seat).filter(Boolean);
+      }
+    }
+  }
+  need.forEach(p=>assignOneCategory(p,category,people.map(x=>x.id)));
+  return people.map(p=>p.seat).filter(Boolean);
+}
+
 
 function addLog(action,p,note='',station='관리자 웹'){
   state.checkins.unshift({at:nowIso(),action,participantId:p?.id||'',receptionNo:p?.receptionNo||0,name:p?.name||'',seat:p?.seat||'',station,note});
@@ -242,10 +349,12 @@ async function sendQueuedSmsItem(item){
     item.status=r.success?'성공':'실패';
     item.result=`HTTP ${r.httpStatus} / ${String(r.body).trim()}`;
     item.sentAt=nowIso();
+    adminAudit('문자발송',{id:item.participantId||item.id,name:item.phone},null,{status:item.status,kind:item.kind},item.result);
   }catch(e){
     item.status='실패';
     item.result=`${e.name||'Error'}: ${e.message}`;
     item.sentAt=nowIso();
+    adminAudit('문자발송',{id:item.participantId||item.id,name:item.phone},null,{status:item.status,kind:item.kind},item.result);
   }
   saveState();
   return item;
@@ -309,6 +418,14 @@ function groupDisplayName(g){
 function manualGroupMemberIds(){
   return new Set(state.groups.filter(g=>g.type==='representative'&&!g.auto).flatMap(g=>g.memberIds||[]));
 }
+
+function excludedOrganizationSet(){
+  return new Set((state.settings.excludedOrganizations||[]).map(normalizeOrg).filter(Boolean));
+}
+function excludedCompanionSet(){
+  return new Set((state.settings.excludedCompanionGroups||[]).map(str).filter(Boolean));
+}
+
 function rebuildAutomaticGroups({persist=false}={}){
   const manualGroups=state.groups.filter(g=>!(g.auto===true || g.type==='organization' || g.type==='companion'));
   const manualUsed=new Set(manualGroups.flatMap(g=>g.memberIds||[]));
@@ -320,7 +437,7 @@ function rebuildAutomaticGroups({persist=false}={}){
   state.participants.filter(participantActive).forEach(p=>{
     if(manualUsed.has(p.id))return;
     const org=normalizeOrg(p.organization);
-    if(!org||isInternalOrganization(org))return;
+    if(!org||isInternalOrganization(org)||excludedOrganizationSet().has(org))return;
     if(!byOrg.has(org))byOrg.set(org,[]);
     byOrg.get(org).push(p);
   });
@@ -343,7 +460,7 @@ function rebuildAutomaticGroups({persist=false}={}){
   state.participants.filter(participantActive).forEach(p=>{
     if(manualUsed.has(p.id)||autoUsed.has(p.id))return;
     const key=str(p.companionGroup);
-    if(!key)return;
+    if(!key||excludedCompanionSet().has(key))return;
     if(!byCompanion.has(key))byCompanion.set(key,[]);
     byCompanion.get(key).push(p);
   });
@@ -381,7 +498,7 @@ function markArrived(p,{station='관리자 웹',sendSms=true}={}){
   const already=Boolean(p.arrived);
   if(!already){
     p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso();
-    if(!p.seat)assignOne(p);
+    if(!p.seat && state.settings.autoSeatAssignOnCheckin!==false)assignOne(p);
     addLog('QR접수',p,'기념품 지급완료',station);
     if(sendSms && state.settings.checkinSmsEnabled!==false) queueAndSendSms(p.phone,checkinMessage(p),'checkin',p.id);
   }
@@ -413,7 +530,7 @@ function buildImport(buf,name){
     organization:str(r['소속기관']),requestedCount:Math.max(1,num(r['신청인원(개인=1)'],1)),wheelchairUser:bool(r['휠체어이용여부']),
     wheelchairCount:Math.max(0,num(r['휠체어이용인원(개인신청 0·1)'],0)),usesCenter:bool(r['복지관이용여부']),
     disabledPerson:bool(r['장애인당사자여부']),companionGroup:str(r['동반그룹']),
-    participationStatus:str(r['참여상태'])||'참여',giftReceived:false,onsite:false
+    participationStatus:str(r['참여상태'])||'참여',seatCategory:str(r['좌석구분']||r['좌석유형'])||'auto',seatLocked:bool(r['좌석고정']),giftReceived:false,onsite:false
   }));
   const seats=sheetRows(wb,'좌석설정').filter(r=>str(r['좌석코드'])).map(r=>({
     code:str(r['좌석코드']).toUpperCase(),row:str(r['행']).toUpperCase(),side:str(r['측면']).toUpperCase(),number:num(r['번호']),
@@ -432,11 +549,18 @@ app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.7.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,smsReady:munjanaraConfigured()}));
+app.get('/api/health',(req,res)=>{
+  let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
+  res.json({ok:true,version:'0.8.0',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+    smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
+    disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
+});
 app.post('/api/login',(req,res)=>{
-  if(str(req.body?.password)!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
-  const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;sessions.set(token,{expiresAt});
-  res.json({ok:true,token,expiresAt:new Date(expiresAt).toISOString()});
+  const role=passwordRole(req.body?.password);
+  if(!role)return res.status(401).json({ok:false,error:'비밀번호가 올바르지 않습니다.'});
+  const token=crypto.randomBytes(32).toString('hex'),expiresAt=Date.now()+SESSION_TTL_MS;
+  sessions.set(token,{expiresAt,role});
+  res.json({ok:true,token,role,roleLabel:roleLabel(role),expiresAt:new Date(expiresAt).toISOString()});
 });
 
 app.get('/api/events',(req,res)=>{
@@ -452,11 +576,13 @@ app.get('/api/events',(req,res)=>{
   req.on('close',()=>{clearInterval(keepalive);sseClients.delete(res)});
 });
 
+app.use('/api',roleGate);
+
 app.get('/api/bootstrap',auth,(req,res)=>{
   rebuildAutomaticGroups({persist:true});
   const active=state.participants.filter(participantActive);
   const extraGifts=state.groups.reduce((n,g)=>n+num(g.extraGiftCount,0),0);
-  res.json({ok:true,serverTime:nowIso(),summary:{
+  res.json({ok:true,serverTime:nowIso(),role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
     participants:state.participants.length,active:active.length,arrived:active.filter(p=>p.arrived).length,
     groups:state.groups.length,seats:state.seats.length,assignedSeats:active.filter(p=>p.seat).length,
     giftsReceived:state.participants.filter(p=>p.giftReceived).length+extraGifts,
@@ -535,6 +661,8 @@ app.post('/api/participants/:id/admin-update',auth,(req,res)=>{
   if('wheelchairUser'in b)p.wheelchairUser=bool(b.wheelchairUser);
   if('disabledPerson'in b)p.disabledPerson=bool(b.disabledPerson);
   if('usesCenter'in b)p.usesCenter=bool(b.usesCenter);
+  if('seatCategory'in b)p.seatCategory=str(b.seatCategory)||'auto';
+  if('seatLocked'in b)p.seatLocked=bool(b.seatLocked);
   if('arrived'in b){
     const newArrived=bool(b.arrived);
     if(newArrived&&!p.arrived){p.arrived=true;p.arrivedAt=nowIso();}
@@ -671,8 +799,31 @@ app.post('/api/groups/create-by-organization',auth,(req,res)=>{
   saveState();res.json({ok:true,group:{...g,name:groupDisplayName(g)}});
 });
 app.post('/api/groups/:id/delete',auth,(req,res)=>{
+  rebuildAutomaticGroups({persist:false});
   const i=state.groups.findIndex(g=>g.id===req.params.id);if(i<0)return res.status(404).json({ok:false,error:'단체를 찾을 수 없습니다.'});
-  const [g]=state.groups.splice(i,1);saveState();res.json({ok:true,group:g});
+  const g=state.groups[i];
+  if(g.type==='organization'&&g.auto){
+    const arr=new Set(state.settings.excludedOrganizations||[]);arr.add(normalizeOrg(g.organization));state.settings.excludedOrganizations=[...arr];
+  }else if(g.type==='companion'&&g.auto){
+    const arr=new Set(state.settings.excludedCompanionGroups||[]);arr.add(str(g.companionGroup));state.settings.excludedCompanionGroups=[...arr];
+  }else{
+    state.groups.splice(i,1);
+  }
+  rebuildAutomaticGroups({persist:false});
+  adminAudit('그룹자동제외',g,null,{type:g.type,name:groupDisplayName(g)});
+  saveState();res.json({ok:true,group:g});
+});
+app.get('/api/groups/excluded',auth,(req,res)=>{
+  res.json({ok:true,organizations:state.settings.excludedOrganizations||[],companions:state.settings.excludedCompanionGroups||[]});
+});
+app.post('/api/groups/restore-excluded',auth,(req,res)=>{
+  const type=str(req.body?.type),value=str(req.body?.value);
+  if(type==='organization')state.settings.excludedOrganizations=(state.settings.excludedOrganizations||[]).filter(x=>normalizeOrg(x)!==normalizeOrg(value));
+  else if(type==='companion')state.settings.excludedCompanionGroups=(state.settings.excludedCompanionGroups||[]).filter(x=>str(x)!==value);
+  else return res.status(400).json({ok:false,error:'복원 유형이 올바르지 않습니다.'});
+  const result=rebuildAutomaticGroups({persist:false});
+  adminAudit('자동그룹복원',{id:value,name:value},null,{type,value});
+  saveState();res.json({ok:true,result});
 });
 
 
@@ -809,6 +960,57 @@ app.post('/api/seats/auto-assign-unassigned',auth,(req,res)=>{
 });
 
 
+
+app.post('/api/seats/reset-general',auth,(req,res)=>{
+  let released=0;
+  state.participants.filter(participantActive).forEach(p=>{
+    if(!p.seat||p.seatLocked)return;
+    if(seatCodeCategory(p.seat)==='general'){p.seat='';p.modifiedAt=nowIso();released++}
+  });
+  adminAudit('일반좌석초기화',{id:'general-seats',name:'G~Y 일반석'},null,{released});
+  saveState();res.json({ok:true,released});
+});
+app.post('/api/seats/final-auto-assign',auth,(req,res)=>{
+  rebuildAutomaticGroups({persist:false});
+  const resetGeneral=req.body?.resetGeneral!==false;
+  let resetCount=0;
+  if(resetGeneral){
+    state.participants.filter(participantActive).forEach(p=>{
+      if(p.seat&&!p.seatLocked&&seatCodeCategory(p.seat)==='general'){p.seat='';resetCount++}
+    });
+  }
+  let vip=0,guest=0,wheelchair=0,general=0,groupsDone=0;
+
+  const active=state.participants.filter(p=>participantActive(p)&&!p.onsite);
+  active.filter(p=>!p.seat&&(p.seatCategory==='vip')).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{if(assignOneCategory(p,'vip'))vip++});
+  active.filter(p=>!p.seat&&(p.seatCategory==='guest')).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{if(assignOneCategory(p,'guest'))guest++});
+  active.filter(p=>!p.seat&&(p.wheelchairUser||p.seatCategory==='wheelchair')).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{
+    if(assignOneCategory(p,'wheelchair')||assignOneCategory(p,'general'))wheelchair++;
+  });
+
+  const remaining=new Set(active.filter(p=>!p.seat).map(p=>p.id));
+  const priorityGroups=[
+    ...state.groups.filter(g=>g.type==='representative'&&!g.auto),
+    ...state.groups.filter(g=>g.type==='companion'),
+    ...state.groups.filter(g=>g.type==='organization')
+  ];
+  for(const g of priorityGroups){
+    const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(p=>p&&remaining.has(p.id)&&!p.wheelchairUser);
+    if(members.length>=2){
+      assignContiguousCategory(members,'general');
+      members.forEach(p=>{if(p.seat){remaining.delete(p.id);general++}});
+      groupsDone++;
+    }
+  }
+  active.filter(p=>remaining.has(p.id)).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{
+    if(assignOneCategory(p,'general')){general++;remaining.delete(p.id)}
+  });
+
+  const result={resetCount,vip,guest,wheelchair,general,groupsDone,remaining:remaining.size};
+  adminAudit('최종좌석일괄배치',{id:'final-layout',name:'최종 좌석배치'},null,result);
+  saveState();res.json({ok:true,...result});
+});
+
 app.get('/api/logs',auth,(req,res)=>{
   const q=str(req.query.q).toLowerCase();
   const type=str(req.query.type);
@@ -913,6 +1115,29 @@ app.post('/api/sms/send-one',auth,async(req,res)=>{
   res.json({ok:item.status==='성공',item});
 });
 
+
+app.post('/api/sms/send-group',auth,async(req,res)=>{
+  rebuildAutomaticGroups({persist:false});
+  const g=state.groups.find(x=>x.id===str(req.body?.groupId));
+  if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
+  const message=str(req.body?.message);if(!message)return res.status(400).json({ok:false,error:'문자 내용을 입력해 주세요.'});
+  const mode=str(req.body?.mode||'representative');
+  const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
+  let targets=[];
+  if(mode==='all')targets=members.filter(p=>p.phone);
+  else{
+    const rep=members.find(p=>p.id===g.representativeId&&p.phone)||members.find(p=>p.phone);
+    if(rep)targets=[rep];
+  }
+  const seen=new Set();
+  targets=targets.filter(p=>{const d=digits(p.phone);if(!d||seen.has(d))return false;seen.add(d);return true});
+  if(!targets.length)return res.status(400).json({ok:false,error:'발송 가능한 연락처가 없습니다.'});
+  const items=targets.map(p=>queueAndSendSms(p.phone,message,'group-manual',p.id)).filter(Boolean);
+  adminAudit('그룹문자',{id:g.id,name:groupDisplayName(g)},null,{mode,count:items.length});
+  saveState();
+  res.json({ok:true,queued:items.length,groupName:groupDisplayName(g)});
+});
+
 app.get('/api/sms',auth,(req,res)=>res.json({ok:true,rows:[...state.smsQueue].reverse().slice(0,300)}));
 app.post('/api/sms/pre-event',auth,(req,res)=>{
   const target=str(req.body?.target||'all');
@@ -932,6 +1157,30 @@ app.post('/api/sms/pre-event',auth,(req,res)=>{
   saveState();res.json({ok:true,queued});
 });
 
+
+
+app.get('/api/settings',auth,(req,res)=>{
+  res.json({ok:true,settings:state.settings,role:req.adminRole,roleLabel:roleLabel(req.adminRole),rolePasswords:{
+    reception:Boolean(RECEPTION_PASSWORD),seat:Boolean(SEAT_PASSWORD),raffle:Boolean(RAFFLE_PASSWORD)
+  },externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN)});
+});
+app.post('/api/settings',auth,(req,res)=>{
+  if(req.adminRole!=='admin')return res.status(403).json({ok:false,error:'메인 관리자만 설정을 변경할 수 있습니다.'});
+  const b=req.body||{},before={...state.settings};
+  const textKeys=['eventName','eventDate','eventVenue','eventHost'];
+  textKeys.forEach(k=>{if(k in b)state.settings[k]=str(b[k])});
+  if('applicationCapacity'in b)state.settings.applicationCapacity=Math.max(1,num(b.applicationCapacity,450));
+  if('checkinSmsEnabled'in b)state.settings.checkinSmsEnabled=bool(b.checkinSmsEnabled);
+  if('autoSeatAssignOnCheckin'in b)state.settings.autoSeatAssignOnCheckin=bool(b.autoSeatAssignOnCheckin);
+  if('individualAutoCheckinDelayMs'in b)state.settings.individualAutoCheckinDelayMs=Math.max(300,Math.min(10000,num(b.individualAutoCheckinDelayMs,1400)));
+  if('checkinPopupCloseMs'in b)state.settings.checkinPopupCloseMs=Math.max(300,Math.min(10000,num(b.checkinPopupCloseMs,850)));
+  if('externalBackupEnabled'in b)state.settings.externalBackupEnabled=bool(b.externalBackupEnabled);
+  if('externalBackupIntervalSec'in b)state.settings.externalBackupIntervalSec=Math.max(30,Math.min(3600,num(b.externalBackupIntervalSec,60)));
+  if('externalSnapshotIntervalMin'in b)state.settings.externalSnapshotIntervalMin=Math.max(1,Math.min(1440,num(b.externalSnapshotIntervalMin,10)));
+  if('autoRestoreExternalIfEmpty'in b)state.settings.autoRestoreExternalIfEmpty=bool(b.autoRestoreExternalIfEmpty);
+  adminAudit('시스템설정수정',{id:'settings',name:'시스템 설정'},before,state.settings);
+  saveState();res.json({ok:true,settings:state.settings});
+});
 
 app.post('/api/import/xlsx/preview',auth,upload.single('file'),(req,res)=>{
   try{
@@ -985,6 +1234,128 @@ app.post('/api/import/xlsx/confirm',auth,(req,res)=>{
   });
 });
 
+
+const externalBackupRuntime={
+  configured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
+  lastAttemptAt:null,lastSuccessAt:null,lastSnapshotAt:null,lastRestoreAt:null,lastError:'',lastRemoteName:''
+};
+let externalBackupBusy=false,lastExternalStateUpdatedAt='';
+async function externalBackupRequest(action,payload={}){
+  if(!GDRIVE_BACKUP_URL||!GDRIVE_BACKUP_TOKEN)throw new Error('Google Drive 외부백업 환경변수가 설정되지 않았습니다.');
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+  try{
+    const r=await fetch(GDRIVE_BACKUP_URL,{
+      method:'POST',redirect:'follow',signal:controller.signal,
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:GDRIVE_BACKUP_TOKEN,action,...payload})
+    });
+    const text=await r.text();
+    let d={};try{d=JSON.parse(text)}catch(_){throw new Error(`외부백업 응답 오류: ${text.slice(0,180)}`)}
+    if(!r.ok||!d.ok)throw new Error(d.error||`외부백업 HTTP ${r.status}`);
+    return d;
+  }finally{clearTimeout(timer)}
+}
+async function pushExternalBackup({force=false,snapshot=false}={}){
+  if(externalBackupBusy)return {ok:false,skipped:'busy'};
+  if(!state.settings.externalBackupEnabled&&!force)return {ok:false,skipped:'disabled'};
+  if(!GDRIVE_BACKUP_URL||!GDRIVE_BACKUP_TOKEN)return {ok:false,skipped:'not-configured'};
+  if(!force&&lastExternalStateUpdatedAt===state.meta.updatedAt)return {ok:true,skipped:'unchanged'};
+  externalBackupBusy=true;externalBackupRuntime.lastAttemptAt=nowIso();
+  try{
+    const d=await externalBackupRequest('save',{state,snapshot,source:'cloudtype-v0.8'});
+    externalBackupRuntime.lastSuccessAt=nowIso();
+    externalBackupRuntime.lastError='';
+    externalBackupRuntime.lastRemoteName=d.name||'latest.json';
+    if(snapshot)externalBackupRuntime.lastSnapshotAt=externalBackupRuntime.lastSuccessAt;
+    lastExternalStateUpdatedAt=state.meta.updatedAt;
+    return {ok:true,...d};
+  }catch(e){
+    externalBackupRuntime.lastError=e.message;
+    throw e;
+  }finally{externalBackupBusy=false}
+}
+async function loadExternalBackup(name='latest.json'){
+  const d=await externalBackupRequest('load',{name});
+  if(!d.state)throw new Error('외부 백업에 상태 데이터가 없습니다.');
+  return d;
+}
+async function restoreExternalBackup(name='latest.json'){
+  backupNow('before-external-restore');
+  const d=await loadExternalBackup(name);
+  state=normalizeState(d.state);
+  state.meta.restoredFromExternal=name;
+  state.meta.restoredAt=nowIso();
+  rebuildAutomaticGroups({persist:false});
+  saveState();backupNow('after-external-restore');
+  externalBackupRuntime.lastRestoreAt=nowIso();
+  return {ok:true,name,participants:state.participants.length,seats:state.seats.length};
+}
+async function externalBackupWorker(){
+  if(!state.settings.externalBackupEnabled||!GDRIVE_BACKUP_URL||!GDRIVE_BACKUP_TOKEN)return;
+  const last=externalBackupRuntime.lastSuccessAt?new Date(externalBackupRuntime.lastSuccessAt).getTime():0;
+  const interval=Math.max(30,num(state.settings.externalBackupIntervalSec,60))*1000;
+  if(Date.now()-last<interval)return;
+  const snapLast=externalBackupRuntime.lastSnapshotAt?new Date(externalBackupRuntime.lastSnapshotAt).getTime():0;
+  const snapInterval=Math.max(1,num(state.settings.externalSnapshotIntervalMin,10))*60000;
+  try{await pushExternalBackup({snapshot:Date.now()-snapLast>=snapInterval})}catch(e){console.error('[EXTERNAL BACKUP]',e.message)}
+}
+setInterval(()=>externalBackupWorker(),15000).unref();
+setTimeout(async()=>{
+  if(state.settings.autoRestoreExternalIfEmpty!==false && state.participants.length===0 && GDRIVE_BACKUP_URL && GDRIVE_BACKUP_TOKEN){
+    try{
+      const d=await loadExternalBackup('latest.json');
+      if(Array.isArray(d.state?.participants)&&d.state.participants.length>0){
+        state=normalizeState(d.state);state.meta.autoRestoredAt=nowIso();saveState();backupNow('startup-external-restore');
+        externalBackupRuntime.lastRestoreAt=nowIso();
+        console.log(`[EXTERNAL RESTORE] ${state.participants.length} participants restored`);
+      }
+    }catch(e){externalBackupRuntime.lastError=e.message;console.warn('[EXTERNAL RESTORE]',e.message)}
+  }
+},4000).unref();
+
+app.get('/api/backup/local-list',auth,(req,res)=>{
+  const rows=fs.readdirSync(BACKUP_DIR).filter(f=>f.endsWith('.json')).map(f=>{
+    const st=fs.statSync(path.join(BACKUP_DIR,f));return {name:f,size:st.size,modifiedAt:st.mtime.toISOString()}
+  }).sort((a,b)=>new Date(b.modifiedAt)-new Date(a.modifiedAt)).slice(0,300);
+  res.json({ok:true,rows});
+});
+app.post('/api/backup/local-restore',auth,(req,res)=>{
+  const name=path.basename(str(req.body?.name));
+  if(!name.endsWith('.json'))return res.status(400).json({ok:false,error:'백업 파일명이 올바르지 않습니다.'});
+  const fp=path.join(BACKUP_DIR,name);if(!fs.existsSync(fp))return res.status(404).json({ok:false,error:'로컬 백업을 찾을 수 없습니다.'});
+  backupNow('before-local-restore');
+  state=normalizeState(JSON.parse(fs.readFileSync(fp,'utf8')));
+  state.meta.restoredFromLocal=name;state.meta.restoredAt=nowIso();saveState();backupNow('after-local-restore');
+  res.json({ok:true,name,participants:state.participants.length,seats:state.seats.length});
+});
+app.post('/api/backup/restore',auth,upload.single('file'),(req,res)=>{
+  try{
+    if(!req.file)return res.status(400).json({ok:false,error:'JSON 백업 파일을 선택해 주세요.'});
+    backupNow('before-upload-restore');
+    const parsed=JSON.parse(req.file.buffer.toString('utf8'));
+    state=normalizeState(parsed);state.meta.restoredAt=nowIso();state.meta.restoredFromUpload=req.file.originalname;
+    rebuildAutomaticGroups({persist:false});saveState();backupNow('after-upload-restore');
+    res.json({ok:true,participants:state.participants.length,seats:state.seats.length,groups:state.groups.length});
+  }catch(e){res.status(400).json({ok:false,error:`복원 실패: ${e.message}`})}
+});
+app.get('/api/external-backup/status',auth,(req,res)=>res.json({
+  ok:true,...externalBackupRuntime,configured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
+  enabled:state.settings.externalBackupEnabled!==false,autoRestore:state.settings.autoRestoreExternalIfEmpty!==false
+}));
+app.post('/api/external-backup/now',auth,async(req,res)=>{
+  try{res.json(await pushExternalBackup({force:true,snapshot:Boolean(req.body?.snapshot)}))}
+  catch(e){res.status(502).json({ok:false,error:e.message})}
+});
+app.get('/api/external-backup/list',auth,async(req,res)=>{
+  try{res.json(await externalBackupRequest('list',{}))}
+  catch(e){res.status(502).json({ok:false,error:e.message})}
+});
+app.post('/api/external-backup/restore',auth,async(req,res)=>{
+  try{res.json(await restoreExternalBackup(str(req.body?.name)||'latest.json'))}
+  catch(e){res.status(502).json({ok:false,error:e.message})}
+});
+
+
 app.post('/api/backup',auth,(req,res)=>res.json({ok:true,filename:backupNow('manual')}));
 app.get('/api/backup/download',auth,(req,res)=>{backupNow('download');res.download(STATE_FILE,`nyjwel20th-backup-${new Date().toISOString().slice(0,10)}.json`)});
 app.get('/api/export/participants.csv',auth,(req,res)=>{
@@ -1009,4 +1380,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.7.1 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.8.0 · :${PORT}`));
