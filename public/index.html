@@ -3,25 +3,52 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.8.5">
+<link rel="stylesheet" href="/style.css?v=0.9.1">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="20주년 관리자">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="/vendor/html5-qrcode.min.js"></script>
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.8.5</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.1</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<div id="systemModeBanner" class="system-mode-banner hidden"></div>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
 </nav>
 <main>
-<section id="view-dashboard" class="view active"><div class="stats">
-<div class="stat"><span>참가자</span><strong id="sParticipants">0</strong></div><div class="stat"><span>참여 예정</span><strong id="sActive">0</strong></div><div class="stat green"><span>도착</span><strong id="sArrived">0</strong></div><div class="stat"><span>현장 신규</span><strong id="sOnsite">0</strong></div><div class="stat"><span>단체</span><strong id="sGroups">0</strong></div><div class="stat"><span>좌석 배정</span><strong id="sSeats">0</strong></div><div class="stat"><span>기념품</span><strong id="sGifts">0</strong></div><div class="stat"><span>문자 대기</span><strong id="sSms">0</strong></div>
-</div><article class="card"><h2>현장 운영</h2><p class="muted">QR 접수·현장 신규접수·좌석·기념품·행운권을 이 서버에서 처리합니다. 현황은 10초마다 자동 갱신됩니다.</p></article></section>
+<section id="view-dashboard" class="view active">
+<div class="ops-health" id="opsHealth">
+  <span id="healthBrowser">브라우저 확인중</span>
+  <span id="healthServer">서버 확인중</span>
+  <span id="healthSms">문자 확인중</span>
+  <span id="healthBackup">백업 확인중</span>
+</div>
+<div class="stats ops-stats">
+  <div class="stat green focus"><span>실제 입장</span><strong id="sActualAttendance">0</strong><small>등록 도착 + 단체 초과</small></div>
+  <div class="stat"><span>등록자 도착</span><strong id="sArrived">0</strong></div>
+  <div class="stat"><span>최근 10분</span><strong id="sRecent10">0</strong></div>
+  <div class="stat"><span>미도착</span><strong id="sPending">0</strong></div>
+  <div class="stat"><span>단체 초과입장</span><strong id="sExtraStanding">0</strong></div>
+  <div class="stat"><span>VIP/내빈 미도착</span><strong id="sVipPending">0</strong></div>
+  <div class="stat"><span>이동지원 미도착</span><strong id="sMobilityPending">0</strong></div>
+  <div class="stat"><span>좌석 미배정</span><strong id="sUnassigned">0</strong></div>
+  <div class="stat"><span>문자 실패</span><strong id="sSmsFailed">0</strong></div>
+  <div class="stat"><span>남은 좌석</span><strong id="sFreeSeats">0</strong></div>
+  <div class="stat"><span>전체 참가자</span><strong id="sParticipants">0</strong></div>
+  <div class="stat"><span>기념품 지급</span><strong id="sGifts">0</strong></div>
+</div>
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">FIELD CONTROL</p><h2>현장 운영 제어</h2></div><button type="button" id="toggleOperationMode" class="danger">행사 운영 잠금</button></div>
+  <p class="muted">운영 잠금을 켜면 접수·문자·추첨 같은 현장 기능은 유지하면서 XLSX 반영, 백업 복원, 대규모 좌석 초기화 등 위험 작업을 잠급니다. 단체는 먼저 도착한 사람이 남은 그룹원 전체를 한 번에 접수하는 운영을 기본으로 합니다.</p>
+  <div class="actions">
+    <button type="button" id="openRaffleStage">무대 추첨 화면 열기</button>
+  </div>
+</article>
+</section>
 
 <section id="view-checkin" class="view"><div class="two"><article class="card"><div class="card-head"><div><p class="eyebrow">QR CHECK-IN</p><h2>QR 스캔</h2></div><button id="toggleScanner" class="primary">카메라 시작</button></div><div id="reader" class="reader">카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.</div></article>
 <article class="card"><h2>수동 QR / 검색코드</h2><form id="manualQrForm" class="stack"><input id="manualQr" placeholder="QR고유코드 또는 접수번호" required><button class="primary">접수 확인</button></form><div id="recentResult" class="result muted">아직 접수하지 않았습니다.</div></article></div></section>
@@ -30,7 +57,7 @@
 <article class="card">
   <div class="card-head"><div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 관리</h2><p id="participantCount" class="muted"></p></div><button type="button" id="reloadParticipants" class="primary">갱신</button></div>
   <div class="filters"><input id="participantSearch" placeholder="이름 · 연락처 · 기관 · QR · 좌석 · 그룹"><select id="participantStatus"><option value="all">전체</option><option value="pending">미도착</option><option value="arrived">도착</option><option value="inactive">미참여/비활성</option></select></div>
-  <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>정보</th><th>상태</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>정보</th><th>상태</th><th>문자</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div>
 </article>
 </section>
 
@@ -38,7 +65,7 @@
 
 <section id="view-groups" class="view">
 <article class="card">
-  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">같은 외부기관은 자동으로 한 그룹으로 묶고, 기관이 없는 동반신청은 '동반'으로 묶습니다. 그룹의 어느 참가자 QR을 찍어도 그룹 접수가 열립니다.</p></div><button type="button" id="reloadGroups" class="primary">갱신</button></div>
+  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">같은 외부기관은 자동으로 한 그룹으로 묶고, 기관이 없는 동반신청은 '동반'으로 묶습니다. 그룹의 어느 참가자 QR을 찍어도 그룹 접수가 열리며, 먼저 온 사람이 남은 그룹원 전체를 한 번에 접수하는 것을 기본으로 합니다.</p></div><button type="button" id="reloadGroups" class="primary">갱신</button></div>
   <div class="group-policy-box">
     <strong>자동 기관묶음 제외어</strong>
     <p class="muted">아래 단어가 소속기관명에 포함되면 자동 기관그룹에서 제외됩니다. 필요하면 직접 추가·삭제한 뒤 재구성하세요.</p>
@@ -157,6 +184,7 @@
       <label class="check"><input type="checkbox" name="autoSeatAssignOnCheckin"> QR 접수 즉시 좌석 자동배정</label>
       <label class="check"><input type="checkbox" name="externalBackupEnabled"> Google Drive 외부백업 사용</label>
       <label class="check"><input type="checkbox" name="autoRestoreExternalIfEmpty"> 서버 데이터가 비면 Drive 최신백업 자동복원</label>
+      <div class="notice wide-field"><strong>행사 운영 잠금</strong>은 메인 현황에서 관리자 비밀번호를 다시 입력해 ON/OFF 합니다.</div>
       <button class="primary wide-field">설정 저장</button>
     </form>
   </article>
@@ -272,4 +300,4 @@ RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.8.5"></script></body></html>
+<script src="/app.js?v=0.9.1"></script></body></html>

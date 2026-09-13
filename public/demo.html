@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#5e338c">
+<title>20주년 관리자 기능 시연</title>
+<link rel="stylesheet" href="/demo.css?v=0.9.1">
+</head>
+<body>
+<header class="demo-header">
+  <div>
+    <p>남양주시장애인복지관 · 20주년</p>
+    <h1>관리자 시스템 기능 시연</h1>
+  </div>
+  <a href="/" class="back">운영 화면으로</a>
+</header>
+
+<main>
+  <section class="hero">
+    <span class="pill">DEMO · 실제 데이터와 완전 분리</span>
+    <h2>행사 현장에서 어떻게 동작하는지<br>간단히 체험할 수 있습니다.</h2>
+    <p>아래 기능은 모두 브라우저 안에서만 시뮬레이션됩니다. 실제 참가자 데이터, 문자나라, Google Drive에는 아무 영향이 없습니다.</p>
+  </section>
+
+  <nav class="demo-nav">
+    <button data-demo-tab="dashboard" class="active">현황</button>
+    <button data-demo-tab="checkin">QR 접수</button>
+    <button data-demo-tab="group">단체 접수</button>
+    <button data-demo-tab="seat">좌석</button>
+    <button data-demo-tab="sms">문자</button>
+    <button data-demo-tab="raffle">행운권</button>
+  </nav>
+
+  <section id="demo-dashboard" class="demo-view active">
+    <div class="stats">
+      <article><span>실제 입장</span><strong id="dActual">124</strong></article>
+      <article><span>등록자 도착</span><strong id="dArrived">121</strong></article>
+      <article><span>단체 초과</span><strong id="dExtra">3</strong></article>
+      <article><span>미도착</span><strong>36</strong></article>
+      <article><span>VIP 미도착</span><strong>2</strong></article>
+      <article><span>좌석 미배정</span><strong>1</strong></article>
+    </div>
+    <article class="card">
+      <h3>현장 상태</h3>
+      <div class="health"><span>인터넷 ✅</span><span>서버 ✅</span><span>문자 ✅</span><span>백업 ✅</span></div>
+      <p>운영판에서는 이 화면에서 입장 현황, 문자 실패, 남은 좌석, 우선지원 대상 도착 등을 한눈에 확인합니다.</p>
+    </article>
+  </section>
+
+  <section id="demo-checkin" class="demo-view">
+    <article class="card center">
+      <p class="eyebrow">QR CHECK-IN</p>
+      <h3>개인 QR 접수 시연</h3>
+      <div class="fake-person"><strong>김하늘</strong><span>복지관 이용인 · 연락처 010-****-1234</span></div>
+      <button id="demoIndividual" class="primary big">김하늘 QR 찍기</button>
+      <div id="demoIndividualResult" class="result muted">버튼을 눌러 접수 흐름을 확인해보세요.</div>
+    </article>
+  </section>
+
+  <section id="demo-group" class="demo-view">
+    <article class="card">
+      <p class="eyebrow">GROUP CHECK-IN</p>
+      <h3>단체 접수 시연</h3>
+      <div class="groupbox">
+        <strong>행복나눔센터</strong>
+        <span>등록 6명 · 미도착 6명</span>
+      </div>
+      <p>먼저 도착한 한 사람이 QR을 제시하면 <strong>남은 6명 전체 접수</strong>가 기본값입니다.</p>
+      <div class="stepper"><button id="gMinus">−</button><strong id="gCount">6</strong><button id="gPlus">＋</button></div>
+      <button id="demoGroupCheck" class="primary wide">이 인원으로 접수</button>
+      <div id="demoGroupResult" class="result muted"></div>
+    </article>
+  </section>
+
+  <section id="demo-seat" class="demo-view">
+    <article class="card">
+      <p class="eyebrow">SEAT GUIDE</p>
+      <h3>영화관형 좌석 안내</h3>
+      <p>참가자가 문자 링크를 누르면 자신의 좌석만 빨간색으로 표시됩니다.</p>
+      <div class="screen">SCREEN · 무대</div>
+      <div id="demoSeatMap" class="seatmap"></div>
+      <div class="seat-caption"><strong>G열 · 왼쪽 구역 · 7번</strong><span>빨간 좌석이 내 자리입니다.</span></div>
+    </article>
+  </section>
+
+  <section id="demo-sms" class="demo-view">
+    <article class="card">
+      <p class="eyebrow">SMS</p>
+      <h3>접수 문자 / 재발송 시연</h3>
+      <div class="phone">
+        <div class="bubble">[남양주시장애인복지관]<br>김하늘님 현장 접수가 완료되었습니다.<br>좌석: GL-07<br>좌석배치도: https://.../s/Ab73D<br>기념품: 지급완료</div>
+      </div>
+      <div class="history-row">
+        <span><strong>접수안내 · 발송 실패</strong><small>13:41:22</small></span>
+        <button id="demoRetry">재발송</button>
+      </div>
+      <div id="demoSmsStatus" class="result muted">재발송 버튼을 눌러보세요.</div>
+    </article>
+  </section>
+
+  <section id="demo-raffle" class="demo-view">
+    <article class="card dark-card">
+      <p class="eyebrow">LUCKY DRAW</p>
+      <h3>행운권 추첨 시연</h3>
+      <div class="raffle-window"><div id="demoRaffleName">READY</div></div>
+      <p id="demoRaffleStatus">추첨 시작 후 SPACE 또는 멈추기를 눌러주세요.</p>
+      <div class="actions"><button id="demoRaffleStart" class="primary">추첨 시작</button><button id="demoRaffleStop">멈추기</button></div>
+    </article>
+  </section>
+</main>
+<script src="/demo.js?v=0.9.1"></script>
+</body>
+</html>

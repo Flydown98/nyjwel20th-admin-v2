@@ -11,7 +11,7 @@ const iconv = require('iconv-lite');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || 'change-me-now');
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '');
 const SMS_RELAY_TOKEN = String(process.env.SMS_RELAY_TOKEN || '');
 const MUNJANARA_ID = String(process.env.MUNJANARA_ID || '');
 const MUNJANARA_PW = String(process.env.MUNJANARA_PW || '');
@@ -25,6 +25,15 @@ const RECEPTION_PASSWORD = String(process.env.RECEPTION_PASSWORD || '');
 const SEAT_PASSWORD = String(process.env.SEAT_PASSWORD || '');
 const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
+const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
+const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
+const FRONTEND_VERSION = '0.9.1';
+
+
+if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
+  console.error('[FATAL] ADMIN_PASSWORD 환경변수가 없습니다. 보안을 위해 서버를 시작하지 않습니다.');
+  process.exit(1);
+}
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const BACKUP_INTERVAL_MS = 60 * 1000;
 const ROOT = __dirname;
@@ -46,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.8.5',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -61,6 +70,8 @@ function defaultState() {
       externalBackupIntervalSec:60,
       externalSnapshotIntervalMin:10,
       autoRestoreExternalIfEmpty:true,
+      eventOperationMode:false,
+      stationRequired:false,
       groupExclusionKeywords:[],
       excludedOrganizations:[],
       excludedCompanionGroups:[]
@@ -73,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.8.5'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.1'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -100,7 +111,45 @@ function loadState(){
 }
 let state=loadState();
 
+function seedDemoState(){
+  const rows='ABCDEFGHIJKLMNO'.split('');
+  const seats=[];
+  let sort=1;
+  for(const row of rows){
+    for(const side of ['L','R']){
+      for(let n=1;n<=10;n++){
+        seats.push({code:`${row}${side}-${String(n).padStart(2,'0')}`,row,side,number:n,zone:['A','B','C'].includes(row)?'우선석':(['D','E','F'].includes(row)?'내빈석':'일반석'),autoAssignable:!['A','B','C','D','E','F'].includes(row),enabled:true,wheelchairAssignable:['A','B','C'].includes(row),sortOrder:sort++});
+      }
+    }
+  }
+  const names=['김하늘','박서준','이유진','최민수','정다은','한지우','오세훈','윤가람','서민재','장예린','권도윤','문지아','임서현','배준호','조아라','신유진','강민호','노하린','백승우','유나영'];
+  const orgs=['푸른마을복지회','행복나눔센터','우리동네협회','','남양주시장애인복지관'];
+  const ps=names.map((name,i)=>({id:`DEMO-${String(i+1).padStart(3,'0')}`,receptionNo:i+1,name,phone:`010-9000-${String(1000+i).slice(-4)}`,organization:orgs[i%orgs.length],seat:'',active:true,participationStatus:'참여',arrived:false,giftReceived:false,onsite:false,usesCenter:i%2===0,disabledPerson:i%3===0,wheelchairUser:i===2||i===11,seatCategory:i===0?'vip':(i===1?'guest':'auto'),registeredAt:nowIso(),modifiedAt:nowIso(),companionGroup:''}));
+  state=normalizeState(defaultState());
+  state.settings.checkinSmsEnabled=true;
+  state.settings.externalBackupEnabled=false;
+  state.settings.eventName='[시연용] 남양주시장애인복지관 20주년 관리자';
+  state.seats=seats;state.participants=ps;
+  state.rouletteProducts=[{number:1,name:'20주년 기념 선물',quantity:5,enabled:true},{number:2,name:'행운 상품권',quantity:3,enabled:true}];
+  fs.writeFileSync(STATE_FILE,JSON.stringify(state,null,2),'utf8');
+}
+if(SYSTEM_DEMO_MODE && (!state.participants?.length || process.env.DEMO_RESET_ON_START==='true'))seedDemoState();
+
+
 const sseClients=new Set();
+
+const raffleStageClients=new Set();
+function raffleStageKey(){
+  const secret=ADMIN_PASSWORD||DEMO_PASSWORD;
+  return crypto.createHmac('sha256',secret).update('raffle-stage-public').digest('hex').slice(0,20);
+}
+function broadcastRaffleStage(type,payload={}){
+  const data=`event: ${type}\ndata: ${JSON.stringify({type,at:nowIso(),...payload})}\n\n`;
+  for(const res of [...raffleStageClients]){
+    try{res.write(data)}catch(_){raffleStageClients.delete(res)}
+  }
+}
+
 function broadcastEvent(type='state',payload={}){
   const data=`event: ${type}\ndata: ${JSON.stringify({type,at:nowIso(),...payload})}\n\n`;
   for(const res of [...sseClients]){
@@ -148,7 +197,8 @@ function auth(req,res,next){
 }
 function passwordRole(password){
   const p=str(password);
-  if(p===ADMIN_PASSWORD)return 'admin';
+  if(SYSTEM_DEMO_MODE && p===DEMO_PASSWORD)return 'admin';
+  if(ADMIN_PASSWORD && p===ADMIN_PASSWORD)return 'admin';
   if(RECEPTION_PASSWORD && p===RECEPTION_PASSWORD)return 'reception';
   if(SEAT_PASSWORD && p===SEAT_PASSWORD)return 'seat';
   if(RAFFLE_PASSWORD && p===RAFFLE_PASSWORD)return 'raffle';
@@ -233,6 +283,22 @@ function assignContiguous(people){
   }
   need.forEach(p=>assignOne(p,people.map(x=>x.id)));
   return people.map(p=>p.seat).filter(Boolean);
+}
+
+function assignGroupSmart(people){
+  const need=people.filter(p=>!p.seat);
+  const wheel=need.filter(p=>p.wheelchairUser||p.seatCategory==='wheelchair');
+  const companions=need.filter(p=>!wheel.includes(p));
+  const assigned=[];
+  wheel.forEach(p=>{
+    if(assignOneCategory(p,'wheelchair',people.map(x=>x.id)) || assignOne(p,people.map(x=>x.id)))assigned.push(p.seat);
+  });
+  if(companions.length){
+    // 휠체어석을 동반자가 과도하게 점유하지 않도록 일반석 연속배정을 우선.
+    assignContiguousCategory(companions,'general');
+    companions.filter(p=>p.seat).forEach(p=>assigned.push(p.seat));
+  }
+  return {seats:people.map(p=>p.seat).filter(Boolean),mixed:wheel.length>0&&companions.length>0,wheelchair:wheel.length,companions:companions.length};
 }
 function releaseSeat(p){const old=p.seat||'';p.seat='';return old}
 
@@ -342,6 +408,9 @@ function sendMunjanaraSms(receiver, message){
 }
 async function sendQueuedSmsItem(item){
   if(!item || item.status==='성공') return item;
+  if(SYSTEM_DEMO_MODE){
+    item.status='성공';item.result='DEMO MODE · 실제 문자 발송 없이 성공으로 시뮬레이션';item.sentAt=nowIso();saveState();return item;
+  }
   item.status='발송중';
   item.startedAt=nowIso();
   saveState();
@@ -384,7 +453,7 @@ function seatGuideKeyForParticipant(p){
 }
 function seatGuideUrl(p){
   if(!p)return '';
-  return `${PUBLIC_BASE_URL}/seat-guide.html?k=${encodeURIComponent(seatGuideKeyForParticipant(p))}`;
+  return `${PUBLIC_BASE_URL}/s/${encodeURIComponent(seatGuideKeyForParticipant(p))}`;
 }
 function verifySeatGuideKey(key){
   const m=str(key).match(/^(p:\d+)\.([a-f0-9]{12})$/i);
@@ -521,6 +590,8 @@ function markArrived(p,{station='관리자 웹',sendSms=true}={}){
     p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso();
     if(!p.seat && state.settings.autoSeatAssignOnCheckin!==false)assignOne(p);
     addLog('QR접수',p,'기념품 지급완료',station);
+    const priority=(p.seatCategory==='vip'||p.seatCategory==='guest')?'VIP/내빈':((p.wheelchairUser||p.seatCategory==='wheelchair')?'이동지원':'');
+    if(priority)broadcastEvent('priority-arrival',{priority,participant:{id:p.id,name:p.name,seat:p.seat,organization:p.organization,wheelchairUser:Boolean(p.wheelchairUser)},station});
     if(sendSms && state.settings.checkinSmsEnabled!==false) queueAndSendSms(p.phone,checkinMessage(p),'checkin',p.id);
   }
   return {already,participant:p};
@@ -569,10 +640,20 @@ const previews=new Map();
 app.disable('x-powered-by');
 app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
+app.get('/vendor/html5-qrcode.min.js',(req,res)=>{
+  res.sendFile(path.join(ROOT,'node_modules','html5-qrcode','html5-qrcode.min.js'));
+});
+
+
+
+app.post('/api/demo/reset',(req,res)=>{
+  if(!SYSTEM_DEMO_MODE)return res.status(404).json({ok:false});
+  seedDemoState();broadcastEvent('state',{demoReset:true});res.json({ok:true,participants:state.participants.length,seats:state.seats.length});
+});
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.8.5',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -582,6 +663,35 @@ app.get('/api/public/seat-guide',(req,res)=>{
   if(!p)return res.status(404).json({ok:false,error:'유효하지 않거나 만료된 좌석 안내 링크입니다.'});
   res.setHeader('Cache-Control','no-store');
   res.json({ok:true,name:str(p.name),seat:str(p.seat),arrived:Boolean(p.arrived),eventName:state.settings.eventName||'남양주시장애인복지관 개관 20주년 기념행사'});
+});
+
+
+app.get('/s/:key',(req,res)=>{
+  const p=verifySeatGuideKey(req.params.key);
+  if(!p)return res.status(404).send('유효하지 않은 좌석 안내 링크입니다.');
+  res.redirect(302,`/seat-guide.html?k=${encodeURIComponent(req.params.key)}`);
+});
+app.get('/api/public/seat-layout',(req,res)=>{
+  const rows=state.seats.filter(x=>x.enabled!==false).map(x=>({code:x.code,row:x.row,side:x.side,number:x.number,zone:x.zone||''}));
+  res.setHeader('Cache-Control','no-store');
+  res.json({ok:true,rows});
+});
+
+
+app.get('/api/public/raffle-stage',(req,res)=>{
+  if(str(req.query.k)!==raffleStageKey())return res.status(403).end();
+  res.setHeader('Content-Type','text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control','no-cache, no-transform');
+  res.setHeader('Connection','keep-alive');
+  res.flushHeaders?.();
+  res.write(`event: ready\ndata: ${JSON.stringify({ok:true,at:nowIso()})}\n\n`);
+  raffleStageClients.add(res);
+  const keepalive=setInterval(()=>{try{res.write(': ping\n\n')}catch(_){}},25000);
+  req.on('close',()=>{clearInterval(keepalive);raffleStageClients.delete(res)});
+});
+
+app.get('/api/raffle/stage-link',auth,(req,res)=>{
+  res.json({ok:true,url:`${req.protocol}://${req.get('host')}/raffle-stage.html?k=${raffleStageKey()}`});
 });
 
 app.post('/api/login',(req,res)=>{
@@ -606,18 +716,41 @@ app.get('/api/events',(req,res)=>{
 });
 
 app.use('/api',roleGate);
+app.use('/api',(req,res,next)=>{
+  if(!state.settings?.eventOperationMode || req.method==='GET')return next();
+  const p=req.path;
+  const safePrefixes=['/checkin/','/participants/onsite','/participant/','/participants/','/sms/','/raffle/','/events'];
+  const safeExact=['/operation-mode','/seats/swap'];
+  const safeSeatManual=/^\/seats\/[^/]+\/(assign|release)$/.test(p);
+  if(safeExact.includes(p)||safeSeatManual||safePrefixes.some(x=>p.startsWith(x)))return next();
+  return res.status(423).json({ok:false,error:'행사 운영 잠금모드입니다. 설정/복원/대규모 재배치 기능은 잠겨 있습니다.'});
+});
+
 
 app.get('/api/bootstrap',auth,(req,res)=>{
   rebuildAutomaticGroups({persist:true});
   const active=state.participants.filter(participantActive);
+  const extraStanding=state.groups.reduce((n,g)=>n+num(g.extraStanding,0),0);
   const extraGifts=state.groups.reduce((n,g)=>n+num(g.extraGiftCount,0),0);
-  res.json({ok:true,serverTime:nowIso(),role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
-    participants:state.participants.length,active:active.length,arrived:active.filter(p=>p.arrived).length,
-    groups:state.groups.length,seats:state.seats.length,assignedSeats:active.filter(p=>p.seat).length,
-    giftsReceived:state.participants.filter(p=>p.giftReceived).length+extraGifts,
-    smsPending:state.smsQueue.filter(x=>x.status==='대기'||x.status==='pending').length,
-    onsite:state.participants.filter(p=>p.onsite).length
-  },settings:state.settings,meta:state.meta});
+  const arrived=active.filter(p=>p.arrived).length;
+  const onsite=active.filter(p=>p.onsite&&p.arrived).length;
+  const pending=active.filter(p=>!p.arrived).length;
+  const vipPending=active.filter(p=>!p.arrived&&(p.seatCategory==='vip'||p.seatCategory==='guest')).length;
+  const mobilityPending=active.filter(p=>!p.arrived&&(p.wheelchairUser||p.seatCategory==='wheelchair')).length;
+  const unassigned=active.filter(p=>p.arrived&&!p.seat&&!p.onsite).length;
+  const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
+  const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
+  const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.1',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+    role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
+      participants:state.participants.length,active:active.length,arrived,pending,
+      actualAttendance:arrived+extraStanding,extraStanding,recent10,
+      vipPending,mobilityPending,unassigned,smsFailed,freeSeats,
+      groups:state.groups.length,seats:state.seats.length,assignedSeats:active.filter(p=>p.seat).length,
+      giftsReceived:state.participants.filter(p=>p.giftReceived).length+extraGifts,
+      smsPending:state.smsQueue.filter(x=>x.status==='대기'||x.status==='pending').length,
+      onsite
+    },settings:state.settings,meta:state.meta});
 });
 
 function adminAudit(type, target, beforeValue, afterValue, note=''){
@@ -751,10 +884,12 @@ app.post('/api/checkin/group',auth,(req,res)=>{
   });
   const selected=orderedPending.slice(0,checkCount);
 
-  // 이번에 안 온 미도착 멤버 좌석은 비움.
+  // 운영 규칙: 먼저 온 사람이 남은 그룹원 전체를 한 번에 접수하는 것을 기본으로 한다.
+  // 일부만 접수한 경우 아직 접수하지 않은 인원의 기존 좌석은 해제하고,
+  // 이후 실제 도착 시 다시 접수하면서 좌석을 배정한다.
   orderedPending.slice(checkCount).forEach(p=>releaseSeat(p));
   selected.forEach(p=>{p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso()});
-  assignContiguous(selected);
+  const seatPlan=assignGroupSmart(selected);
   const displayName=groupDisplayName(group);
   selected.forEach(p=>addLog('단체QR접수',p,`단체 ${displayName}`,str(req.body?.station)||'QR접수'));
   group.extraStanding=num(group.extraStanding,0)+extras;
@@ -773,8 +908,11 @@ app.post('/api/checkin/group',auth,(req,res)=>{
     const extraText=extras?`추가 ${extras}명은 좌석 미배정(스탠딩 안내)입니다.`:'';
     sms=queueAndSendSms(smsTarget.phone,`[남양주시장애인복지관]\n${displayName} 현장 접수가 완료되었습니다.\n이번 접수 ${actual}명 / 좌석 ${checkCount}석\n${seats.length?'좌석: '+seats.join(', ')+'\n':''}${extraText}${extraText?'\n':''}좌석배치도: ${seatGuideUrl(smsTarget)}\n기념품: ${actual}명 지급완료\n감사합니다.`,'group-checkin',smsTarget.id);
   }
-  saveState();res.json({ok:true,groupName:displayName,total:members.length,checkedInNow:checkCount,actualCount:actual,extraStanding:extras,seats:selected.map(p=>p.seat).filter(Boolean),smsQueued:Boolean(sms),smsTargetName:smsTarget?.name||''});
+  saveState();res.json({ok:true,groupName:displayName,total:members.length,checkedInNow:checkCount,actualCount:actual,extraStanding:extras,
+    seats:selected.map(p=>p.seat).filter(Boolean),seatPlan,smsQueued:Boolean(sms),smsTargetName:smsTarget?.name||''});
 });
+
+
 app.post('/api/checkin/undo',auth,(req,res)=>{
   const p=findParticipant(req.body?.code);if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
   p.arrived=false;p.arrivedAt=null;p.giftReceived=false;p.giftReceivedAt=null;releaseSeat(p);p.modifiedAt=nowIso();
@@ -933,13 +1071,6 @@ app.get('/api/seats',auth,(req,res)=>{
     rows
   });
 });
-app.post('/api/seats/release-pending',auth,(req,res)=>{
-  let count=0;
-  state.participants.filter(p=>!p.arrived&&participantActive(p)&&p.seat).forEach(p=>{releaseSeat(p);count++});
-  saveState();res.json({ok:true,released:count});
-});
-
-
 app.post('/api/seats/:code/assign',auth,(req,res)=>{
   const code=str(req.params.code).toUpperCase(),seat=seatByCode(code);
   if(!seat||!seat.enabled)return res.status(404).json({ok:false,error:'사용 가능한 좌석을 찾을 수 없습니다.'});
@@ -1144,6 +1275,7 @@ app.post('/api/raffle/prepare',auth,(req,res)=>{
   const sample=cryptoPickUnique(pool,Math.min(70,pool.length)).map(p=>({id:p.id,name:p.name,seat:p.seat,organization:p.organization}));
   rafflePreparations.set(token,{createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id)});
   setTimeout(()=>rafflePreparations.delete(token),10*60*1000).unref?.();
+  broadcastRaffleStage('raffle-start',{product:{name:product.name,remaining},poolSize:pool.length,sample});
   res.json({ok:true,token,product:{...product,remaining},count,filter,poolSize:pool.length,sample});
 });
 app.post('/api/raffle/commit',auth,(req,res)=>{
@@ -1161,6 +1293,7 @@ app.post('/api/raffle/commit',auth,(req,res)=>{
   adminAudit('행운권추첨',{id:drawId,name:product.name},null,{winnerIds:winners.map(p=>p.id),count:records.length,filter:prep.filter},`대상 ${currentPool.length}명`);
   rafflePreparations.delete(token);
   saveState();
+  broadcastRaffleStage('raffle-winner',{product:{name:product.name},winners:records});
   res.json({ok:true,drawId,product:{...product,remaining:productRemaining(product)},winners:records,poolSize:currentPool.length});
 });
 app.post('/api/raffle/draw',auth,(req,res)=>{
@@ -1231,6 +1364,21 @@ app.post('/api/sms/send-group',auth,async(req,res)=>{
   res.json({ok:true,queued:items.length,groupName:groupDisplayName(g)});
 });
 
+
+app.get('/api/participant/:id/sms-history',auth,(req,res)=>{
+  const p=findParticipant(req.params.id);if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
+  const rows=state.smsQueue.filter(x=>x.participantId===p.id).slice(-20).reverse();
+  res.json({ok:true,rows});
+});
+app.post('/api/sms/retry/:smsId',auth,async(req,res)=>{
+  const old=state.smsQueue.find(x=>x.id===str(req.params.smsId));
+  if(!old)return res.status(404).json({ok:false,error:'문자 기록을 찾을 수 없습니다.'});
+  const item=queueSms(old.phone,old.message,`${old.kind||'sms'}-retry`,old.participantId||'');
+  if(!item)return res.status(400).json({ok:false,error:'수신번호가 없습니다.'});
+  await sendQueuedSmsItem(item);
+  res.json({ok:item.status==='성공',item});
+});
+
 app.get('/api/sms',auth,(req,res)=>res.json({ok:true,rows:[...state.smsQueue].reverse().slice(0,300)}));
 app.post('/api/sms/pre-event',auth,(req,res)=>{
   const target=str(req.body?.target||'all');
@@ -1251,6 +1399,16 @@ app.post('/api/sms/pre-event',auth,(req,res)=>{
 });
 
 
+
+
+app.post('/api/operation-mode',auth,(req,res)=>{
+  if(req.adminRole!=='admin')return res.status(403).json({ok:false,error:'메인 관리자만 변경할 수 있습니다.'});
+  const password=str(req.body?.password);
+  if(!SYSTEM_DEMO_MODE && password!==ADMIN_PASSWORD)return res.status(401).json({ok:false,error:'관리자 비밀번호가 올바르지 않습니다.'});
+  state.settings.eventOperationMode=bool(req.body?.enabled);
+  adminAudit('행사운영잠금',{id:'operation-mode',name:'행사 운영모드'},null,{enabled:state.settings.eventOperationMode});
+  saveState();res.json({ok:true,enabled:state.settings.eventOperationMode});
+});
 
 app.get('/api/settings',auth,(req,res)=>{
   res.json({ok:true,settings:state.settings,role:req.adminRole,roleLabel:roleLabel(req.adminRole),rolePasswords:{
@@ -1334,6 +1492,7 @@ const externalBackupRuntime={
 };
 let externalBackupBusy=false,lastExternalStateUpdatedAt='';
 async function externalBackupRequest(action,payload={}){
+  if(SYSTEM_DEMO_MODE)return {ok:true,demo:true,rows:[]};
   if(!GDRIVE_BACKUP_URL||!GDRIVE_BACKUP_TOKEN)throw new Error('Google Drive 외부백업 환경변수가 설정되지 않았습니다.');
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
   try{
@@ -1355,7 +1514,7 @@ async function pushExternalBackup({force=false,snapshot=false}={}){
   if(!force&&lastExternalStateUpdatedAt===state.meta.updatedAt)return {ok:true,skipped:'unchanged'};
   externalBackupBusy=true;externalBackupRuntime.lastAttemptAt=nowIso();
   try{
-    const d=await externalBackupRequest('save',{state,snapshot,source:'cloudtype-v0.8'});
+    const d=await externalBackupRequest('save',{state,snapshot,source:'cloudtype-v0.9'});
     externalBackupRuntime.lastSuccessAt=nowIso();
     externalBackupRuntime.lastError='';
     externalBackupRuntime.lastRemoteName=d.name||'latest.json';

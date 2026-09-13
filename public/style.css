@@ -354,3 +354,38 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
   .table-wrap{max-width:100%;overflow-x:auto}
   .seat-map-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
 }
+
+/* v0.9.0 · 현장 안정화 */
+.system-mode-banner{
+  padding:10px 14px;text-align:center;background:#fff3cd;color:#744b00;
+  border-bottom:1px solid #efd17b;font-size:13px;position:sticky;top:0;z-index:115
+}
+.ops-health{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.ops-health span{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #dce3ec;background:#fff}
+.ops-health .health-ok{color:#166534;background:#f0fdf4;border-color:#bbf7d0}
+.ops-health .health-bad{color:#991b1b;background:#fef2f2;border-color:#fecaca}
+.ops-stats .stat.focus{grid-column:span 2;background:linear-gradient(145deg,#f0fff5,#e8f9ef);border-color:#b8e3c6}
+.ops-stats .stat small{display:block;margin-top:3px;font-size:10px;color:#64748b}
+#versionBadge.warning{background:#fff3cd;color:#7a4b00;border-color:#efd17b}
+#stationBtn{font-weight:800}
+@media(max-width:720px){
+  .ops-health{gap:5px}
+  .ops-health span{font-size:10px;padding:5px 8px}
+  .ops-stats .stat.focus{grid-column:span 2}
+  .system-mode-banner{font-size:11px;padding:8px}
+  .header-actions{grid-template-columns:1fr 1fr 1fr!important}
+  #versionBadge{grid-column:1/2}
+  #stationBtn{grid-column:2/4}
+}
+
+.demo-cta{
+  border:1px solid rgba(94,51,140,.18)!important;
+  background:#f5effb!important;color:#5e338c!important;
+  font-weight:900!important
+}
+@media(max-width:720px){
+  #openDemo{grid-column:1/2}
+  #installApp{grid-column:2/3}
+  #topRefresh{grid-column:3/4}
+  #logoutBtn{grid-column:1/4}
+}

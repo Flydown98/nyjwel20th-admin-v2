@@ -1,4 +1,6 @@
 'use strict';
+const FRONTEND_VERSION='0.9.1';
+const STATION_KEY='nyj20_station_name';
 
 window.addEventListener('error',e=>{
   try{
@@ -13,7 +15,7 @@ window.addEventListener('unhandledrejection',e=>{
   }catch(_){}
 });
 
-const TOKEN_KEY='nyj20_v2_token',ROLE_KEY='nyj20_v2_role';let token=localStorage.getItem(TOKEN_KEY)||'',currentRole=localStorage.getItem(ROLE_KEY)||'admin',appSettings={},scanner=null,scannerOn=false,scanBusy=false;
+const TOKEN_KEY='nyj20_v2_token',ROLE_KEY='nyj20_v2_role';let stationName=localStorage.getItem(STATION_KEY)||'미설정';let token=localStorage.getItem(TOKEN_KEY)||'',currentRole=localStorage.getItem(ROLE_KEY)||'admin',appSettings={},scanner=null,scannerOn=false,scanBusy=false;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.tm);toast.tm=setTimeout(()=>t.classList.add('hidden'),ms)}
 async function api(p,o={}){const h={...(o.headers||{})};if(o.body&&!(o.body instanceof FormData)&&!h['Content-Type'])h['Content-Type']='application/json';if(token)h.Authorization=`Bearer ${token}`;const r=await fetch(p,{...o,headers:h});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||`HTTP ${r.status}`);Object.assign(e,d);throw e}return d}
@@ -23,8 +25,26 @@ $('#modalWrap').addEventListener('click',e=>{if(e.target.id==='modalWrap')closeM
 
 async function refreshDashboard(){
   const d=await api('/api/bootstrap'),s=d.summary;appSettings=d.settings||{};currentRole=d.role||currentRole||'admin';localStorage.setItem(ROLE_KEY,currentRole);
-  $('#sParticipants').textContent=s.participants;$('#sActive').textContent=s.active;$('#sArrived').textContent=s.arrived;$('#sOnsite').textContent=s.onsite;$('#sGroups').textContent=s.groups;$('#sSeats').textContent=s.assignedSeats;$('#sGifts').textContent=s.giftsReceived;$('#sSms').textContent=s.smsPending;
-  $('#statusBadge').textContent='연결됨 · v0.8.5';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;applyRoleUI();
+  const put=(id,v)=>{const el=$(id);if(el)el.textContent=v??0};
+  put('#sParticipants',s.participants);put('#sArrived',s.arrived);put('#sGifts',s.giftsReceived);
+  put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
+  put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
+  put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
+  $('#statusBadge').textContent='연결됨 · v0.9.1';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#stationBtn').textContent=`접수대: ${stationName}`;
+  const vb=$('#versionBadge');
+  if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
+  const mb=$('#systemModeBanner');
+  if(mb){
+    const parts=[];
+    if(d.demoMode)parts.push('🧪 시연용 시스템 · 실제 SMS/외부백업 미사용');
+    if(appSettings.eventOperationMode)parts.push('🔒 행사 운영 잠금 ON');
+    if(parts.length){mb.innerHTML=parts.map(x=>`<strong>${esc(x)}</strong>`).join(' · ');mb.classList.remove('hidden')}else mb.classList.add('hidden');
+  }
+  $('#toggleOperationMode').textContent=appSettings.eventOperationMode?'행사 운영 잠금 해제':'행사 운영 잠금';
+  $('#demoResetBtn')?.classList.toggle('hidden',!d.demoMode);
+  applyRoleUI();
+  refreshHealthStrip();
 }
 async function init(){try{await refreshDashboard();$('#loginOverlay').classList.add('hidden');connectLiveEvents()}catch(e){if(/로그인/.test(e.message)){token='';localStorage.removeItem(TOKEN_KEY);$('#loginOverlay').classList.remove('hidden')}}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});token=d.token;currentRole=d.role||'admin';localStorage.setItem(TOKEN_KEY,token);localStorage.setItem(ROLE_KEY,currentRole);await init()}catch(e){$('#loginMessage').textContent=e.message}});
@@ -57,16 +77,16 @@ async function processCode(code){
 function showIndividualCheckin(p){
   modal(`<p class="eyebrow">개인 QR 접수</p><h2>${esc(p.name)}</h2><p>${esc(p.organization||'소속 없음')} · ${esc(p.phone||'연락처 없음')}</p><div class="notice">좌석 ${esc(p.seat||'자동배정 예정')} · 기념품 지급완료 처리</div><p class="muted">개인 접수는 잠시 후 자동으로 진행됩니다. 아래 버튼을 누르면 즉시 처리합니다.</p><div class="actions"><button data-now class="primary">바로 접수</button><button data-close>닫기</button></div><div id="modalProgress" class="muted">자동 접수 준비 중...</div>`);
   let done=false;
-  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:'QR접수'})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,Number(appSettings.checkinPopupCloseMs||850))}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
+  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:stationName})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,Number(appSettings.checkinPopupCloseMs||850))}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
   $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;window.__autoCheckinTimer=setTimeout(run,Number(appSettings.individualAutoCheckinDelayMs||1400));
 }
 function showGroupCheckin(p,g){
   const remaining=g.members.filter(x=>!x.arrived).length,registered=g.total,already=g.arrived;
   let n=Math.max(1,remaining);
   const render=()=>{const seats=Math.min(n,remaining),extra=Math.max(0,n-remaining);$('#stepN').textContent=n;$('#stepInfo').innerHTML=`이번 좌석 배정 <strong>${seats}석</strong>${extra?` · 추가 ${extra}명은 <strong>스탠딩</strong>`:''}`};
-  modal(`<p class="eyebrow">그룹 QR 접수 · ${esc(p.name)} QR</p><h2>${esc(g.name||g.organization||'동반')}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>이번에 실제로 함께 도착한 인원을 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
+  modal(`<p class="eyebrow">그룹 QR 접수 · ${esc(p.name)} QR</p><h2>${esc(g.name||g.organization||'동반')}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>기본값은 남은 등록인원 전체입니다. 먼저 온 사람이 전체를 접수하려면 그대로 진행하고, 일부만 접수할 때만 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
   $('#minus').onclick=()=>{n=Math.max(1,n-1);render()};$('#plus').onclick=()=>{n=Math.min(99,n+1);render()};$('#cancelGroup').onclick=closeModal;
-  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:'QR접수',scannedParticipantId:p.id})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
+  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:stationName,scannedParticipantId:p.id})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
   render();
 }
 $('#manualQrForm').onsubmit=e=>{e.preventDefault();processCode($('#manualQr').value.trim());$('#manualQr').select()};
@@ -89,6 +109,7 @@ async function loadParticipants(){
       <td>${esc(p.seat||'미배정')}</td>
       <td>${p.wheelchairUser?'♿ ':''}${p.disabledPerson?'장애인당사자 ':''}${p.usesCenter?'복지관이용 ':''}${p.onsite?'현장접수':''}</td>
       <td>${p.arrived?'<b class="yes">도착</b>':(p.participationStatus==='미참여'||p.active===false?'<span class="no">미참여</span>':'미도착')}</td>
+      <td><button data-sms-history="${esc(p.id)}">문자확인</button></td>
       <td><button data-edit="${esc(p.id)}">수정</button> <button data-check="${esc(p.id)}">접수</button>${p.arrived?` <button data-undo="${esc(p.id)}">접수취소</button>`:''}</td>
     </tr>`).join('')||'<tr><td colspan="8">없음</td></tr>';
   }catch(e){toast(e.message)}
@@ -819,6 +840,14 @@ function connectLiveEvents(){
   if(!token)return;
   eventSource=new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
   eventSource.addEventListener('state',scheduleLiveRefresh);
+  eventSource.addEventListener('priority-arrival',e=>{
+    try{
+      const d=JSON.parse(e.data),p=d.participant||{};
+      const msg=`${d.priority} 도착 · ${p.name||''}${p.seat?` · ${p.seat}`:''}${d.station?` · ${d.station}`:''}`;
+      toast(msg,9000);
+      const b=$('#systemModeBanner');if(b){b.innerHTML=`<strong>🔔 ${esc(msg)}</strong>`;b.classList.remove('hidden');setTimeout(()=>refreshDashboard().catch(()=>{}),9000)}
+    }catch(_){}
+  });
   eventSource.onerror=()=>{};
 }
 
@@ -867,3 +896,57 @@ document.addEventListener('click',async e=>{
   }catch(_){}
 });
 
+
+$('#stationBtn')?.addEventListener('click',()=>{
+  const v=prompt('이 기기의 접수대 이름을 입력하세요.\n예: 접수대 1 / 배리어프리 / VIP 데스크',stationName==='미설정'?'':stationName);
+  if(v&&v.trim()){stationName=v.trim();localStorage.setItem(STATION_KEY,stationName);$('#stationBtn').textContent=`접수대: ${stationName}`;toast(`이 기기 접수대: ${stationName}`)}
+});
+
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-sms-history]');
+  if(!b)return;
+  try{
+    const d=await api(`/api/participant/${encodeURIComponent(b.dataset.smsHistory)}/sms-history`);
+    modal(`<p class="eyebrow">SMS HISTORY</p><h2>문자 발송 이력</h2>
+      <div>${d.rows.length?d.rows.map(x=>`<div class="history-row"><strong>${esc(x.status)} · ${esc(x.kind||'')}</strong><small>${new Date(x.requestedAt).toLocaleString('ko-KR')}</small><div>${esc(x.message||'').slice(0,180)}</div>${x.status==='실패'?`<button data-retry-sms="${esc(x.id)}" class="primary">이 문자 재발송</button>`:''}</div>`).join(''):'<p class="muted">문자 발송 기록이 없습니다.</p>'}</div>
+      <button data-close class="wide">닫기</button>`);
+    $('[data-close]').onclick=closeModal;
+  }catch(x){toast(x.message,7000)}
+});
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-retry-sms]');if(!b)return;
+  if(!confirm('이 문자를 다시 발송할까요?'))return;
+  try{const d=await api(`/api/sms/retry/${encodeURIComponent(b.dataset.retrySms)}`,{method:'POST',body:'{}'});toast(d.ok?'재발송 성공':'재발송 실패',6500);closeModal()}catch(x){toast(x.message,7000)}
+});
+
+$('#toggleOperationMode')?.addEventListener('click',async()=>{
+  const enabled=!Boolean(appSettings.eventOperationMode);
+  const password=prompt(enabled?'행사 운영 잠금을 켭니다.\n관리자 비밀번호를 입력하세요.':'운영 잠금을 해제합니다.\n관리자 비밀번호를 입력하세요.');
+  if(password==null)return;
+  try{const d=await api('/api/operation-mode',{method:'POST',body:JSON.stringify({enabled,password})});appSettings.eventOperationMode=d.enabled;toast(d.enabled?'행사 운영 잠금 ON':'행사 운영 잠금 OFF');refreshDashboard()}catch(x){toast(x.message,7000)}
+});
+
+async function refreshHealthStrip(){
+  const set=(id,text,ok=true)=>{const el=$(id);if(!el)return;el.textContent=text;el.className=ok?'health-ok':'health-bad'};
+  set('#healthBrowser',navigator.onLine?'인터넷 ✅':'인터넷 ❌',navigator.onLine);
+  try{
+    const [h,b]=await Promise.all([fetch('/api/health',{cache:'no-store'}).then(r=>r.json()),token?api('/api/external-backup/status').catch(()=>null):null]);
+    set('#healthServer',h.ok?'서버 ✅':'서버 ❌',Boolean(h.ok));
+    set('#healthSms',h.smsReady?'문자 ✅':'문자 ⚠',Boolean(h.smsReady));
+    const bok=b?.lastSuccessAt||b?.configured;
+    set('#healthBackup',bok?'백업 ✅':'백업 ⚠',Boolean(bok));
+  }catch(_){set('#healthServer','서버 ❌',false)}
+}
+window.addEventListener('online',refreshHealthStrip);window.addEventListener('offline',refreshHealthStrip);
+setInterval(()=>{if(token&&!document.hidden)refreshHealthStrip()},15000);
+
+$('#openRaffleStage')?.addEventListener('click',async()=>{
+  try{
+    const d=await api('/api/raffle/stage-link');
+    window.open(d.url,'nyjwelRaffleStage','noopener,noreferrer');
+  }catch(x){toast(x.message,7000)}
+});
+
+$('#openDemo')?.addEventListener('click',()=>{
+  window.open('/demo.html','nyjwelFeatureDemo','noopener,noreferrer');
+});
