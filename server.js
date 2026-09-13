@@ -27,7 +27,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.1';
+const FRONTEND_VERSION = '0.9.2';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.2',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.1'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.2'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -517,23 +517,32 @@ function excludedCompanionSet(){
 }
 
 function rebuildAutomaticGroups({persist=false}={}){
-  const manualGroups=state.groups.filter(g=>!(g.auto===true || g.type==='organization' || g.type==='companion'));
+  // 대표자 수동그룹 + 사용자가 직접 수정한 자동그룹은 재구성 시 그대로 유지한다.
+  const manualGroups=state.groups.filter(g=>
+    (g.type==='representative'&&!g.auto) || g.manualOverride===true
+  );
   const manualUsed=new Set(manualGroups.flatMap(g=>g.memberIds||[]));
+  const overriddenOrganizations=new Set(
+    manualGroups.filter(g=>g.manualOverride&&g.sourceType==='organization').map(g=>normalizeOrg(g.sourceKey||g.organization)).filter(Boolean)
+  );
+  const overriddenCompanions=new Set(
+    manualGroups.filter(g=>g.manualOverride&&g.sourceType==='companion').map(g=>str(g.sourceKey||g.companionGroup)).filter(Boolean)
+  );
   const autoGroups=[];
   const autoUsed=new Set();
 
-  // 1) 같은 외부기관은 무조건 하나의 운영 그룹으로 묶음.
+  // 1) 같은 외부기관 자동그룹. 사용자가 수정해 고정한 기관은 자동 재생성하지 않는다.
   const byOrg=new Map();
   state.participants.filter(participantActive).forEach(p=>{
     if(manualUsed.has(p.id))return;
     const org=normalizeOrg(p.organization);
-    if(!org||isInternalOrganization(org)||excludedOrganizationSet().has(org))return;
+    if(!org||isInternalOrganization(org)||excludedOrganizationSet().has(org)||overriddenOrganizations.has(org))return;
     if(!byOrg.has(org))byOrg.set(org,[]);
     byOrg.get(org).push(p);
   });
   for(const [org,members] of byOrg.entries()){
     if(members.length<2)continue;
-    const old=state.groups.find(g=>g.type==='organization'&&normalizeOrg(g.organization)===org);
+    const old=state.groups.find(g=>g.type==='organization'&&!g.manualOverride&&normalizeOrg(g.organization)===org);
     const ids=members.map(p=>p.id);
     const rep=(old&&ids.includes(old.representativeId)?old.representativeId:'') || members.find(p=>p.phone)?.id || members[0].id;
     autoGroups.push({
@@ -545,18 +554,18 @@ function rebuildAutomaticGroups({persist=false}={}){
     ids.forEach(id=>autoUsed.add(id));
   }
 
-  // 2) 기관 그룹으로 묶이지 않은 동반신청자는 companionGroup 값 기준으로 묶음.
+  // 2) 기관그룹에 속하지 않은 동반신청 자동그룹.
   const byCompanion=new Map();
   state.participants.filter(participantActive).forEach(p=>{
     if(manualUsed.has(p.id)||autoUsed.has(p.id))return;
     const key=str(p.companionGroup);
-    if(!key||excludedCompanionSet().has(key))return;
+    if(!key||excludedCompanionSet().has(key)||overriddenCompanions.has(key))return;
     if(!byCompanion.has(key))byCompanion.set(key,[]);
     byCompanion.get(key).push(p);
   });
   for(const [key,members] of byCompanion.entries()){
     if(members.length<2)continue;
-    const old=state.groups.find(g=>g.type==='companion'&&g.companionGroup===key);
+    const old=state.groups.find(g=>g.type==='companion'&&!g.manualOverride&&g.companionGroup===key);
     const ids=members.map(p=>p.id);
     const sharedOrg=sameExternalOrganization(members);
     const rep=(old&&ids.includes(old.representativeId)?old.representativeId:'') || members.find(p=>p.phone)?.id || members[0].id;
@@ -569,12 +578,17 @@ function rebuildAutomaticGroups({persist=false}={}){
     ids.forEach(id=>autoUsed.add(id));
   }
 
-  const before=JSON.stringify(state.groups.map(g=>({id:g.id,type:g.type,name:g.name,memberIds:g.memberIds,representativeId:g.representativeId})));
+  const before=JSON.stringify(state.groups.map(g=>({id:g.id,type:g.type,name:g.name,memberIds:g.memberIds,representativeId:g.representativeId,manualOverride:g.manualOverride})));
   state.groups=[...manualGroups,...autoGroups];
-  const after=JSON.stringify(state.groups.map(g=>({id:g.id,type:g.type,name:g.name,memberIds:g.memberIds,representativeId:g.representativeId})));
+  const after=JSON.stringify(state.groups.map(g=>({id:g.id,type:g.type,name:g.name,memberIds:g.memberIds,representativeId:g.representativeId,manualOverride:g.manualOverride})));
   const changed=before!==after;
   if(changed&&persist)saveState();
-  return {changed,organizationGroups:autoGroups.filter(g=>g.type==='organization').length,companionGroups:autoGroups.filter(g=>g.type==='companion').length};
+  return {
+    changed,
+    organizationGroups:autoGroups.filter(g=>g.type==='organization').length,
+    companionGroups:autoGroups.filter(g=>g.type==='companion').length,
+    manualOverrides:manualGroups.filter(g=>g.manualOverride).length
+  };
 }
 function groupForParticipant(p){
   if(!p)return null;
@@ -653,7 +667,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.2',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -741,7 +755,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.1',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.2',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -767,7 +781,13 @@ function participantPublic(p){
 }
 
 function availableParticipantIds(excludeGroupId=''){
-  const used=new Set(state.groups.filter(g=>g.id!==excludeGroupId && g.type!=='companion').flatMap(g=>g.memberIds||[]));
+  // 자동 그룹의 구성원은 다른 자동 그룹 수정/수동 그룹 편집에서 이동할 수 있다.
+  // 명시적으로 만든 대표자 그룹 또는 자동그룹을 수동 수정해 고정한 그룹만 구성원을 점유한다.
+  const used=new Set(
+    state.groups
+      .filter(g=>g.id!==excludeGroupId && ((g.type==='representative'&&!g.auto) || g.manualOverride===true))
+      .flatMap(g=>g.memberIds||[])
+  );
   return state.participants.filter(participantActive).filter(p=>!used.has(p.id));
 }
 function findSeatOccupant(code){
@@ -969,10 +989,14 @@ app.post('/api/groups/:id/delete',auth,(req,res)=>{
   rebuildAutomaticGroups({persist:false});
   const i=state.groups.findIndex(g=>g.id===req.params.id);if(i<0)return res.status(404).json({ok:false,error:'단체를 찾을 수 없습니다.'});
   const g=state.groups[i];
-  if(g.type==='organization'&&g.auto){
-    const arr=new Set(state.settings.excludedOrganizations||[]);arr.add(normalizeOrg(g.organization));state.settings.excludedOrganizations=[...arr];
-  }else if(g.type==='companion'&&g.auto){
-    const arr=new Set(state.settings.excludedCompanionGroups||[]);arr.add(str(g.companionGroup));state.settings.excludedCompanionGroups=[...arr];
+  if((g.type==='organization'&&g.auto) || (g.manualOverride&&g.sourceType==='organization')){
+    const value=normalizeOrg(g.sourceKey||g.organization);
+    const arr=new Set(state.settings.excludedOrganizations||[]);if(value)arr.add(value);state.settings.excludedOrganizations=[...arr];
+    state.groups.splice(i,1);
+  }else if((g.type==='companion'&&g.auto) || (g.manualOverride&&g.sourceType==='companion')){
+    const value=str(g.sourceKey||g.companionGroup);
+    const arr=new Set(state.settings.excludedCompanionGroups||[]);if(value)arr.add(value);state.settings.excludedCompanionGroups=[...arr];
+    state.groups.splice(i,1);
   }else{
     state.groups.splice(i,1);
   }
@@ -1015,20 +1039,61 @@ app.post('/api/groups/manual',auth,(req,res)=>{
   state.groups.push(g);adminAudit('대표자그룹생성',g,null,g);saveState();res.json({ok:true,group:g});
 });
 app.put('/api/groups/:id/manage',auth,(req,res)=>{
+  rebuildAutomaticGroups({persist:false});
   const g=state.groups.find(x=>x.id===req.params.id);if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
   const before=JSON.parse(JSON.stringify(g)),b=req.body||{};
-  if('name'in b)g.name=str(b.name);
+  const wasAuto=Boolean(g.auto)&&!g.manualOverride;
+
+  if('name'in b)g.name=str(b.name)||groupDisplayName(g);
+
   if(Array.isArray(b.memberIds)){
     const ids=[...new Set(b.memberIds.map(str).filter(Boolean))];
     if(ids.length<2)return res.status(400).json({ok:false,error:'구성원은 2명 이상이어야 합니다.'});
+    const members=ids.map(id=>state.participants.find(p=>p.id===id)).filter(Boolean);
+    if(members.length!==ids.length)return res.status(400).json({ok:false,error:'일부 참가자를 찾을 수 없습니다.'});
+
+    // 수동 대표자 그룹/이미 고정된 다른 그룹의 구성원만 이동 제한.
     const allowed=new Set(availableParticipantIds(g.id).map(p=>p.id));
-    if(ids.some(id=>!allowed.has(id)&&!(g.memberIds||[]).includes(id)))return res.status(409).json({ok:false,error:'다른 그룹에 포함된 참가자가 있습니다.'});
+    if(ids.some(id=>!allowed.has(id)&&!(g.memberIds||[]).includes(id))){
+      return res.status(409).json({ok:false,error:'다른 수동/고정 그룹에 포함된 참가자가 있습니다.'});
+    }
     g.memberIds=ids;
   }
+
+  if(wasAuto){
+    // 자동그룹을 한 번 수정하면 "수정 고정"으로 전환.
+    // 이후 자동그룹 다시 만들기를 눌러도 이 그룹은 사용자가 정한 구성 그대로 유지한다.
+    g.manualOverride=true;
+    g.auto=false;
+    g.sourceType=g.type;
+    g.sourceKey=g.type==='organization'?normalizeOrg(g.organization):str(g.companionGroup);
+    g.overriddenAt=nowIso();
+  }
+
   if('representativeId'in b && g.memberIds.includes(str(b.representativeId)))g.representativeId=str(b.representativeId);
   if(!g.memberIds.includes(g.representativeId))g.representativeId=g.memberIds[0];
-  g.modifiedAt=nowIso();adminAudit('그룹수정',g,before,g);saveState();res.json({ok:true,group:g});
+  g.modifiedAt=nowIso();
+
+  // 같은 참가자가 다른 순수 자동그룹에 남아 있으면 다음 재구성에서 제거되도록 즉시 재구성.
+  const targetId=g.id;
+  adminAudit(wasAuto?'자동그룹수동수정':'그룹수정',g,before,g,wasAuto?'자동묶음 → 수정 고정':'');
+  rebuildAutomaticGroups({persist:false});
+  const saved=state.groups.find(x=>x.id===targetId)||g;
+  saveState();res.json({ok:true,group:saved,convertedFromAuto:wasAuto});
 });
+
+app.post('/api/groups/:id/reset-auto',auth,(req,res)=>{
+  const g=state.groups.find(x=>x.id===req.params.id);
+  if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
+  if(!g.manualOverride)return res.status(400).json({ok:false,error:'수동 수정된 자동그룹이 아닙니다.'});
+  const before=JSON.parse(JSON.stringify(g));
+  state.groups=state.groups.filter(x=>x.id!==g.id);
+  const result=rebuildAutomaticGroups({persist:false});
+  adminAudit('자동그룹원상복구',g,before,null,`원본 ${g.sourceType||g.type}: ${g.sourceKey||''}`);
+  saveState();
+  res.json({ok:true,result});
+});
+
 app.post('/api/groups/:id/member-add',auth,(req,res)=>{
   const g=state.groups.find(x=>x.id===req.params.id);if(!g)return res.status(404).json({ok:false,error:'그룹을 찾을 수 없습니다.'});
   const pid=str(req.body?.participantId),p=state.participants.find(x=>x.id===pid);if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});

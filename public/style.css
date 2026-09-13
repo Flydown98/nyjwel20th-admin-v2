@@ -389,3 +389,6 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
   #topRefresh{grid-column:3/4}
   #logoutBtn{grid-column:1/4}
 }
+
+.group-subhead{margin:18px 0 8px;padding-top:14px;border-top:1px solid #e5dceb;color:#5e338c}
+.management-card .group-badge.override{background:#fff3cd;color:#7a4b00}

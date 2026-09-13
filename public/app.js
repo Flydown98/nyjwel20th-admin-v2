@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.1';
+const FRONTEND_VERSION='0.9.2';
 const STATION_KEY='nyj20_station_name';
 
 window.addEventListener('error',e=>{
@@ -30,7 +30,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.1';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.2';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -166,11 +166,16 @@ async function loadGroups(){
     $('#groupExclusionKeywords').value=(ex.keywords||[]).join('\n');
 
     $('#groupSuggestions').innerHTML=s.rows.map(x=>`<div class="management-card">
-      <div class="top"><div><strong>${esc(x.organization)}</strong><span class="group-badge">자동 기관그룹</span><small>${x.count}명 · 같은 기관 자동연결</small></div><button data-autoexclude="${esc(x.groupId)}">이 기관 자동묶음 제외</button></div>
+      <div class="top"><div><strong>${esc(x.organization)}</strong><span class="group-badge">자동 기관그룹</span><small>${x.count}명 · 같은 기관 자동연결</small></div>
+      <div class="actions"><button data-editgroup="${esc(x.groupId)}" class="primary">자동묶음 수정</button><button data-autoexclude="${esc(x.groupId)}">이 기관 자동묶음 제외</button></div></div>
       <div class="member-list">${x.members.map(m=>`<span class="member-chip">${esc(m.name)}${m.seat?` · ${esc(m.seat)}`:''}</span>`).join('')}</div>
     </div>`).join('')||'<p class="muted">현재 자동 기관그룹이 없습니다.</p>';
 
-    const reps=g.rows.filter(x=>x.type==='representative'&&!x.auto);
+    const overrides=g.rows.filter(x=>x.manualOverride===true&&x.type==='organization');
+    if(overrides.length){
+      $('#groupSuggestions').insertAdjacentHTML('beforeend',`<h3 class="group-subhead">직접 수정해 고정한 자동그룹</h3>${overrides.map(groupCardHtml).join('')}`);
+    }
+    const reps=g.rows.filter(x=>x.type==='representative'&&!x.auto&&!x.manualOverride);
     const comps=g.rows.filter(x=>x.type==='companion');
     $('#representativeGroups').innerHTML=reps.map(groupCardHtml).join('')||'<p class="muted">대표자 그룹이 없습니다.</p>';
     $('#companionGroups').innerHTML=comps.map(groupCardHtml).join('')||'<p class="muted">기관으로 묶이지 않은 동반 그룹이 없습니다.</p>';
@@ -186,7 +191,11 @@ function groupCardHtml(g){
   return `<div class="management-card" data-group="${esc(g.id)}">
     <div class="top"><div><strong>${esc(g.name||'동반')}</strong><span class="group-badge">${typeText}</span>
       <small>등록 ${g.total}명 · 도착 ${g.arrived}명${g.type==='companion'?' · 어느 참가자 QR이든 그룹접수 가능':` · 대표 ${esc(g.representative?.name||'-')}`}</small></div>
-    <div class="actions">${g.auto?'':`<button data-editgroup="${esc(g.id)}">수정</button><button data-delgroup="${esc(g.id)}">그룹 해제</button>`}</div></div>
+    <div class="actions">${
+      g.auto
+        ? `<button data-editgroup="${esc(g.id)}" class="primary">자동묶음 수정</button><button data-delgroup="${esc(g.id)}">자동묶음 제외</button>`
+        : `<button data-editgroup="${esc(g.id)}">${g.manualOverride?'수정 고정 편집':'수정'}</button>${g.manualOverride?`<button data-resetauto="${esc(g.id)}">자동으로 되돌리기</button>`:''}<button data-delgroup="${esc(g.id)}">그룹 해제</button>`
+    }</div></div>
     <div class="member-list">${g.members.map(m=>`<span class="member-chip ${m.id===g.representativeId&&g.type!=='companion'?'rep':''}">${m.arrived?'✓':'○'} ${esc(m.name)}${m.id===g.representativeId&&g.type!=='companion'?' · 대표':''}</span>`).join('')}</div>
   </div>`;
 }
@@ -219,7 +228,9 @@ async function openGroupEditor(groupId=''){
     const opts=[...selected].map(id=>{const p=stateParticipantFromCache(id);return `<option value="${esc(id)}" ${id===group?.representativeId?'selected':''}>${esc(p?.name||id)}</option>`}).join('');
     $('#groupRepresentative').innerHTML=opts||'<option value="">구성원을 선택하세요.</option>';
   };
-  modal(`<p class="eyebrow">GROUP EDITOR</p><h2>${group?'그룹 수정':'대표자 그룹 만들기'}</h2>
+  modal(`<p class="eyebrow">GROUP EDITOR</p><h2>${group?(group.auto?'자동묶음 수정':'그룹 수정'):'대표자 그룹 만들기'}</h2>
+    ${group?.auto?'<div class="notice"><strong>자동묶음 직접 수정</strong><br>저장하면 이 그룹은 “수정 고정” 상태가 되어 자동그룹 재구성을 해도 구성원이 다시 바뀌지 않습니다. 필요하면 나중에 “자동으로 되돌리기”를 누를 수 있습니다.</div>':''}
+    ${group?.manualOverride?'<div class="notice"><strong>수정 고정 상태</strong><br>자동 재구성의 영향을 받지 않습니다.</div>':''}
     <label>그룹명<input id="groupName" value="${esc(group?.name||'')}"></label>
     <label>구성원 검색<input id="groupMemberSearch" placeholder="이름 / 기관 / 연락처"></label>
     <div id="groupMemberList" class="participant-pick-list"></div>
@@ -252,6 +263,29 @@ document.querySelectorAll('[data-grouptab]').forEach(b=>b.onclick=()=>{
 });
 $('#createManualGroup').onclick=()=>openGroupEditor('');
 $('#groupSuggestions').onclick=async e=>{
+  const edit=e.target.closest('[data-editgroup]');
+  if(edit)return openGroupEditor(edit.dataset.editgroup);
+
+  const reset=e.target.closest('[data-resetauto]');
+  if(reset){
+    if(!confirm('직접 수정한 내용을 버리고 원래 자동묶음 규칙으로 되돌릴까요?'))return;
+    try{
+      await api(`/api/groups/${encodeURIComponent(reset.dataset.resetauto)}/reset-auto`,{method:'POST',body:'{}'});
+      toast('원래 자동묶음으로 되돌렸습니다.');loadGroups();refreshDashboard();
+    }catch(x){toast(x.message,6500)}
+    return;
+  }
+
+  const del=e.target.closest('[data-delgroup]');
+  if(del){
+    if(!confirm('이 수정 고정 그룹을 해제할까요? 해당 자동묶음은 제외 목록으로 이동합니다.'))return;
+    try{
+      await api(`/api/groups/${encodeURIComponent(del.dataset.delgroup)}/delete`,{method:'POST',body:'{}'});
+      toast('그룹을 해제했습니다.');loadGroups();refreshDashboard();
+    }catch(x){toast(x.message,6500)}
+    return;
+  }
+
   const b=e.target.closest('[data-autoexclude]');if(!b)return;
   if(!confirm('이 자동 기관그룹을 제외할까요? 참가자는 삭제되지 않으며 나중에 복원할 수 있습니다.'))return;
   try{await api(`/api/groups/${encodeURIComponent(b.dataset.autoexclude)}/delete`,{method:'POST',body:'{}'});toast('자동 기관그룹에서 제외했습니다.');loadGroups();refreshDashboard()}catch(x){toast(x.message,6500)}
@@ -949,4 +983,13 @@ $('#openRaffleStage')?.addEventListener('click',async()=>{
 
 $('#openDemo')?.addEventListener('click',()=>{
   window.open('/demo.html','nyjwelFeatureDemo','noopener,noreferrer');
+});
+
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-resetauto]');if(!b)return;
+  if(!confirm('직접 수정한 내용을 버리고 원래 자동묶음 규칙으로 되돌릴까요?'))return;
+  try{
+    await api(`/api/groups/${encodeURIComponent(b.dataset.resetauto)}/reset-auto`,{method:'POST',body:'{}'});
+    toast('자동묶음 규칙으로 되돌렸습니다.');loadGroups();refreshDashboard();
+  }catch(x){toast(x.message,7000)}
 });
