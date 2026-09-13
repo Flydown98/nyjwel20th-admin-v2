@@ -313,10 +313,25 @@ async
 async function loadRaffle(){
   try{
     const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
-    $('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · 남음 ${Number.isFinite(Number(x.remaining))?x.remaining:x.quantity}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="custom">행운상품</option>';
+    const current=$('#raffleProduct').value;
+    $('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="">사용 가능한 상품 없음</option>';
+    if(current&&[...$('#raffleProduct').options].some(o=>o.value===current))$('#raffleProduct').value=current;
     $('#raffleFilter').value='usesCenter';
+    renderRaffleProducts(p.rows);
     renderRaffleHistory(h.rows);
   }catch(e){toast(e.message)}
+}
+function renderRaffleProducts(rows){
+  $('#raffleProductList').innerHTML=rows.map(x=>`<div class="raffle-product-row" data-product="${esc(x.number)}">
+    <div><strong>${esc(x.name)}</strong><div class="meta">당첨 ${x.drawn}개 · 남음 ${x.remaining}개 · ${x.enabled?'사용중':'중지'}</div></div>
+    <input data-product-name="${esc(x.number)}" value="${esc(x.name)}" aria-label="상품명">
+    <input data-product-qty="${esc(x.number)}" type="number" min="${Math.max(1,x.drawn)}" max="9999" value="${x.quantity}" aria-label="총 수량">
+    <div class="actions">
+      <button data-product-save="${esc(x.number)}">저장</button>
+      <button data-product-toggle="${esc(x.number)}">${x.enabled?'중지':'사용'}</button>
+      <button data-product-delete="${esc(x.number)}" class="danger">${x.drawn>0?'중지':'삭제'}</button>
+    </div>
+  </div>`).join('')||'<p class="muted">등록된 상품이 없습니다. 위에서 상품명과 수량을 추가하세요.</p>';
 }
 function renderRaffleHistory(rows){
   $('#raffleHistory').innerHTML=rows.slice(0,50).map(x=>`<div class="history-row">
@@ -423,6 +438,42 @@ document.addEventListener('keydown',e=>{
     e.preventDefault();requestRaffleStop();
   }
 });
+
+$('#raffleProductAddForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=$('#raffleProductName').value.trim(),quantity=Number($('#raffleProductQuantity').value||1);
+  if(!name)return toast('상품명을 입력해 주세요.');
+  try{
+    await api('/api/raffle/products',{method:'POST',body:JSON.stringify({name,quantity})});
+    e.currentTarget.reset();$('#raffleProductQuantity').value=1;
+    toast('추첨 상품을 추가했습니다.');loadRaffle();
+  }catch(x){toast(x.message,7000)}
+});
+$('#raffleProductList')?.addEventListener('click',async e=>{
+  const save=e.target.closest('[data-product-save]'),toggle=e.target.closest('[data-product-toggle]'),del=e.target.closest('[data-product-delete]');
+  try{
+    if(save){
+      const no=save.dataset.productSave;
+      const name=$(`[data-product-name="${CSS.escape(no)}"]`).value.trim();
+      const quantity=Number($(`[data-product-qty="${CSS.escape(no)}"]`).value);
+      await api(`/api/raffle/products/${encodeURIComponent(no)}/update`,{method:'POST',body:JSON.stringify({name,quantity})});
+      toast('상품 정보를 저장했습니다.');loadRaffle();
+    }
+    if(toggle){
+      const no=toggle.dataset.productToggle;
+      const row=toggle.closest('[data-product]'),currently=toggle.textContent.trim()==='중지';
+      await api(`/api/raffle/products/${encodeURIComponent(no)}/update`,{method:'POST',body:JSON.stringify({enabled:!currently})});
+      loadRaffle();
+    }
+    if(del){
+      const no=del.dataset.productDelete;
+      if(!confirm('이 상품을 삭제/중지할까요? 이미 당첨기록이 있으면 기록 보호를 위해 사용중지 처리됩니다.'))return;
+      await api(`/api/raffle/products/${encodeURIComponent(no)}/delete`,{method:'POST',body:'{}'});
+      toast('처리했습니다.');loadRaffle();
+    }
+  }catch(x){toast(x.message,7000)}
+});
+
 $('#raffleForm').onsubmit=async e=>{
   e.preventDefault();
   if(raffleRun&&!raffleRun.finished)return toast('현재 추첨이 진행 중입니다.');

@@ -117,3 +117,15 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;bord
 #raffleStageClose{margin-top:30px;font-size:18px;padding:12px 24px}
 .raffle-help{margin-top:12px;padding:12px;border-radius:12px;background:#f8fafc}
 kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border-radius:7px;padding:2px 8px;background:#fff;font-weight:900}
+
+/* v0.8.2 raffle product manager */
+.raffle-product-manager{margin-top:16px;padding:12px 14px;border:1px solid #dbe3ef;border-radius:14px;background:#fbfdff}
+.raffle-product-manager summary{cursor:pointer}
+.inline-form{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:8px;margin:12px 0}
+.raffle-product-row{display:grid;grid-template-columns:minmax(0,1fr) 90px 90px auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid #edf2f7}
+.raffle-product-row .meta{font-size:12px;color:#64748b}
+.raffle-product-row input[type="number"]{width:90px}
+@media(max-width:720px){
+  .inline-form,.raffle-product-row{grid-template-columns:1fr 1fr}
+  .raffle-product-row>div:first-child{grid-column:1/-1}
+}

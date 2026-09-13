@@ -45,7 +45,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.8.1',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.8.2',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -72,7 +72,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.8.1'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.8.2'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -551,7 +551,7 @@ app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false}));
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.8.1',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.8.2',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1057,6 +1057,52 @@ app.get('/api/raffle/products',auth,(req,res)=>{
   const rows=state.rouletteProducts.map(x=>({...x,drawn:productDrawnCount(x.number),remaining:productRemaining(x)}));
   res.json({ok:true,rows});
 });
+app.post('/api/raffle/products',auth,(req,res)=>{
+  const name=str(req.body?.name).trim();
+  const quantity=Math.max(1,Math.min(9999,num(req.body?.quantity,1)));
+  if(!name)return res.status(400).json({ok:false,error:'상품명을 입력해 주세요.'});
+  const nextNumber = state.rouletteProducts.length
+    ? Math.max(...state.rouletteProducts.map(x=>num(x.number,0)))+1
+    : 1;
+  const product={number:nextNumber,name,quantity,enabled:true,createdAt:nowIso()};
+  state.rouletteProducts.push(product);
+  adminAudit('추첨상품등록',{id:String(product.number),name:product.name},null,product);
+  saveState();
+  res.json({ok:true,product:{...product,drawn:0,remaining:quantity}});
+});
+app.post('/api/raffle/products/:number/update',auth,(req,res)=>{
+  const p=state.rouletteProducts.find(x=>str(x.number)===str(req.params.number));
+  if(!p)return res.status(404).json({ok:false,error:'추첨 상품을 찾을 수 없습니다.'});
+  const before={...p};
+  if('name' in req.body)p.name=str(req.body.name).trim()||p.name;
+  if('quantity' in req.body){
+    const q=Math.max(1,Math.min(9999,num(req.body.quantity,p.quantity||1)));
+    const drawn=productDrawnCount(p.number);
+    if(q<drawn)return res.status(400).json({ok:false,error:`이미 ${drawn}개가 당첨되어 수량을 ${drawn}개보다 작게 줄일 수 없습니다.`});
+    p.quantity=q;
+  }
+  if('enabled' in req.body)p.enabled=bool(req.body.enabled);
+  p.modifiedAt=nowIso();
+  adminAudit('추첨상품수정',{id:String(p.number),name:p.name},before,p);
+  saveState();
+  res.json({ok:true,product:{...p,drawn:productDrawnCount(p.number),remaining:productRemaining(p)}});
+});
+app.post('/api/raffle/products/:number/delete',auth,(req,res)=>{
+  const i=state.rouletteProducts.findIndex(x=>str(x.number)===str(req.params.number));
+  if(i<0)return res.status(404).json({ok:false,error:'추첨 상품을 찾을 수 없습니다.'});
+  const p=state.rouletteProducts[i],drawn=productDrawnCount(p.number);
+  if(drawn>0){
+    p.enabled=false;p.modifiedAt=nowIso();
+    adminAudit('추첨상품중지',{id:String(p.number),name:p.name},{enabled:true},{enabled:false,drawn});
+    saveState();
+    return res.json({ok:true,disabled:true,drawn,product:p});
+  }
+  state.rouletteProducts.splice(i,1);
+  adminAudit('추첨상품삭제',{id:String(p.number),name:p.name},p,null);
+  saveState();
+  res.json({ok:true,deleted:true});
+});
+
 app.post('/api/raffle/prepare',auth,(req,res)=>{
   const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
