@@ -3,31 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0b0710">
+<meta name="theme-color" content="#08070c">
 <title>20주년 행운권 무대화면</title>
-<link rel="stylesheet" href="/raffle-stage.css?v=0.9.4">
+<link rel="stylesheet" href="/raffle-stage.css?v=0.9.5">
 </head>
 <body>
 <main id="stage" class="stage idle">
-  <div class="ambient"><i></i><i></i><i></i></div>
-  <header>
-    <span>NYJWEL · 20TH ANNIVERSARY</span>
-    <b>LUCKY DRAW</b>
+  <canvas id="fxCanvas" class="fx-canvas"></canvas>
+  <div class="backdrop">
+    <div class="backdrop-curtain left"></div>
+    <div class="backdrop-curtain right"></div>
+    <div class="light-beam beam-a"></div>
+    <div class="light-beam beam-b"></div>
+    <div class="light-beam beam-c"></div>
+    <div class="floor-glow"></div>
+  </div>
+
+  <header class="stage-header">
+    <div class="brandline">NAMYANGJU CITY DISABLED WELFARE CENTER · 20TH ANNIVERSARY</div>
+    <div class="brand-tag">LUCKY DRAW SHOW</div>
   </header>
-  <section class="hero">
-    <div id="prize" class="prize">행운권 추첨</div>
-    <div id="reel" class="reel"><div id="track" class="track"></div><div class="focus"></div><div class="shade top"></div><div class="shade bottom"></div></div>
-    <div id="idleTitle" class="idle-title"><strong>20</strong><span>스무번의 계절, 스물한 번째 약속</span></div>
+
+  <section class="hero-shell">
+    <div class="hero-topline">행운권 추첨</div>
+    <div id="prize" class="prize-board">행운권 추첨</div>
+
+    <div class="stage-screen-wrap">
+      <div class="screen-deco left"></div>
+      <div class="screen-deco right"></div>
+      <section id="reel" class="reel">
+        <div class="reel-led led-top"></div>
+        <div class="reel-led led-bottom"></div>
+        <div id="track" class="track"></div>
+        <div class="focus-frame"></div>
+        <div class="focus-line left"></div>
+        <div class="focus-line right"></div>
+        <div class="shade top"></div>
+        <div class="shade bottom"></div>
+      </section>
+      <div id="idleTitle" class="idle-title">
+        <div class="title-kicker">20th Anniversary</div>
+        <strong>20</strong>
+        <span>스무번의 계절, 스물한 번째 약속</span>
+      </div>
+    </div>
+
     <div id="status" class="status">진행자 화면에서 추첨을 시작해주세요</div>
   </section>
+
   <section id="winner" class="winner hidden">
-    <div class="winner-kicker">CONGRATULATIONS</div>
-    <div id="winnerName" class="winner-name"></div>
-    <div id="winnerSeat" class="winner-seat"></div>
-    <div id="winnerPrize" class="winner-prize"></div>
+    <div class="winner-spotlight"></div>
+    <div class="winner-card">
+      <div class="winner-kicker">CONGRATULATIONS</div>
+      <div id="winnerName" class="winner-name"></div>
+      <div id="winnerSeat" class="winner-seat"></div>
+      <div id="winnerPrize" class="winner-prize"></div>
+    </div>
   </section>
+
   <div id="particles" class="particles"></div>
 </main>
-<script src="/raffle-stage.js?v=0.9.4"></script>
+<script src="/raffle-stage.js?v=0.9.5"></script>
 </body>
 </html>
