@@ -433,3 +433,30 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
   #view-participants .table-wrap{overflow-x:auto}
   #view-participants table{min-width:660px;font-size:11px}
 }
+
+/* v0.9.4 · 모바일 행운권 리모컨 */
+.raffle-remote-card{margin-bottom:14px;border:1px solid #d8c7e8;background:linear-gradient(145deg,#fff,#fbf8ff)}
+.remote-screen-actions,.remote-main-buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.remote-control-grid{display:grid;grid-template-columns:2fr 2fr 1fr;gap:8px;margin-top:14px}
+.remote-control-grid label{font-size:11px;font-weight:800;color:#64748b}
+.remote-control-grid select,.remote-control-grid input{width:100%;margin-top:4px}
+.remote-state{margin-top:14px;padding:13px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569}
+.remote-state.spinning{background:#f5effb;border-color:#d7c1e8;color:#5e338c}
+.remote-state.winner{background:#fff8e8;border-color:#ead197;color:#744b00}
+.remote-main-buttons button{min-height:48px;font-size:15px;flex:1 1 170px}
+#remoteRaffleStop{background:#9f1239;color:#fff;border-color:#9f1239}
+#remoteRaffleStop:disabled,#remoteRaffleStart:disabled{opacity:.38;cursor:not-allowed}
+@media(max-width:720px){
+  #view-raffle>.two{display:block!important}
+  .raffle-remote-card{padding:14px!important}
+  .raffle-remote-card .card-head{align-items:flex-start}
+  .remote-screen-actions{display:grid;grid-template-columns:1fr 1fr}
+  .remote-screen-actions button{font-size:11px;padding:9px 5px}
+  .remote-control-grid{grid-template-columns:1fr 1fr}
+  .remote-control-grid label:first-child{grid-column:1/-1}
+  .remote-main-buttons{display:grid;grid-template-columns:1fr}
+  .remote-main-buttons button{width:100%;min-height:56px;font-size:17px}
+  #remoteRaffleStart{order:1}
+  #remoteRaffleStop{order:2}
+  #remoteRaffleReset{order:3}
+}

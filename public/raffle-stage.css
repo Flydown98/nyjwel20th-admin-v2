@@ -32,3 +32,11 @@ header b{color:#e4cfaa;font-weight:800}
 .winner-prize{margin-top:3vh;padding-top:2.5vh;min-width:45vw;text-align:center;border-top:1px solid rgba(226,198,142,.3);font-size:clamp(20px,2.5vw,44px);font-weight:800;color:#ead8b6}
 .particles{position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden}.particles i{position:absolute;top:-30px;width:7px;height:18px;border-radius:2px;background:linear-gradient(#f3dfb3,#b98d46);animation:fall var(--dur) cubic-bezier(.2,.7,.4,1) forwards}
 @keyframes fall{to{transform:translate3d(var(--x),110vh,0) rotate(var(--r));opacity:.2}}
+
+/* v0.9.4 remote stage modes */
+.stage.blackout{background:#000!important}
+.stage.blackout>*{opacity:0!important}
+.stage.blackout:after{display:none}
+.stage.title-mode .reel{opacity:0!important}
+.stage.title-mode .idle-title{opacity:1!important;transform:none!important}
+.stage.title-mode .status{color:#e4d5bc}

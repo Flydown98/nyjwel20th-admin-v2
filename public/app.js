@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.3';
+const FRONTEND_VERSION='0.9.4';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -39,7 +39,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.3';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.4';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -397,11 +397,14 @@ async function loadRaffle(){
   try{
     const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
     const current=$('#raffleProduct').value;
-    $('#raffleProduct').innerHTML=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="">사용 가능한 상품 없음</option>';
+    const productOptions=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="">사용 가능한 상품 없음</option>';
+    $('#raffleProduct').innerHTML=productOptions;
+    if($('#remoteRaffleProduct'))$('#remoteRaffleProduct').innerHTML=productOptions;
     if(current&&[...$('#raffleProduct').options].some(o=>o.value===current))$('#raffleProduct').value=current;
     $('#raffleFilter').value='usesCenter';
     renderRaffleProducts(p.rows);
     renderRaffleHistory(h.rows);
+    loadRemoteRaffleStatus().catch(()=>{});
   }catch(e){toast(e.message)}
 }
 function renderRaffleProducts(rows){
@@ -659,6 +662,82 @@ $('#raffleHistory').onclick=async e=>{
     if(c&&confirm('이 당첨을 취소할까요? 취소하면 이 참가자는 다시 추첨 대상이 됩니다.')){await api('/api/raffle/cancel',{method:'POST',body:JSON.stringify({drawId:c.dataset.cancelwin,participantId:c.dataset.pid})});loadRaffle()}
   }catch(x){toast(x.message,7000)}
 };
+
+
+let remoteStageUrl='';
+async function loadRemoteRaffleStatus(){
+  if(!token)return;
+  try{
+    const d=await api('/api/raffle/remote/status');
+    const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');
+    if(badge){
+      badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';
+      badge.classList.toggle('ok',d.connectedScreens>0);
+    }
+    if(stateBox){
+      if(d.status==='spinning'){
+        stateBox.className='remote-state spinning';
+        stateBox.innerHTML=`<strong>추첨 진행 중</strong><br>${esc(d.product?.name||'행운상품')} · 대상 ${d.poolSize}명 · 당첨 ${d.count}명`;
+      }else if(d.status==='winner'){
+        stateBox.className='remote-state winner';
+        stateBox.innerHTML=`<strong>당첨자 공개 중</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`;
+      }else{
+        stateBox.className='remote-state';
+        stateBox.textContent='원격 추첨 대기 중';
+      }
+    }
+    if($('#remoteRaffleStart'))$('#remoteRaffleStart').disabled=d.status==='spinning';
+    if($('#remoteRaffleStop'))$('#remoteRaffleStop').disabled=d.status!=='spinning';
+  }catch(_){}
+}
+async function getRemoteStageUrl(){
+  const d=await api('/api/raffle/stage-link');
+  remoteStageUrl=d.url;
+  return d.url;
+}
+$('#remoteOpenStage')?.addEventListener('click',async()=>{
+  try{window.open(await getRemoteStageUrl(),'nyjwelRaffleStage','noopener,noreferrer')}catch(x){toast(x.message,7000)}
+});
+$('#remoteCopyStage')?.addEventListener('click',async()=>{
+  try{
+    const u=await getRemoteStageUrl();
+    await navigator.clipboard.writeText(u);
+    toast('무대 화면 링크를 복사했습니다.');
+  }catch(x){toast('링크 복사가 안 되면 컴퓨터에서 관리자 → 현황 → 무대 추첨 화면 열기를 사용하세요.',7000)}
+});
+document.querySelectorAll('[data-stage-mode]').forEach(b=>b.addEventListener('click',async()=>{
+  try{
+    await api('/api/raffle/remote/screen',{method:'POST',body:JSON.stringify({mode:b.dataset.stageMode})});
+    toast(`${b.textContent.trim()}으로 전환했습니다.`);loadRemoteRaffleStatus();
+  }catch(x){toast(x.message,7000)}
+}));
+$('#remoteRaffleStart')?.addEventListener('click',async()=>{
+  if(!$('#remoteRaffleProduct')?.value)return toast('추첨 상품을 선택해 주세요.');
+  try{
+    const d=await api('/api/raffle/remote/start',{method:'POST',body:JSON.stringify({
+      productNo:$('#remoteRaffleProduct').value,
+      count:Number($('#remoteRaffleCount').value||1),
+      filter:$('#remoteRaffleFilter').value
+    })});
+    toast(`무대 추첨 시작 · 대상 ${d.poolSize}명`,5000);
+    loadRemoteRaffleStatus();
+  }catch(x){toast(x.message,7000)}
+});
+$('#remoteRaffleStop')?.addEventListener('click',async()=>{
+  if(!confirm('지금 멈추고 당첨자를 확정할까요?'))return;
+  try{
+    const d=await api('/api/raffle/remote/stop',{method:'POST',body:'{}'});
+    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;
+    if(navigator.vibrate)navigator.vibrate([80,50,160]);
+    toast('당첨자를 확정하고 무대 화면에 공개했습니다.',6000);
+    loadRaffle();
+  }catch(x){toast(x.message,7000)}
+});
+$('#remoteRaffleReset')?.addEventListener('click',async()=>{
+  if(!confirm('무대 화면을 대기 상태로 초기화할까요?'))return;
+  try{await api('/api/raffle/remote/reset',{method:'POST',body:'{}'});toast('무대 화면을 초기화했습니다.');loadRemoteRaffleStatus()}catch(x){toast(x.message,7000)}
+});
+setInterval(()=>{if(token&&currentViewName?.()==='raffle'&&!document.hidden)loadRemoteRaffleStatus()},3000);
 
 async function loadSmsGroups(){
   try{

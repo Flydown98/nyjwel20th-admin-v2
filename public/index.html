@@ -96,6 +96,38 @@
 </section>
 
 <section id="view-raffle" class="view">
+<article class="card raffle-remote-card">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">MOBILE STAGE REMOTE</p>
+      <h2>무대 원격제어</h2>
+      <p class="muted">컴퓨터에는 무대 화면만 띄워두고, 휴대폰 관리자 페이지에서 추첨과 화면전환을 조작합니다.</p>
+    </div>
+    <span id="raffleScreenStatus" class="badge">화면 확인 중</span>
+  </div>
+
+  <div class="remote-screen-actions">
+    <button type="button" id="remoteOpenStage" class="primary">컴퓨터 무대화면 열기</button>
+    <button type="button" id="remoteCopyStage">무대 링크 복사</button>
+    <button type="button" data-stage-mode="title">타이틀 화면</button>
+    <button type="button" data-stage-mode="idle">대기 화면</button>
+    <button type="button" data-stage-mode="black">검은 화면</button>
+  </div>
+
+  <div class="remote-control-grid">
+    <label>상품<select id="remoteRaffleProduct"></select></label>
+    <label>대상<select id="remoteRaffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
+    <label>당첨 인원<input id="remoteRaffleCount" type="number" min="1" max="20" value="1"></label>
+  </div>
+
+  <div id="remoteRaffleState" class="remote-state">원격 추첨 대기 중</div>
+  <div class="remote-main-buttons">
+    <button type="button" id="remoteRaffleStart" class="primary">▶ 추첨 시작</button>
+    <button type="button" id="remoteRaffleStop" class="danger" disabled>■ 멈춤 · 당첨자 공개</button>
+    <button type="button" id="remoteRaffleReset">화면 초기화</button>
+  </div>
+</article>
+
 <div class="two">
   <article class="card">
     <p class="eyebrow">LUCKY DRAW · PREMIUM STAGE</p>
