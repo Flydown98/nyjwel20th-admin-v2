@@ -1,0 +1,25 @@
+v0.9.10 변경 파일
+
+핵심 행운권 무대:
+- public/raffle-stage.html
+- public/raffle-stage.css
+- public/raffle-stage.js
+
+버전/캐시 동기화:
+- server.js
+- package.json
+- public/app.js
+- public/index.html
+- public/sw.js
+- README.md
+
+효과음/그래픽은 v0.9.9 파일을 그대로 사용:
+- public/stage-roulette.wav
+- public/stage-winner.wav
+- public/stage-bg-3440.svg
+- public/stage-slot-frame.svg
+- public/stage-winner-burst.svg
+- public/stage-corner-gold.svg
+
+Cloudtype 환경변수 변경 없음.
+Google Apps Script 변경 없음.
