@@ -1,5 +1,5 @@
-const CACHE='nyjwel-admin-v0.9.7-shell';
-const SHELL=['/','/style.css?v=0.9.7','/app.js?v=0.9.7','/manifest.webmanifest','/icon-192.png','/icon-512.png','/seat-guide.html','/seat-guide.css?v=0.9.7','/seat-guide.js?v=0.9.7','/raffle-stage.html','/raffle-stage.css?v=0.9.7','/raffle-stage.js?v=0.9.7','/demo.html','/demo.css?v=0.9.7','/demo.js?v=0.9.7'];
+const CACHE='nyjwel-admin-v0.9.8-shell';
+const SHELL=['/','/style.css?v=0.9.8','/app.js?v=0.9.8','/manifest.webmanifest','/icon-192.png','/icon-512.png','/seat-guide.html','/seat-guide.css?v=0.9.8','/seat-guide.js?v=0.9.8','/raffle-stage.html','/raffle-stage.css?v=0.9.8','/raffle-stage.js?v=0.9.8','/demo.html','/demo.css?v=0.9.8','/demo.js?v=0.9.8'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
