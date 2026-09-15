@@ -492,3 +492,6 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 .raffle-history-row .actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
 .winner-sms-done{color:#5b7c2d!important;font-weight:800}
 .p-actions .danger{padding-left:8px;padding-right:8px}
+
+/* v0.9.13 seat policy */
+.preassign-note{padding:10px 12px;border-radius:12px;background:#f7f2fb;color:#5e338c;font-size:12px}

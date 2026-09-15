@@ -87,7 +87,7 @@
 <article class="card">
   <div class="card-head">
     <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p><p class="seat-format-note">352석 ㄷ자형 · A~L은 좌8 + 런웨이 + 우8 / M~T는 뒤쪽 20석 대형블록</p></div>
-    <div class="actions"><button type="button" id="apply400Layout" class="danger">352석 최신 배치 적용</button><button type="button" id="lockCurrentSeats" class="primary">현재 배정좌석 확정</button><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="finalAutoAssign" class="primary">최종 자동배치</button><button type="button" id="resetGeneralSeats">G~T 일반좌석 초기화</button><button type="button" id="autoAssignAll">미배정자 간단배치</button><button type="button" id="releasePendingSeats" class="danger">미도착 좌석 전체 해제</button><button type="button" id="reloadSeats">갱신</button></div>
+    <div class="actions"><button type="button" id="apply400Layout" class="danger">352석 최신 배치 적용</button><button type="button" id="lockCurrentSeats" class="primary">수동 지정좌석 확정</button><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="finalAutoAssign" class="primary">내빈·휠체어 사전배치</button><button type="button" id="resetGeneralSeats">G~T 일반좌석 초기화</button><button type="button" id="autoAssignAll">현재 도착자 자동배치</button><button type="button" id="releasePendingSeats" class="danger">미도착 임시좌석 해제</button><button type="button" id="reloadSeats">갱신</button></div>
   </div>
   <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 주요 귀빈/내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
   <p class="muted">A~L 앞 12줄은 각 16석(좌 8석 + 런웨이 + 우 8석), M~T 뒤 8줄은 각 20석입니다. 앞 4개 블록과 뒤 160석 대형블록이 런웨이 끝을 감싸는 ㄷ자 형태입니다. 좌석을 한 번 누르면 선택 강조와 참가자 정보가 표시되고, 다시 누르면 수정창이 열립니다.</p>
@@ -136,7 +136,7 @@
     <form id="raffleForm" class="stack">
       <label>상품<select id="raffleProduct"></select></label>
       <label>대상<select id="raffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
-      <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="5" value="1"></label>
+      <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="5" value="1"><small class="muted">상품 잔여수량에 맞춰 최대 5명까지 자동 추천됩니다.</small></label>
       <button class="primary big-action">행운권 추첨 시작</button>
     </form>
     <details class="raffle-product-manager" open>

@@ -1,1 +1,30 @@
-const $=s=>document.querySelector(s);const key=new URLSearchParams(location.search).get('k')||'';function seatParts(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-T])(\d{1,2})$/);if(m)return {row:m[1],n:Number(m[2])};m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return {row:m[1],n:m[2]==='L'?Number(m[3]):Number(m[3])+8};m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return {row:m[1],n:Number(m[2])};return null}function renderMap(mySeat,layout){const mine=seatParts(mySeat),map=$('#seatMap'),byRow=new Map();(layout||[]).forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});const front='ABCDEFGHIJKL'.split(''),rear='MNOPQRST'.split('');const frontHtml=front.map((row,ri)=>{const seats=byRow.get(row)||[],byNo=new Map(seats.map(s=>[Number(s.displayNumber||s.number),s]));const left=Array.from({length:8},(_,i)=>{const n=i+1,s=byNo.get(n),hit=mine&&mine.row===row&&mine.n===n;return `<i class="pub-seat${s?'':' gap'}${hit?' mine':''}" title="${row}${n}"></i>`}).join('');const right=Array.from({length:8},(_,i)=>{const n=i+9,s=byNo.get(n),hit=mine&&mine.row===row&&mine.n===n;return `<i class="pub-seat${s?'':' gap'}${hit?' mine':''}" title="${row}${n}"></i>`}).join('');return `<div class="pub-front-row${ri===6?' band-gap':''}"><span class="row-label">${row}</span><span class="pub-eight">${left}</span><span class="pub-runway"></span><span class="pub-eight">${right}</span></div>`}).join('');const rearHtml=rear.map(row=>{const seats=byRow.get(row)||[],byNo=new Map(seats.map(s=>[Number(s.displayNumber||s.number),s]));return `<div class="pub-rear-row"><span class="row-label">${row}</span><span class="pub-20">${Array.from({length:20},(_,i)=>{const n=i+1,s=byNo.get(n),hit=mine&&mine.row===row&&mine.n===n;return `<i class="pub-seat${s?'':' gap'}${hit?' mine':''}" title="${row}${n}"></i>`}).join('')}</span></div>`}).join('');map.innerHTML=`<div class="public-stage">무대</div>${frontHtml}<div class="public-runway-end">RUNWAY END</div>${rearHtml}`}async function load(){try{const [r,l]=await Promise.all([fetch(`/api/public/seat-guide?k=${encodeURIComponent(key)}`,{cache:'no-store'}),fetch('/api/public/seat-layout',{cache:'no-store'})]);const d=await r.json().catch(()=>({})),layout=await l.json().catch(()=>({rows:[]}));if(!r.ok||!d.ok)throw new Error(d.error||'좌석 정보를 확인할 수 없습니다.');$('#mySeat').textContent=d.seat||'스탠딩';$('#myName').textContent=d.name?`${d.name}님`:'';const p=seatParts(d.seat);$('#guideMsg').textContent=d.seat?`${p?p.row+'열 · '+p.n+'번':''} 좌석을 아래 빨간 표시로 확인해주세요.`:'현재 지정 좌석이 없습니다. 현장 스태프 안내를 따라주세요.';renderMap(d.seat,layout.rows||[])}catch(e){$('#seatCard').classList.add('error-card');$('#mySeat').textContent='안내 확인 필요';$('#myName').textContent='';$('#guideMsg').textContent=e.message;renderMap('',[])}}load();
+const $=s=>document.querySelector(s),key=new URLSearchParams(location.search).get('k')||'';
+function parseSeat(raw){
+  raw=String(raw||'').toUpperCase();
+  let m=raw.match(/^([A-L])(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2])};
+  m=raw.match(/^([M-T])(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2])};
+  m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return{row:m[1],n:m[2]==='L'?Number(m[3]):Number(m[3])+8};
+  m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2])};
+  return null;
+}
+function dot(row,n,mine,exists=true){return `<i class="seat${exists?'':' gap'}${mine?.row===row&&mine?.n===n?' mine':''}" title="${row}${n}"></i>`}
+function render(mySeat,layout){
+  const mine=parseSeat(mySeat),byRow=new Map();(layout||[]).forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});
+  const front='ABCDEFGHIJKL'.split('').map((row,ri)=>{
+    const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));
+    return `<div class="front-row"><b class="row-label">${row}</b><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+1,mine,nums.has(i+1))).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+9,mine,nums.has(i+9))).join('')}</div></div>`;
+  }).join('');
+  const head=`<div class="number-head"><span></span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
+  const rear='MNOPQRST'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="rear-row"><b class="row-label">${row}</b><div class="twenty">${Array.from({length:20},(_,i)=>dot(row,i+1,mine,nums.has(i+1))).join('')}</div></div>`}).join('');
+  $('#seatMap').innerHTML=front+`<div class="rear-start">런웨이 끝 · 뒤쪽 20석 × 8줄</div>`+head+rear;
+}
+async function load(){
+  try{
+    const [a,b]=await Promise.all([fetch(`/api/public/seat-guide?k=${encodeURIComponent(key)}`,{cache:'no-store'}),fetch('/api/public/seat-layout',{cache:'no-store'})]);
+    const d=await a.json(),l=await b.json();if(!a.ok||!d.ok)throw new Error(d.error||'좌석 정보를 확인할 수 없습니다.');
+    $('#mySeat').textContent=d.seat||'스탠딩';$('#myName').textContent=d.name?d.name+'님':'';
+    const p=parseSeat(d.seat);$('#guideMsg').textContent=d.seat?(p?`${p.row}열 ${p.n}번 좌석입니다.`:`${d.seat} 좌석입니다.`):'현재 지정 좌석이 없습니다. 현장 스태프 안내를 따라주세요.';
+    render(d.seat,l.rows||[]);
+  }catch(e){$('#mySeat').textContent='안내 확인 필요';$('#guideMsg').textContent=e.message;render('',[])}
+}
+load();

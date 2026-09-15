@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.12';
+const FRONTEND_VERSION='0.9.13';
 
 function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
 
@@ -33,7 +33,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.12';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.13';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -430,18 +430,18 @@ $('#showUnassigned').onclick=async()=>{
   try{const d=await api('/api/participants/unassigned');modal(`<p class="eyebrow">UNASSIGNED</p><h2>미배정 참가자 ${d.total}명</h2><div class="unassigned-list">${d.rows.map(p=>`<div class="unassigned-row"><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${p.arrived?'도착':'미도착'}</small></span><span>${p.wheelchairUser?'♿':''}</span></div>`).join('')}</div><button id="closeUnassigned" class="wide">닫기</button>`);$('#closeUnassigned').onclick=closeModal}catch(e){toast(e.message)}
 };
 $('#autoAssignAll').onclick=async()=>{
-  if(!confirm('현재 미배정 참가자를 좌석설정의 자동배정 가능 좌석에 일괄 배치할까요?\n대표자/동반 그룹은 가능한 경우 연속좌석을 우선합니다.'))return;
-  try{const d=await api('/api/seats/auto-assign-unassigned',{method:'POST',body:JSON.stringify({onlyArrived:false})});toast(`일괄배치 완료 · ${d.assigned}명 · 남은 미배정 ${d.remaining}명`,7000);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
+  if(!confirm('현재 도착 완료인데 아직 좌석이 없는 참가자만 자동배치할까요?\n미도착 일반 참가자는 사전배치하지 않습니다.'))return;
+  try{const d=await api('/api/seats/auto-assign-unassigned',{method:'POST',body:JSON.stringify({onlyArrived:true})});toast(`도착자 자동배치 완료 · ${d.assigned}명`,7000);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
 };
 $('#resetGeneralSeats')?.addEventListener('click',async()=>{
   if(!confirm('G~Y 일반석만 초기화할까요?\nA~F 특수구역과 "좌석 고정" 참가자는 유지됩니다.'))return;
   try{const d=await api('/api/seats/reset-general',{method:'POST',body:'{}'});toast(`일반좌석 ${d.released}석 초기화 완료`,6500);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
 });
 $('#finalAutoAssign')?.addEventListener('click',async()=>{
-  if(!confirm('최종 자동배치를 실행할까요?\n\nVIP → 내빈 → 휠체어 → 대표자/동반/기관 연속좌석 → 일반 신청순으로 배치합니다.\nG~Y 기존 일반석은 초기화되며 좌석 고정 참가자는 유지됩니다.'))return;
+  if(!confirm('내빈과 휠체어 이용자만 사전 좌석배치할까요?\n\n일반 참가자는 미리 배치하지 않고 행사 당일 접수 시 자동배정됩니다.\n관리자가 직접 지정한 확정좌석은 그대로 유지됩니다.'))return;
   try{
-    const d=await api('/api/seats/final-auto-assign',{method:'POST',body:JSON.stringify({resetGeneral:true})});
-    toast(`최종배치 완료 · VIP ${d.vip} · 내빈 ${d.guest} · 휠체어 ${d.wheelchair} · 일반 ${d.general} · 미배정 ${d.remaining}`,9000);
+    const d=await api('/api/seats/final-auto-assign',{method:'POST',body:'{}'});
+    toast(`사전배치 완료 · 내빈 ${d.vip+d.guest}명 · 휠체어 ${d.wheelchair}명 · 수동확정 ${d.manualLocked}명 · 일반 미배정 ${d.unassignedGeneral}명`,9000);
     loadSeats();refreshDashboard();
   }catch(e){toast(e.message,9000)}
 });
@@ -452,15 +452,23 @@ async function loadRaffle(){
   try{
     const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
     const current=$('#raffleProduct').value;
-    const productOptions=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="">사용 가능한 상품 없음</option>';
+    const productOptions=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}" data-remaining="${x.remaining}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="">사용 가능한 상품 없음</option>';
     $('#raffleProduct').innerHTML=productOptions;
     if($('#remoteRaffleProduct'))$('#remoteRaffleProduct').innerHTML=productOptions;
     if(current&&[...$('#raffleProduct').options].some(o=>o.value===current))$('#raffleProduct').value=current;
+    syncRaffleCountToProduct($('#raffleProduct'),$('#raffleCount'));syncRaffleCountToProduct($('#remoteRaffleProduct'),$('#remoteRaffleCount'));
     $('#raffleFilter').value='usesCenter';
     renderRaffleProducts(p.rows);
     renderRaffleHistory(h.rows);
     loadRemoteRaffleStatus().catch(()=>{});
   }catch(e){toast(e.message)}
+}
+
+function syncRaffleCountToProduct(select,countInput){
+  if(!select||!countInput)return;
+  const opt=select.selectedOptions?.[0];
+  const remaining=Math.max(1,Number(opt?.dataset?.remaining||1));
+  countInput.value=String(Math.max(1,Math.min(5,remaining)));
 }
 function renderRaffleProducts(rows){
   $('#raffleProductList').innerHTML=rows.map(x=>`<div class="raffle-product-row" data-product="${esc(x.number)}">
@@ -707,6 +715,9 @@ document.querySelectorAll('[data-stage-mode]').forEach(b=>b.addEventListener('cl
     toast(`${b.textContent.trim()}으로 전환했습니다.`);loadRemoteRaffleStatus();
   }catch(x){toast(x.message,7000)}
 }));
+
+$('#raffleProduct')?.addEventListener('change',()=>syncRaffleCountToProduct($('#raffleProduct'),$('#raffleCount')));
+$('#remoteRaffleProduct')?.addEventListener('change',()=>syncRaffleCountToProduct($('#remoteRaffleProduct'),$('#remoteRaffleCount')));
 $('#remoteRaffleStart')?.addEventListener('click',async()=>{
   if(!$('#remoteRaffleProduct')?.value)return toast('추첨 상품을 선택해 주세요.');
   try{

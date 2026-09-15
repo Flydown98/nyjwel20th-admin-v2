@@ -27,7 +27,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.12';
+const FRONTEND_VERSION = '0.9.13';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.12',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.13',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.12'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.13'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -744,7 +744,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.12',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.13',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -833,7 +833,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.12',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.13',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1370,7 +1370,7 @@ app.post('/api/seats/swap',auth,(req,res)=>{
 });
 app.post('/api/seats/auto-assign-unassigned',auth,(req,res)=>{
   rebuildAutomaticGroups({persist:false});
-  const onlyArrived=bool(req.body?.onlyArrived);
+  const onlyArrived=req.body?.onlyArrived===false?false:true;
   const targets=state.participants.filter(p=>participantActive(p)&&!p.seat&&(!onlyArrived||p.arrived)&&!p.onsite);
   const targetIds=new Set(targets.map(p=>p.id));
   let assigned=0,groupsDone=0;
@@ -1399,44 +1399,41 @@ app.post('/api/seats/reset-general',auth,(req,res)=>{
   saveState();res.json({ok:true,released});
 });
 app.post('/api/seats/final-auto-assign',auth,(req,res)=>{
-  rebuildAutomaticGroups({persist:false});
-  const resetGeneral=req.body?.resetGeneral!==false;
-  let resetCount=0;
-  if(resetGeneral){
-    state.participants.filter(participantActive).forEach(p=>{
-      if(p.seat&&!p.seatLocked&&seatCodeCategory(p.seat)==='general'){p.seat='';resetCount++}
-    });
-  }
-  let vip=0,guest=0,wheelchair=0,general=0,groupsDone=0;
-
+  // 사전배치는 딱 세 종류만:
+  // 1) 내빈(vip/guest) 2) 휠체어/장애인석 3) 관리자가 직접 지정한 seatLocked 좌석.
+  // 일반 참가자는 행사 당일 접수 시 자동으로 일반석을 배정한다.
+  let vip=0,guest=0,wheelchair=0;
   const active=state.participants.filter(p=>participantActive(p)&&!p.onsite);
-  active.filter(p=>!p.seat&&(p.seatCategory==='vip')).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{if(assignOneCategory(p,'vip'))vip++});
-  active.filter(p=>!p.seat&&(p.seatCategory==='guest')).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{if(assignOneCategory(p,'guest'))guest++});
-  active.filter(p=>!p.seat&&(p.wheelchairUser||p.seatCategory==='wheelchair')).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{
-    if(assignOneCategory(p,'wheelchair')||assignOneCategory(p,'general'))wheelchair++;
-  });
 
-  const remaining=new Set(active.filter(p=>!p.seat).map(p=>p.id));
-  const priorityGroups=[
-    ...state.groups.filter(g=>g.type==='representative'&&!g.auto),
-    ...state.groups.filter(g=>g.type==='companion'),
-    ...state.groups.filter(g=>g.type==='organization')
-  ];
-  for(const g of priorityGroups){
-    const members=(g.memberIds||[]).map(id=>state.participants.find(p=>p.id===id)).filter(p=>p&&remaining.has(p.id)&&!p.wheelchairUser);
-    if(members.length>=2){
-      assignContiguousCategory(members,'general');
-      members.forEach(p=>{if(p.seat){remaining.delete(p.id);general++}});
-      groupsDone++;
-    }
-  }
-  active.filter(p=>remaining.has(p.id)).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{
-    if(assignOneCategory(p,'general')){general++;remaining.delete(p.id)}
-  });
+  active.filter(p=>!p.seat&&p.seatCategory==='vip')
+    .sort((x,y)=>num(x.receptionNo)-num(y.receptionNo))
+    .forEach(p=>{if(assignOneCategory(p,'vip')){p.seatLocked=true;vip++}});
 
-  const result={resetCount,vip,guest,wheelchair,general,groupsDone,remaining:remaining.size};
-  adminAudit('최종좌석일괄배치',{id:'final-layout',name:'최종 좌석배치'},null,result);
-  saveState();res.json({ok:true,...result});
+  active.filter(p=>!p.seat&&p.seatCategory==='guest')
+    .sort((x,y)=>num(x.receptionNo)-num(y.receptionNo))
+    .forEach(p=>{if(assignOneCategory(p,'guest')){p.seatLocked=true;guest++}});
+
+  active.filter(p=>!p.seat&&(p.wheelchairUser||p.seatCategory==='wheelchair'))
+    .sort((x,y)=>num(x.receptionNo)-num(y.receptionNo))
+    .forEach(p=>{
+      if(assignOneCategory(p,'wheelchair')){
+        p.seatLocked=true;wheelchair++;
+      }
+    });
+
+  const manualLocked=active.filter(p=>p.seat&&p.seatLocked&&
+    p.seatCategory!=='vip'&&p.seatCategory!=='guest'&&
+    !p.wheelchairUser&&p.seatCategory!=='wheelchair').length;
+
+  const unassignedGeneral=active.filter(p=>!p.seat&&
+    p.seatCategory!=='vip'&&p.seatCategory!=='guest'&&
+    !p.wheelchairUser&&p.seatCategory!=='wheelchair').length;
+
+  const result={vip,guest,wheelchair,manualLocked,unassignedGeneral};
+  adminAudit('사전우선석배치',{id:'priority-preassign',name:'내빈·휠체어 사전배치'},null,result,
+    '일반 참가자는 행사 당일 접수 시 자동배정');
+  saveState();
+  res.json({ok:true,...result});
 });
 
 app.get('/api/logs',auth,(req,res)=>{
@@ -1628,7 +1625,7 @@ app.post('/api/raffle/remote/stop',auth,(req,res)=>{
 });
 
 app.post('/api/raffle/remote/next',auth,(req,res)=>{
-  res.status(409).json({ok:false,error:'v0.9.12부터는 1~5명을 한 번에 추첨합니다. 새 추첨 시작 버튼을 사용해 주세요.'});
+  res.status(409).json({ok:false,error:'v0.9.13부터는 1~5명을 한 번에 추첨합니다. 새 추첨 시작 버튼을 사용해 주세요.'});
 });
 
 app.post('/api/raffle/remote/reset',auth,(req,res)=>{if(raffleRemote.token)rafflePreparations.delete(raffleRemote.token);Object.assign(raffleRemote,{status:'idle',screen:'idle',token:'',product:null,sample:[],poolSize:0,count:1,targetCount:1,currentIndex:0,filter:'usesCenter',startedAt:null,winners:[],drawSessionId:'',lastActionAt:nowIso()});broadcastRaffleStage('stage-mode',{mode:'idle'});res.json({ok:true,connectedScreens:raffleStageClients.size});});
@@ -2029,4 +2026,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.12 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.13 · :${PORT}`));
