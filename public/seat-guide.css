@@ -55,3 +55,5 @@ h1{margin:7px 0 5px;font-size:27px;letter-spacing:-.04em}
   .public-number-header{grid-template-columns:11px repeat(20,minmax(0,1fr))}
   .seat-row-public.twenty{grid-template-columns:11px 1fr}
 }
+
+.public-stage{width:58%;margin:2px auto 8px;padding:5px;border-radius:999px;background:#fff;color:#5e338c;text-align:center;font-size:7px;font-weight:1000}.pub-front-row{display:grid;grid-template-columns:10px 1fr 15px 1fr;gap:2px;align-items:center;margin-bottom:2px}.pub-front-row.band-gap{margin-top:7px}.pub-eight{display:grid;grid-template-columns:repeat(8,1fr);gap:1px}.pub-runway{height:100%;min-height:8px;border-radius:2px;background:rgba(255,255,255,.12)}.public-runway-end{margin:7px 10px 4px;padding:3px;border-radius:999px;background:rgba(255,255,255,.11);color:#fff;text-align:center;font-size:5px;font-weight:900;letter-spacing:.12em}.pub-rear-row{display:grid;grid-template-columns:10px 1fr;gap:2px;align-items:center;margin-bottom:2px}.pub-20{display:grid;grid-template-columns:repeat(20,1fr);gap:1px}.pub-front-row .row-label,.pub-rear-row .row-label{font-size:5px}

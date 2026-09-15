@@ -66,41 +66,8 @@ function startSpin(samples, product){
   );
 }
 
-async function revealWinner(winners, product, animate=true){
-  lastWinners = winners || [];
-  lastProduct = product || lastProduct;
-  spinAnim?.cancel();
-
-  const first = winners?.[0] || { participantName:'당첨자', seat:'' };
-  const target = { name:first.participantName, seat:first.seat || '' };
-
-  if(animate){
-    const seq = [];
-    const total = 28;
-    for(let i=0;i<total;i++){
-      seq.push(currentSamples[Math.floor(Math.random()*Math.max(1,currentSamples.length))] || target);
-    }
-    seq.push(target);
-    $('#track').innerHTML = seq.map(item).join('');
-    const start = baseY();
-    const end = start - (seq.length - 1) * ITEM_HEIGHT;
-    $('#track').style.transform = `translateY(${start}px)`;
-    const anim = $('#track').animate(
-      [{ transform:`translateY(${start}px)` }, { transform:`translateY(${end}px)` }],
-      { duration:3600, easing:'cubic-bezier(.10,.75,.08,1)', fill:'forwards' }
-    );
-    await anim.finished.catch(()=>{});
-    $('#track').style.transform = `translateY(${end}px)`;
-  }
-
-  $('#winnerName').textContent = winners.length === 1 ? first.participantName : `${winners.length}명 당첨`;
-  $('#winnerSeat').textContent = winners.length === 1
-    ? (first.seat ? `좌석 ${first.seat}` : '좌석 미배정')
-    : winners.map(w => `${w.participantName}${w.seat ? ` (${w.seat})` : ''}`).join(' · ');
-  $('#winnerPrize').textContent = product?.name || '행운상품';
-  $('#winner').classList.remove('hidden');
-  particles();
-}
+async function revealWinner(winners,product,animate=true,meta={}){lastWinners=winners||[];lastProduct=product||lastProduct;spinAnim?.cancel();const winner=winners?.at(-1)||winners?.[0]||{participantName:'당첨자',seat:''},target={name:winner.participantName,seat:winner.seat||''};$('#finalWinnerList')?.classList.add('hidden');if(animate){const seq=[];for(let i=0;i<24;i++)seq.push(currentSamples[Math.floor(Math.random()*Math.max(1,currentSamples.length))]||target);seq.push(target);$('#track').innerHTML=seq.map(item).join('');const base=baseY(),end=base-(seq.length-1)*ITEM_HEIGHT;$('#track').style.transform=`translateY(${base}px)`;const anim=$('#track').animate([{transform:`translateY(${base}px)`},{transform:`translateY(${end}px)`}],{duration:3200,easing:'cubic-bezier(.08,.68,.12,1)',fill:'forwards'});await anim.finished.catch(()=>{});$('#track').style.transform=`translateY(${end}px)`}$('#winnerName').textContent=winner.participantName;$('#winnerSeat').textContent=winner.seat?`좌석 ${winner.seat}`:'좌석 미배정';$('#winnerPrize').textContent=product?.name||'행운상품';$('#winnerProgress').textContent=meta.targetCount?`${meta.currentIndex||winners.length} / ${meta.targetCount} 번째 당첨자`:'';$('#winner').classList.remove('hidden');particles()}
+function showFinalWinners(winners,product){lastWinners=winners||[];lastProduct=product||lastProduct;spinAnim?.cancel();$('#winnerName').textContent=`최종 ${winners.length}명 당첨`;$('#winnerSeat').textContent='';$('#winnerPrize').textContent=product?.name||'행운상품';$('#winnerProgress').textContent='FINAL WINNERS';const list=$('#finalWinnerList');list.innerHTML=winners.map((w,i)=>`<div class="final-winner-item"><b>${i+1}</b><strong>${escapeHtml(w.participantName)}</strong><span>${escapeHtml(w.seat||'좌석 미배정')}</span></div>`).join('');list.classList.remove('hidden');$('#winner').classList.remove('hidden');particles()}
 
 function particles(){
   const box = $('#particles');
@@ -175,12 +142,15 @@ if(!key){
       lastProduct = r.product || null;
       lastWinners = r.winners || [];
       if(r.status === 'spinning') startSpin(r.sample, r.product);
-      else if(r.status === 'winner' && r.winners?.length) revealWinner(r.winners, r.product, false);
+      else if(r.status === 'step-winner' && r.winners?.length) revealWinner(r.winners, r.product, false,{currentIndex:r.currentIndex,targetCount:r.targetCount});
+      else if(r.status === 'final' && r.winners?.length) showFinalWinners(r.winners, r.product);
       else showMode(r.screen || 'idle', r);
     }catch(_){ }
   });
   es.addEventListener('stage-mode', e=>{ try{ const d = JSON.parse(e.data); showMode(d.mode, d); }catch(_){ } });
   es.addEventListener('raffle-start', e=>{ const d = JSON.parse(e.data); startSpin(d.sample, d.product); });
   es.addEventListener('raffle-winner', e=>{ const d = JSON.parse(e.data); revealWinner(d.winners, d.product, true); });
+  es.addEventListener('raffle-step-winner', e=>{ const d=JSON.parse(e.data); revealWinner(d.winners,d.product,true,{currentIndex:d.currentIndex,targetCount:d.targetCount}); });
+  es.addEventListener('raffle-final', e=>{ const d=JSON.parse(e.data); showFinalWinners(d.winners,d.product); });
   es.onerror = ()=> setStatus('연결이 잠시 끊겼습니다 · 자동 재연결 중');
 }

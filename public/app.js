@@ -1,13 +1,7 @@
 'use strict';
-const FRONTEND_VERSION='0.9.5';
+const FRONTEND_VERSION='0.9.7';
 
-function displaySeat(code){
-  const raw=String(code||'').toUpperCase();
-  const m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);
-  if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;
-  const n=raw.match(/^([A-Y])(\d{1,2})$/);
-  return n?`${n[1]}${Number(n[2])}`:raw;
-}
+function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
 
 const STATION_KEY='nyj20_station_name';
 
@@ -39,7 +33,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.5';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.7';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -319,31 +313,10 @@ function seatZoneClass(s){
   if(['A','B','C'].includes(row)){if(side==='L')return n<=5?'wheelchair':'vip';return n<=5?'vip':'wheelchair'}
   if(['D','E','F'].includes(row))return 'guest';return '';
 }
-function seatCellHtml(s,displayNo){
-  if(!s)return '<div class="seat-cell disabled"><strong>-</strong></div>';
-  const z=seatZoneClass(s),cls=['seat-cell',z,!s.enabled?'disabled':'',s.arrived?'arrived':(s.occupied?'assigned':'')].filter(Boolean).join(' ');
-  const name=s.participant?.name||'';
-  return `<div class="${cls}" data-seat="${esc(s.code)}" title="${esc(displaySeat(s.code))}${name?' · '+esc(name):''}">
-    <strong>${displayNo}</strong>${name?`<span class="seat-name">${esc(name)}</span>`:''}
-  </div>`;
-}
-async function loadSeats(){
-  try{
-    const d=await api('/api/seats');seatCache=d.rows;
-    $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석`;
-    const byCode=new Map(d.rows.map(s=>[String(s.code).toUpperCase(),s])),rows='ABCDEFGHIJKLMNOPQRSTUVWXY'.split('');
-
-    const header=`<div class="seat-number-header"><span></span>${Array.from({length:20},(_,i)=>`<b class="${i===10?'after-aisle':''}">${i+1}</b>`).join('')}</div>`;
-    $('#seatGrid').innerHTML=header+rows.map(row=>{
-      const seats=Array.from({length:20},(_,i)=>{
-        const n=i+1;
-        const raw=n<=10?`${row}L-${String(n).padStart(2,'0')}`:`${row}R-${String(n-10).padStart(2,'0')}`;
-        return seatCellHtml(byCode.get(raw),n);
-      }).join('');
-      return `<div class="seat-row compact-row"><div class="seat-row-label">${row}</div><div class="seat-twenty">${seats}</div></div>`;
-    }).join('');
-  }catch(e){toast(e.message)}
-}
+let selectedSeatCode='';
+function seatCellHtml(s,displayNo){if(!s)return '<div class="seat-cell disabled"><strong>-</strong></div>';const z=seatZoneClass(s),selected=String(s.code).toUpperCase()===String(selectedSeatCode).toUpperCase();const cls=['seat-cell',z,!s.enabled?'disabled':'',s.arrived?'arrived':(s.occupied?'assigned':''),selected?'selected':''].filter(Boolean).join(' ');const name=s.participant?.name||'';return `<div class="${cls}" data-seat="${esc(s.code)}" title="${esc(displaySeat(s.code))}${name?' · '+esc(name):''}"><strong>${displayNo}</strong>${name?`<span class="seat-name">${esc(name)}</span>`:''}</div>`;}
+function updateSeatSelection(){const box=$('#seatSelectionInfo');const s=seatCache.find(x=>String(x.code).toUpperCase()===String(selectedSeatCode).toUpperCase());if(!s){box.innerHTML='<strong>좌석을 선택하세요</strong><span>선택하면 이름 · 기관 · 도착상태를 크게 표시합니다.</span><button type="button" id="editSelectedSeat" disabled>좌석 변경</button>';return;}const p=s.participant;box.innerHTML=`<div><b class="selected-seat-label">${esc(displaySeat(s.code))}</b><strong>${p?esc(p.name):'빈좌석'}</strong><span>${p?`${esc(p.organization||'기관 없음')} · ${p.phone?esc(p.phone):'연락처 없음'} · ${p.arrived?'도착완료':'미도착'}`:'현재 배정된 참가자가 없습니다.'}</span></div><button type="button" id="editSelectedSeat">좌석 변경</button>`;$('#editSelectedSeat').onclick=()=>openSeatManager(s.code);}
+async function loadSeats(){try{const d=await api('/api/seats');seatCache=d.rows;$('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석`;const byCode=new Map(d.rows.map(s=>[String(s.code).toUpperCase(),s])),frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split('');const front=frontRows.map((row,ri)=>{const left=Array.from({length:8},(_,i)=>seatCellHtml(byCode.get(`${row}L-${String(i+1).padStart(2,'0')}`),i+1)).join('');const right=Array.from({length:8},(_,i)=>seatCellHtml(byCode.get(`${row}R-${String(i+1).padStart(2,'0')}`),i+9)).join('');return `<div class="front-seat-row${ri===6?' section-gap':''}"><div class="seat-row-label">${row}</div><div class="seat-block eight">${left}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${right}</div></div>`;}).join('');const rear=rearRows.map((row,ri)=>{const seats=Array.from({length:20},(_,i)=>seatCellHtml(byCode.get(`${row}B-${String(i+1).padStart(2,'0')}`),i+1)).join('');return `<div class="rear-seat-row${ri===0?' rear-start':''}"><div class="seat-row-label">${row}</div><div class="seat-block twenty">${seats}</div></div>`;}).join('');$('#seatGrid').innerHTML=`<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>왼쪽 8×6 블록</span><span>런웨이</span><span>오른쪽 8×6 블록</span></div>${front}<div class="runway-end-cap">런웨이 끝 · 뒤쪽 160석 대형블록 시작</div>${rear}`;updateSeatSelection();}catch(e){toast(e.message)}}
 async function openSeatManager(code){
   const s=seatCache.find(x=>x.code===code);if(!s)return;
   modal(`<p class="eyebrow">SEAT MANAGER</p><h2>${esc(displaySeat(code))}</h2>
@@ -368,7 +341,8 @@ async function openSeatManager(code){
   };
   if($('#releaseSeat'))$('#releaseSeat').onclick=async()=>{if(!confirm(`${s.participant.name}님의 ${code} 좌석을 해제할까요?`))return;try{await api(`/api/seats/${encodeURIComponent(code)}/release`,{method:'POST',body:'{}'});closeModal();loadSeats();refreshDashboard()}catch(x){toast(x.message)}};
 }
-$('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(cell)openSeatManager(cell.dataset.seat)};
+$('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
+$('#apply400Layout')?.addEventListener('click',async()=>{if(!confirm('352석 새 좌석배치를 적용할까요?\n\nA~L: 좌8 + 런웨이 + 우8 = 192석\nM~T: 20석 × 8줄 = 160석\n총 352석\n\n기존 좌석배정은 모두 해제됩니다. 적용 전 자동 백업을 생성합니다.'))return;if(!confirm('정말 적용할까요? 기존 좌석배정은 초기화됩니다.'))return;try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:'{}'});selectedSeatCode='';toast(`352석 배치 적용 완료 · 기존 배정 ${d.clearedAssignments}명 해제`,8000);loadSeats();refreshDashboard()}catch(e){toast(e.message,8000)}});
 $('#reloadSeats').onclick=loadSeats;
 $('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자의 현재 좌석을 모두 해제할까요? 도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
 $('#showUnassigned').onclick=async()=>{
@@ -537,52 +511,7 @@ function showRaffleStage(prep){
   return stage;
 }
 
-async function run777Raffle(prep){
-  const stage=showRaffleStage(prep);
-  const samples=prep.sample.length?prep.sample:[{name:'행운의 주인공',seat:''}];
-  const run={prep,stopRequested:false,finished:false,spinAnim:null}; raffleRun=run;
-  raffleAudio();
-
-  run.spinAnim=startPremiumReel(samples);
-
-  // 사용자가 SPACE를 누를 때까지 실제로 계속 회전
-  while(!run.stopRequested)await sleep(60);
-
-  stage.classList.remove('spinning');
-  stage.classList.add('stopping');
-  $('#raffleSpaceHint').classList.add('hidden');
-  $('#raffleStageSub').textContent='당첨자를 결정하고 있습니다';
-
-  // SPACE를 누른 시점에 서버가 실제 당첨자를 공정하게 확정
-  const result=await api('/api/raffle/commit',{method:'POST',body:JSON.stringify({token:prep.token})});
-  const first=result.winners[0];
-  const winnerForReel={name:first.participantName,seat:first.seat||''};
-
-  await stopPremiumReel(samples,winnerForReel);
-
-  stage.classList.remove('stopping');
-  stage.classList.add('reveal');
-  fanfare();
-  createRaffleParticles(64);
-
-  const panel=$('#raffleWinnerPanel');
-  panel.classList.remove('hidden');
-
-  if(result.winners.length===1){
-    $('#raffleWinnerName').textContent=first.participantName;
-    $('#raffleWinnerSeat').textContent=first.seat?`좌석 ${first.seat}`:'좌석 미배정';
-    $('#raffleWinnerPrize').textContent=result.product.name;
-  }else{
-    $('#raffleWinnerName').textContent=`${result.winners.length}명 당첨`;
-    $('#raffleWinnerSeat').textContent=result.winners.map(w=>`${w.participantName} ${w.seat?`(${w.seat})`:''}`).join(' · ');
-    $('#raffleWinnerPrize').textContent=result.product.name;
-  }
-
-  $('#raffleStageSub').textContent='';
-  $('#raffleStageClose').classList.remove('hidden');
-  run.finished=true;
-  return result;
-}
+async function run777Raffle(prep){const stage=showRaffleStage(prep),samples=prep.sample.length?prep.sample:[{name:'행운의 주인공',seat:''}],run={prep,stopRequested:false,finished:false,spinAnim:null};raffleRun=run;raffleAudio();const winners=[];for(let round=1;round<=prep.count;round++){run.stopRequested=false;$('#raffleWinnerPanel').classList.add('hidden');$('#raffleStageClose').classList.add('hidden');$('#raffleSpaceHint').classList.remove('hidden');$('#raffleStageSub').textContent=`${round} / ${prep.count} 번째 당첨자 · SPACE로 멈춤`;stage.classList.remove('stopping','reveal');stage.classList.add('spinning');run.spinAnim=startPremiumReel(samples);while(!run.stopRequested)await sleep(60);stage.classList.remove('spinning');stage.classList.add('stopping');$('#raffleSpaceHint').classList.add('hidden');$('#raffleStageSub').textContent=`${round}번째 당첨자를 결정하고 있습니다`;const result=await api('/api/raffle/commit-one',{method:'POST',body:JSON.stringify({token:prep.token})});const current=result.record;winners.push(current);await stopPremiumReel(samples,{name:current.participantName,seat:current.seat||''});stage.classList.remove('stopping');stage.classList.add('reveal');fanfare();createRaffleParticles(54);$('#raffleWinnerPanel').classList.remove('hidden');$('#raffleWinnerName').textContent=current.participantName;$('#raffleWinnerSeat').textContent=current.seat?`좌석 ${current.seat}`:'좌석 미배정';$('#raffleWinnerPrize').textContent=`${prep.product.name} · ${round}/${prep.count}`;if(round<prep.count){$('#raffleStageSub').textContent='다음 당첨자를 위해 SPACE를 눌러주세요';run.stopRequested=false;while(!run.stopRequested)await sleep(60)}}$('#raffleWinnerName').textContent=`최종 ${winners.length}명 당첨`;$('#raffleWinnerSeat').textContent=winners.map(w=>`${w.participantName}${w.seat?` (${w.seat})`:''}`).join(' · ');$('#raffleWinnerPrize').textContent=prep.product.name;$('#raffleStageSub').textContent='최종 당첨 결과';$('#raffleStageClose').classList.remove('hidden');run.finished=true;return {ok:true,product:prep.product,winners}}
 function requestRaffleStop(){
   if(!raffleRun||raffleRun.finished||raffleRun.stopRequested)return;
   raffleRun.stopRequested=true;
@@ -665,31 +594,7 @@ $('#raffleHistory').onclick=async e=>{
 
 
 let remoteStageUrl='';
-async function loadRemoteRaffleStatus(){
-  if(!token)return;
-  try{
-    const d=await api('/api/raffle/remote/status');
-    const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');
-    if(badge){
-      badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';
-      badge.classList.toggle('ok',d.connectedScreens>0);
-    }
-    if(stateBox){
-      if(d.status==='spinning'){
-        stateBox.className='remote-state spinning';
-        stateBox.innerHTML=`<strong>추첨 진행 중</strong><br>${esc(d.product?.name||'행운상품')} · 대상 ${d.poolSize}명 · 당첨 ${d.count}명`;
-      }else if(d.status==='winner'){
-        stateBox.className='remote-state winner';
-        stateBox.innerHTML=`<strong>당첨자 공개 중</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`;
-      }else{
-        stateBox.className='remote-state';
-        stateBox.textContent='원격 추첨 대기 중';
-      }
-    }
-    if($('#remoteRaffleStart'))$('#remoteRaffleStart').disabled=d.status==='spinning';
-    if($('#remoteRaffleStop'))$('#remoteRaffleStop').disabled=d.status!=='spinning';
-  }catch(_){}
-}
+async function loadRemoteRaffleStatus(){if(!token)return;try{const d=await api('/api/raffle/remote/status');const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');if(badge){badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';badge.classList.toggle('ok',d.connectedScreens>0)}if(stateBox){if(d.status==='spinning'){stateBox.className='remote-state spinning';stateBox.innerHTML=`<strong>${d.currentIndex||1} / ${d.targetCount||d.count||1} 번째 당첨자 추첨 중</strong><br>${esc(d.product?.name||'행운상품')} · 룰렛을 멈춰주세요`}else if(d.status==='step-winner'){const last=(d.winners||[]).at(-1);stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>${d.currentIndex} / ${d.targetCount} 번째 당첨자</strong><br>${last?`${esc(last.participantName)} ${last.seat?`(${esc(last.seat)})`:''}`:''}<br><small>다음 당첨자 추첨 버튼을 눌러 계속하세요.</small>`}else if(d.status==='final'){stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>최종 ${d.winners?.length||0}명 추첨 완료</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`}else{stateBox.className='remote-state';stateBox.textContent='원격 추첨 대기 중'}}$('#remoteRaffleStart').disabled=['spinning','step-winner'].includes(d.status);$('#remoteRaffleStop').disabled=d.status!=='spinning';$('#remoteRaffleNext').disabled=d.status!=='step-winner'}catch(_){}}
 async function getRemoteStageUrl(){
   const d=await api('/api/raffle/stage-link');
   remoteStageUrl=d.url;
@@ -733,6 +638,7 @@ $('#remoteRaffleStop')?.addEventListener('click',async()=>{
     loadRaffle();
   }catch(x){toast(x.message,7000)}
 });
+$('#remoteRaffleNext')?.addEventListener('click',async()=>{try{const d=await api('/api/raffle/remote/next',{method:'POST',body:'{}'});toast(`${d.currentIndex} / ${d.targetCount} 번째 당첨자 추첨 시작`,4500);loadRemoteRaffleStatus()}catch(x){toast(x.message,7000)}});
 $('#remoteRaffleReset')?.addEventListener('click',async()=>{
   if(!confirm('무대 화면을 대기 상태로 초기화할까요?'))return;
   try{await api('/api/raffle/remote/reset',{method:'POST',body:'{}'});toast('무대 화면을 초기화했습니다.');loadRemoteRaffleStatus()}catch(x){toast(x.message,7000)}

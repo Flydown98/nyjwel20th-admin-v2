@@ -27,7 +27,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.5';
+const FRONTEND_VERSION = '0.9.7';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.5',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.7',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.5'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.7'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -151,6 +151,9 @@ const raffleRemote={
   filter:'usesCenter',
   startedAt:null,
   winners:[],
+  targetCount:1,
+  currentIndex:0,
+  drawSessionId:'',
   lastActionAt:nowIso()
 };
 
@@ -258,19 +261,27 @@ function occupiedSeatSet(excludeIds=[]){
 }
 function seatByCode(code){return state.seats.find(s=>str(s.code).toUpperCase()===str(code).toUpperCase())}
 
+function buildEvent400Seats(){
+  const out=[];let sort=1;
+  const frontRows='ABCDEFGHIJKL'.split('');
+  const rearRows='MNOPQRST'.split('');
+  frontRows.forEach((row,ri)=>{
+    const blockBand=ri<6?'FRONT-1':'FRONT-2';
+    for(let n=1;n<=8;n++)out.push({code:`${row}L-${String(n).padStart(2,'0')}`,label:`${row}${n}`,row,side:'L',number:n,displayNumber:n,section:'front',block:`${blockBand}-L`,zone:ri<3?'우선석':(ri<6?'내빈석':'일반석'),enabled:true,autoAssignable:ri>=6,wheelchairAssignable:ri<3&&n<=4,wheelchairOnly:ri<3&&n<=4,sortOrder:sort++});
+    for(let n=1;n<=8;n++){const dn=n+8;out.push({code:`${row}R-${String(n).padStart(2,'0')}`,label:`${row}${dn}`,row,side:'R',number:n,displayNumber:dn,section:'front',block:`${blockBand}-R`,zone:ri<3?'우선석':(ri<6?'내빈석':'일반석'),enabled:true,autoAssignable:ri>=6,wheelchairAssignable:ri<3&&n>=5,wheelchairOnly:ri<3&&n>=5,sortOrder:sort++});}
+  });
+  rearRows.forEach(row=>{for(let n=1;n<=26;n++)out.push({code:`${row}B-${String(n).padStart(2,'0')}`,label:`${row}${n}`,row,side:'B',number:n,displayNumber:n,section:'rear',block:'REAR-160',zone:'일반석',enabled:true,autoAssignable:true,wheelchairAssignable:false,wheelchairOnly:false,sortOrder:sort++});});
+  return out;
+}
+
+
 function displaySeatCode(code){
-  const raw=str(code).toUpperCase();
-  if(!raw)return '';
-  // 기존 내부코드 GL-01 / GR-01은 데이터 호환을 위해 유지하고,
-  // 화면·문자에는 G1 ~ G20 형식으로 표시한다.
-  const m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);
-  if(m){
-    const row=m[1],n=num(m[3]);
-    return `${row}${m[2]==='L'?n:n+10}`;
-  }
-  const n=raw.match(/^([A-Y])(\d{1,2})$/);
-  if(n)return `${n[1]}${num(n[2])}`;
-  return raw;
+  const raw=str(code).toUpperCase();if(!raw)return '';
+  const seat=seatByCode(raw);if(seat?.label)return str(seat.label);
+  let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m){const n=num(m[3]);return `${m[1]}${m[2]==='L'?n:n+8}`;}
+  m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${num(m[2])}`;
+  m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m){const n=num(m[3]);return `${m[1]}${m[2]==='L'?n:n+10}`;}
+  const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${num(n[2])}`:raw;
 }
 
 function assignableSeats(wheelchair=false, excludeIds=[]){
@@ -334,13 +345,9 @@ function assignGroupSmart(people){
 function releaseSeat(p){const old=p.seat||'';p.seat='';return old}
 
 function seatCodeCategory(code){
-  const m=str(code).toUpperCase().match(/^([A-Y])([LR])-(\d{2})$/);
-  if(!m)return 'general';
-  const row=m[1], side=m[2], n=num(m[3]);
-  if(['A','B','C'].includes(row)){
-    const inner=(side==='L'&&n>=6)||(side==='R'&&n<=5);
-    return inner?'vip':'wheelchair';
-  }
+  const seat=seatByCode(code);if(!seat)return 'general';
+  const row=str(seat.row).toUpperCase(),side=str(seat.side).toUpperCase(),n=num(seat.number);
+  if(['A','B','C'].includes(row)){if(side==='L')return n<=4?'wheelchair':'vip';if(side==='R')return n>=5?'wheelchair':'vip';}
   if(['D','E','F'].includes(row))return 'guest';
   return 'general';
 }
@@ -713,7 +720,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.5',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.7',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -732,7 +739,7 @@ app.get('/s/:key',(req,res)=>{
   res.redirect(302,`/seat-guide.html?k=${encodeURIComponent(req.params.key)}`);
 });
 app.get('/api/public/seat-layout',(req,res)=>{
-  const rows=state.seats.filter(x=>x.enabled!==false).map(x=>({code:x.code,row:x.row,side:x.side,number:x.number,zone:x.zone||''}));
+  const rows=state.seats.filter(x=>x.enabled!==false).map(x=>({code:x.code,label:displaySeatCode(x.code),row:x.row,side:x.side,number:x.number,displayNumber:x.displayNumber||x.number,section:x.section||'',block:x.block||'',zone:x.zone||''}));
   res.setHeader('Cache-Control','no-store');
   res.json({ok:true,rows});
 });
@@ -802,7 +809,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.5',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.7',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1168,6 +1175,15 @@ app.post('/api/groups/:id/representative',auth,(req,res)=>{
   const before=g.representativeId;g.representativeId=pid;adminAudit('그룹대표자변경',g,{representativeId:before},{representativeId:pid});saveState();res.json({ok:true});
 });
 
+app.post('/api/seats/apply-event-400',auth,(req,res)=>{
+  const before=backupNow('before-400-seat-layout');let cleared=0;
+  state.participants.forEach(p=>{if(p.seat){p.seat='';p.modifiedAt=nowIso();cleared++}});
+  state.seats=buildEvent400Seats();state.meta.seatLayout='EVENT400-U';state.meta.seatLayoutAppliedAt=nowIso();
+  adminAudit('400석좌석배치적용',{id:'EVENT400-U',name:'352석 ㄷ자형 배치'},null,{seats:352,clearedAssignments:cleared});
+  saveState();const after=backupNow('after-400-seat-layout');
+  res.json({ok:true,seats:state.seats.length,totalLayoutSeats:352,clearedAssignments:cleared,beforeBackup:before,afterBackup:after});
+});
+
 app.get('/api/seats',auth,(req,res)=>{
   const participantMap=new Map();
   state.participants.filter(p=>participantActive(p)&&p.seat).forEach(p=>participantMap.set(str(p.seat).toUpperCase(),p));
@@ -1404,85 +1420,50 @@ app.post('/api/raffle/remote/screen',auth,(req,res)=>{
   res.json({ok:true,mode,connectedScreens:raffleStageClients.size});
 });
 
-app.post('/api/raffle/remote/start',auth,(req,res)=>{
-  if(raffleRemote.status==='spinning')return res.status(409).json({ok:false,error:'이미 원격 추첨이 진행 중입니다.'});
-  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
-  const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
-  if(!product.enabled)return res.status(400).json({ok:false,error:'사용 중지된 상품입니다.'});
-  const remaining=productRemaining(product);
-  if(remaining<count)return res.status(400).json({ok:false,error:`${product.name} 남은 수량이 ${remaining}개입니다.`});
-  const pool=eligibleRafflePool(filter);
-  if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
-
-  const token=uuid('raffle');
-  const sample=cryptoPickUnique(pool,Math.min(70,pool.length)).map(p=>({id:p.id,name:p.name,seat:displaySeatCode(p.seat),organization:p.organization}));
-  rafflePreparations.set(token,{createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id)});
-  setTimeout(()=>rafflePreparations.delete(token),10*60*1000).unref?.();
-
-  raffleRemote.status='spinning';
-  raffleRemote.screen='raffle';
-  raffleRemote.token=token;
-  raffleRemote.product={number:product.number,name:product.name,remaining};
-  raffleRemote.sample=sample;
-  raffleRemote.poolSize=pool.length;
-  raffleRemote.count=count;
-  raffleRemote.filter=filter;
-  raffleRemote.startedAt=nowIso();
-  raffleRemote.winners=[];
-  raffleRemote.lastActionAt=nowIso();
-
-  broadcastRaffleStage('raffle-start',{product:raffleRemote.product,poolSize:pool.length,sample,count});
-  adminAudit('원격행운권시작',{id:token,name:product.name},null,{count,filter,poolSize:pool.length,connectedScreens:raffleStageClients.size});
-  res.json({ok:true,status:'spinning',connectedScreens:raffleStageClients.size,product:raffleRemote.product,poolSize:pool.length});
-});
-
-app.post('/api/raffle/remote/stop',auth,(req,res)=>{
-  if(raffleRemote.status!=='spinning'||!raffleRemote.token)return res.status(409).json({ok:false,error:'현재 진행 중인 원격 추첨이 없습니다.'});
-  const token=raffleRemote.token,prep=rafflePreparations.get(token);
-  if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다. 다시 시작해 주세요.'});
-
-  const currentPool=eligibleRafflePool(prep.filter).filter(p=>prep.poolIds.includes(p.id));
-  if(currentPool.length<prep.count)return res.status(400).json({ok:false,error:'추첨 대상이 변경되어 다시 시작해야 합니다.'});
+function commitOneRaffle(prep,method='순차 추첨'){
+  if(!prep)throw new Error('추첨 준비정보가 없습니다.');
+  const already=new Set((prep.winners||[]).map(x=>x.participantId));
+  const currentPool=eligibleRafflePool(prep.filter).filter(p=>prep.poolIds.includes(p.id)&&!already.has(p.id));
+  if(!currentPool.length)throw new Error('추첨 가능한 참가자가 없습니다.');
   const product=state.rouletteProducts.find(x=>str(x.number)===str(prep.productNo))||{number:prep.productNo,name:prep.productName,quantity:999};
-  const remaining=productRemaining(product);
-  if(remaining<prep.count)return res.status(400).json({ok:false,error:`상품 남은 수량이 ${remaining}개입니다.`});
+  if(productRemaining(product)<1)throw new Error('상품 남은 수량이 없습니다.');
+  const p=cryptoPickUnique(currentPool,1)[0],rank=(prep.winners?.length||0)+1,drawId=prep.drawSessionId||uuid('draw');prep.drawSessionId=drawId;
+  const record={drawId,drawnAt:nowIso(),prizeNo:product.number,prizeName:product.name,method,participantId:p.id,participantName:p.name,seat:displaySeatCode(p.seat),rank,enabled:true,received:false,filter:prep.filter};
+  prep.winners=prep.winners||[];prep.winners.push(record);state.rouletteHistory.push(record);saveState();
+  return {record,product,winners:[...prep.winners],done:prep.winners.length>=prep.count,remainingPool:currentPool.length-1};
+}
 
-  const winners=cryptoPickUnique(currentPool,prep.count);
-  const drawId=uuid('draw'),drawnAt=nowIso();
-  const records=winners.map((p,i)=>({
-    drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method:'모바일 원격 랜덤',
-    participantId:p.id,participantName:p.name,seat:displaySeatCode(p.seat),rank:i+1,enabled:true,received:false,filter:prep.filter
-  }));
-  state.rouletteHistory.push(...records);
-  rafflePreparations.delete(token);
-
-  raffleRemote.status='winner';
-  raffleRemote.screen='winner';
-  raffleRemote.token='';
-  raffleRemote.winners=records;
-  raffleRemote.product={number:product.number,name:product.name,remaining:productRemaining(product)};
-  raffleRemote.lastActionAt=nowIso();
-
-  adminAudit('원격행운권당첨',{id:drawId,name:product.name},null,{winnerIds:winners.map(p=>p.id),count:records.length,filter:prep.filter});
-  saveState();
-  broadcastRaffleStage('raffle-winner',{product:{name:product.name},winners:records});
-  res.json({ok:true,status:'winner',drawId,product:raffleRemote.product,winners:records,connectedScreens:raffleStageClients.size});
+app.post('/api/raffle/remote/start',auth,(req,res)=>{
+  if(['spinning','step-winner'].includes(raffleRemote.status))return res.status(409).json({ok:false,error:'이미 순차 추첨이 진행 중입니다.'});
+  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
+  const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:'행운상품',quantity:999,enabled:true};
+  if(!product.enabled)return res.status(400).json({ok:false,error:'사용 중지된 상품입니다.'});
+  if(productRemaining(product)<count)return res.status(400).json({ok:false,error:`${product.name} 남은 수량이 부족합니다.`});
+  const pool=eligibleRafflePool(filter);if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
+  const token=uuid('raffle'),prep={createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id),winners:[],drawSessionId:uuid('draw-session')};
+  rafflePreparations.set(token,prep);setTimeout(()=>rafflePreparations.delete(token),20*60*1000).unref?.();
+  const sample=cryptoPickUnique(pool,Math.min(70,pool.length)).map(p=>({id:p.id,name:p.name,seat:displaySeatCode(p.seat),organization:p.organization}));
+  Object.assign(raffleRemote,{status:'spinning',screen:'raffle',token,product:{number:product.number,name:product.name,remaining:productRemaining(product)},sample,poolSize:pool.length,count,targetCount:count,currentIndex:1,filter,startedAt:nowIso(),winners:[],drawSessionId:prep.drawSessionId,lastActionAt:nowIso()});
+  broadcastRaffleStage('raffle-start',{product:raffleRemote.product,poolSize:pool.length,sample,currentIndex:1,targetCount:count});
+  res.json({ok:true,status:'spinning',connectedScreens:raffleStageClients.size,product:raffleRemote.product,poolSize:pool.length,currentIndex:1,targetCount:count});
 });
-
-app.post('/api/raffle/remote/reset',auth,(req,res)=>{
-  if(raffleRemote.token)rafflePreparations.delete(raffleRemote.token);
-  raffleRemote.status='idle';
-  raffleRemote.screen='idle';
-  raffleRemote.token='';
-  raffleRemote.product=null;
-  raffleRemote.sample=[];
-  raffleRemote.poolSize=0;
-  raffleRemote.winners=[];
-  raffleRemote.startedAt=null;
-  raffleRemote.lastActionAt=nowIso();
-  broadcastRaffleStage('stage-mode',{mode:'idle'});
-  res.json({ok:true,connectedScreens:raffleStageClients.size});
+app.post('/api/raffle/remote/stop',auth,(req,res)=>{
+  if(raffleRemote.status!=='spinning'||!raffleRemote.token)return res.status(409).json({ok:false,error:'현재 회전 중인 룰렛이 없습니다.'});
+  const prep=rafflePreparations.get(raffleRemote.token);if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다.'});
+  try{const result=commitOneRaffle(prep,'모바일 원격 순차 랜덤');raffleRemote.winners=result.winners;raffleRemote.currentIndex=result.winners.length;raffleRemote.product={number:result.product.number,name:result.product.name,remaining:productRemaining(result.product)};raffleRemote.lastActionAt=nowIso();
+    if(result.done){raffleRemote.status='final';raffleRemote.screen='final';const all=[...result.winners];rafflePreparations.delete(raffleRemote.token);raffleRemote.token='';broadcastRaffleStage('raffle-final',{product:{name:result.product.name},winners:all,targetCount:prep.count});adminAudit('원격행운권최종',{id:prep.drawSessionId,name:result.product.name},null,{winnerIds:all.map(x=>x.participantId),count:all.length,filter:prep.filter});return res.json({ok:true,status:'final',done:true,winner:result.record,winners:all,product:raffleRemote.product,connectedScreens:raffleStageClients.size});}
+    raffleRemote.status='step-winner';raffleRemote.screen='winner-step';broadcastRaffleStage('raffle-step-winner',{product:{name:result.product.name},winner:result.record,winners:result.winners,currentIndex:result.winners.length,targetCount:prep.count});res.json({ok:true,status:'step-winner',done:false,winner:result.record,winners:result.winners,currentIndex:result.winners.length,targetCount:prep.count,product:raffleRemote.product,connectedScreens:raffleStageClients.size});
+  }catch(e){res.status(400).json({ok:false,error:e.message})}
 });
+app.post('/api/raffle/remote/next',auth,(req,res)=>{
+  if(raffleRemote.status!=='step-winner'||!raffleRemote.token)return res.status(409).json({ok:false,error:'다음 당첨자를 시작할 수 있는 상태가 아닙니다.'});
+  const prep=rafflePreparations.get(raffleRemote.token);if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다.'});
+  const won=new Set((prep.winners||[]).map(x=>x.participantId));const pool=eligibleRafflePool(prep.filter).filter(p=>prep.poolIds.includes(p.id)&&!won.has(p.id));
+  const sample=cryptoPickUnique(pool,Math.min(70,pool.length)).map(p=>({id:p.id,name:p.name,seat:displaySeatCode(p.seat),organization:p.organization}));
+  raffleRemote.status='spinning';raffleRemote.screen='raffle';raffleRemote.sample=sample;raffleRemote.currentIndex=(prep.winners?.length||0)+1;raffleRemote.lastActionAt=nowIso();
+  broadcastRaffleStage('raffle-start',{product:raffleRemote.product,poolSize:pool.length,sample,currentIndex:raffleRemote.currentIndex,targetCount:prep.count,previousWinners:prep.winners||[]});res.json({ok:true,status:'spinning',currentIndex:raffleRemote.currentIndex,targetCount:prep.count,poolSize:pool.length});
+});
+app.post('/api/raffle/remote/reset',auth,(req,res)=>{if(raffleRemote.token)rafflePreparations.delete(raffleRemote.token);Object.assign(raffleRemote,{status:'idle',screen:'idle',token:'',product:null,sample:[],poolSize:0,count:1,targetCount:1,currentIndex:0,filter:'usesCenter',startedAt:null,winners:[],drawSessionId:'',lastActionAt:nowIso()});broadcastRaffleStage('stage-mode',{mode:'idle'});res.json({ok:true,connectedScreens:raffleStageClients.size});});
 
 app.post('/api/raffle/prepare',auth,(req,res)=>{
   const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(20,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
@@ -1494,11 +1475,12 @@ app.post('/api/raffle/prepare',auth,(req,res)=>{
   if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
   const token=uuid('raffle');
   const sample=cryptoPickUnique(pool,Math.min(70,pool.length)).map(p=>({id:p.id,name:p.name,seat:p.seat,organization:p.organization}));
-  rafflePreparations.set(token,{createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id)});
+  rafflePreparations.set(token,{createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id),winners:[],drawSessionId:uuid('draw-session')});
   setTimeout(()=>rafflePreparations.delete(token),10*60*1000).unref?.();
   broadcastRaffleStage('raffle-start',{product:{name:product.name,remaining},poolSize:pool.length,sample});
   res.json({ok:true,token,product:{...product,remaining},count,filter,poolSize:pool.length,sample});
 });
+app.post('/api/raffle/commit-one',auth,(req,res)=>{const token=str(req.body?.token),prep=rafflePreparations.get(token);if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다. 다시 시작해 주세요.'});try{const result=commitOneRaffle(prep,'PC 순차 랜덤');if(result.done)rafflePreparations.delete(token);res.json({ok:true,...result,targetCount:prep.count,currentIndex:result.winners.length});}catch(e){res.status(400).json({ok:false,error:e.message})}});
 app.post('/api/raffle/commit',auth,(req,res)=>{
   const token=str(req.body?.token),prep=rafflePreparations.get(token);
   if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다. 다시 시작해 주세요.'});
@@ -1853,4 +1835,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.8.0 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.7 · :${PORT}`));
