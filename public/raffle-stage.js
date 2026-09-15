@@ -7,7 +7,12 @@ const stage=$('#stage');
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-function person(p){return {name:String(p?.participantName??p?.name??''),seat:String(p?.seat??''),organization:String(p?.organization??'')}}
+function person(p){
+  const name=String(p?.participantName??p?.name??'');
+  const last4=String(p?.participantPhoneLast4??p?.phoneLast4??'');
+  const displayName=String(p?.participantDisplayName??p?.displayName??(name+(last4?` (${last4})`:'')));
+  return {name,displayName,phoneLast4:last4,seat:String(p?.seat??'스탠딩석'),organization:String(p?.organization??'')};
+}
 function setStatus(t){$('#status').textContent=t||''}
 function setConnection(t,cls=''){$('#connection').textContent=t;$('#connection').className='connection '+cls}
 function setPrize(p){lastProduct=p||lastProduct;$('#machinePrize').textContent=lastProduct?.name||'행운상품';$('#winnerPrize').textContent=lastProduct?.name||'행운상품';$('#finalPrize').textContent=lastProduct?.name||'행운상품'}
@@ -31,10 +36,10 @@ function slotCard(i){
   </article>`;
 }
 function updateSlot(card,p,ghostA=null,ghostB=null){
-  card.querySelector('.slot-main-name').textContent=p?.name||'행운의 주인공';
+  card.querySelector('.slot-main-name').textContent=p?.displayName||p?.name||'행운의 주인공';
   card.querySelector('.slot-main-seat').textContent=p?.seat||'좌석 미배정';
-  card.querySelector('.slot-ghost.top').textContent=(ghostA||randomPerson(p?.name)).name||'';
-  card.querySelector('.slot-ghost.bottom').textContent=(ghostB||randomPerson(p?.name)).name||'';
+  card.querySelector('.slot-ghost.top').textContent=(ghostA||randomPerson(p?.name)).displayName||(ghostA||randomPerson(p?.name)).name||'';
+  card.querySelector('.slot-ghost.bottom').textContent=(ghostB||randomPerson(p?.name)).displayName||(ghostB||randomPerson(p?.name)).name||'';
 }
 function cycleSlot(i,delay=78){
   const card=document.querySelector(`[data-slot="${i}"]`);if(!card)return;
@@ -91,7 +96,7 @@ function showFinalWinners(winners,product){
   const grid=$('#finalGrid');grid.dataset.count=String(lastWinners.length);
   grid.innerHTML=lastWinners.map((w,i)=>`<article class="final-card">
     <span class="final-rank">${i+1}</span>
-    <div><strong>${esc(w.name)}</strong><small>20주년 행운권 당첨</small></div>
+    <div><strong>${esc(w.displayName||w.name)}</strong><small>20주년 행운권 당첨</small></div>
     <b>${esc(w.seat||'좌석 미배정')}</b>
   </article>`).join('');
   showScene('final');setStatus('당첨 결과');particles(160);

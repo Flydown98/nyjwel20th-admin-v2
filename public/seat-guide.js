@@ -22,9 +22,10 @@ async function load(){
   try{
     const [a,b]=await Promise.all([fetch(`/api/public/seat-guide?k=${encodeURIComponent(key)}`,{cache:'no-store'}),fetch('/api/public/seat-layout',{cache:'no-store'})]);
     const d=await a.json(),l=await b.json();if(!a.ok||!d.ok)throw new Error(d.error||'좌석 정보를 확인할 수 없습니다.');
-    $('#mySeat').textContent=d.seat||'스탠딩';$('#myName').textContent=d.name?d.name+'님':'';
-    const p=parseSeat(d.seat);$('#guideMsg').textContent=d.seat?(p?`${p.row}열 ${p.n}번 좌석입니다.`:`${d.seat} 좌석입니다.`):'현재 지정 좌석이 없습니다. 현장 스태프 안내를 따라주세요.';
-    render(d.seat,l.rows||[]);
+    $('#mySeat').textContent=d.hasAssignedSeat?d.seat:'스탠딩석';$('#myName').textContent=d.name?d.name+'님':'';
+    const p=d.hasAssignedSeat?parseSeat(d.seat):null;
+    $('#guideMsg').textContent=d.hasAssignedSeat?(p?`${p.row}열 ${p.n}번 좌석입니다.`:`${d.seat} 좌석입니다.`):'지정 좌석 없이 스탠딩석으로 안내됩니다. 현장 스태프 안내를 따라주세요.';
+    render(d.hasAssignedSeat?d.seat:'',l.rows||[]);
   }catch(e){$('#mySeat').textContent='안내 확인 필요';$('#guideMsg').textContent=e.message;render('',[])}
 }
 load();

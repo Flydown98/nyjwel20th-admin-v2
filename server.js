@@ -27,7 +27,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.13';
+const FRONTEND_VERSION = '0.9.14';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.13',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.14',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.13'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.14'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -274,6 +274,18 @@ function buildEvent352Seats(){
   return out;
 }
 
+
+function phoneLast4(v){
+  const d=digits(v);
+  return d.length>=4?d.slice(-4):'';
+}
+function raffleDisplayName(p){
+  const last4=phoneLast4(p?.phone);
+  return `${str(p?.name)}${last4?` (${last4})`:''}`;
+}
+function participantSeatLabel(p){
+  return p?.seat?displaySeatCode(p.seat):'스탠딩석';
+}
 
 function displaySeatCode(code){
   const raw=str(code).toUpperCase();if(!raw)return '';
@@ -536,7 +548,7 @@ function verifySeatGuideKey(key){
   return state.participants.find(p=>num(p.receptionNo,0)===receptionNo)||null;
 }
 function checkinMessage(p,extra=''){
-  const seat=p.seat?displaySeatCode(p.seat):'스탠딩/현장안내';
+  const seat=participantSeatLabel(p);
   const guide=seatGuideUrl(p);
   return `[남양주시장애인복지관]\n${p.name}님 현장 접수가 완료되었습니다.\n좌석: ${seat}\n좌석배치도: ${guide}\n기념품: 지급완료${extra?`\n${extra}`:''}\n개관 20주년 기념행사에 함께해 주셔서 감사합니다.`;
 }
@@ -744,7 +756,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.13',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.14',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -753,7 +765,7 @@ app.get('/api/public/seat-guide',(req,res)=>{
   const p=verifySeatGuideKey(req.query.k);
   if(!p)return res.status(404).json({ok:false,error:'유효하지 않거나 만료된 좌석 안내 링크입니다.'});
   res.setHeader('Cache-Control','no-store');
-  res.json({ok:true,name:str(p.name),seat:displaySeatCode(p.seat),rawSeat:str(p.seat),arrived:Boolean(p.arrived),eventName:state.settings.eventName||'남양주시장애인복지관 개관 20주년 기념행사'});
+  res.json({ok:true,name:str(p.name),seat:participantSeatLabel(p),hasAssignedSeat:Boolean(p.seat),rawSeat:str(p.seat),arrived:Boolean(p.arrived),eventName:state.settings.eventName||'남양주시장애인복지관 개관 20주년 기념행사'});
 });
 
 
@@ -833,7 +845,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.13',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.14',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1568,8 +1580,8 @@ function commitBatchRaffle(prep,method='동시 슬롯 추첨'){
   const winners=cryptoPickUnique(currentPool,count);
   const drawId=prep.drawSessionId||uuid('draw'),drawnAt=nowIso();
   const records=winners.map((p,i)=>({
-    drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method,participantId:p.id,participantName:p.name,
-    seat:displaySeatCode(p.seat),rank:i+1,enabled:true,received:false,filter:prep.filter
+    drawId,drawnAt,prizeNo:product.number,prizeName:product.name,method,participantId:p.id,participantName:p.name,participantPhoneLast4:phoneLast4(p.phone),participantDisplayName:raffleDisplayName(p),
+    seat:participantSeatLabel(p),rank:i+1,enabled:true,received:false,filter:prep.filter
   }));
   state.rouletteHistory.push(...records);
   saveState();
@@ -1584,7 +1596,7 @@ function commitOneRaffle(prep,method='순차 추첨'){
   const product=state.rouletteProducts.find(x=>str(x.number)===str(prep.productNo))||{number:prep.productNo,name:prep.productName,quantity:999};
   if(productRemaining(product)<1)throw new Error('상품 남은 수량이 없습니다.');
   const p=cryptoPickUnique(currentPool,1)[0],rank=(prep.winners?.length||0)+1,drawId=prep.drawSessionId||uuid('draw');prep.drawSessionId=drawId;
-  const record={drawId,drawnAt:nowIso(),prizeNo:product.number,prizeName:product.name,method,participantId:p.id,participantName:p.name,seat:displaySeatCode(p.seat),rank,enabled:true,received:false,filter:prep.filter};
+  const record={drawId,drawnAt:nowIso(),prizeNo:product.number,prizeName:product.name,method,participantId:p.id,participantName:p.name,participantPhoneLast4:phoneLast4(p.phone),participantDisplayName:raffleDisplayName(p),seat:participantSeatLabel(p),rank,enabled:true,received:false,filter:prep.filter};
   prep.winners=prep.winners||[];prep.winners.push(record);state.rouletteHistory.push(record);saveState();
   return {record,product,winners:[...prep.winners],done:prep.winners.length>=prep.count,remainingPool:currentPool.length-1};
 }
@@ -1599,7 +1611,7 @@ app.post('/api/raffle/remote/start',auth,(req,res)=>{
   if(pool.length<count)return res.status(400).json({ok:false,error:`추첨 가능한 참가자가 ${pool.length}명뿐입니다.`});
   const token=uuid('raffle'),prep={createdAt:Date.now(),productNo:product.number,productName:product.name,count,filter,poolIds:pool.map(p=>p.id),winners:[],drawSessionId:uuid('draw-session')};
   rafflePreparations.set(token,prep);setTimeout(()=>rafflePreparations.delete(token),20*60*1000).unref?.();
-  const sample=cryptoPickUnique(pool,Math.min(90,pool.length)).map(p=>({id:p.id,name:p.name,seat:displaySeatCode(p.seat),organization:p.organization}));
+  const sample=cryptoPickUnique(pool,Math.min(90,pool.length)).map(p=>({id:p.id,name:p.name,displayName:raffleDisplayName(p),phoneLast4:phoneLast4(p.phone),seat:participantSeatLabel(p),organization:p.organization}));
   Object.assign(raffleRemote,{status:'spinning',screen:'raffle',token,product:{number:product.number,name:product.name,remaining:productRemaining(product)},sample,poolSize:pool.length,count,targetCount:count,currentIndex:1,filter,startedAt:nowIso(),winners:[],drawSessionId:prep.drawSessionId,lastActionAt:nowIso()});
   broadcastRaffleStage('raffle-start',{product:raffleRemote.product,poolSize:pool.length,sample,count,targetCount:count,batchMode:true});
   res.json({ok:true,status:'spinning',connectedScreens:raffleStageClients.size,product:raffleRemote.product,poolSize:pool.length,targetCount:count,batchMode:true});
@@ -1625,7 +1637,7 @@ app.post('/api/raffle/remote/stop',auth,(req,res)=>{
 });
 
 app.post('/api/raffle/remote/next',auth,(req,res)=>{
-  res.status(409).json({ok:false,error:'v0.9.13부터는 1~5명을 한 번에 추첨합니다. 새 추첨 시작 버튼을 사용해 주세요.'});
+  res.status(409).json({ok:false,error:'v0.9.14부터는 1~5명을 한 번에 추첨합니다. 새 추첨 시작 버튼을 사용해 주세요.'});
 });
 
 app.post('/api/raffle/remote/reset',auth,(req,res)=>{if(raffleRemote.token)rafflePreparations.delete(raffleRemote.token);Object.assign(raffleRemote,{status:'idle',screen:'idle',token:'',product:null,sample:[],poolSize:0,count:1,targetCount:1,currentIndex:0,filter:'usesCenter',startedAt:null,winners:[],drawSessionId:'',lastActionAt:nowIso()});broadcastRaffleStage('stage-mode',{mode:'idle'});res.json({ok:true,connectedScreens:raffleStageClients.size});});
@@ -2026,4 +2038,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.13 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.14 · :${PORT}`));

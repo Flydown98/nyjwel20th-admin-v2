@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.13';
+const FRONTEND_VERSION='0.9.14';
 
 function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
 
@@ -33,7 +33,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.13';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.14';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -110,7 +110,7 @@ async function loadParticipants(){
       <td class="p-name"><strong>${esc(p.name)}</strong><small>${p.wheelchairUser?'♿ ':''}${p.usesCenter?'복지관 이용':''}</small></td>
       <td class="p-org">${esc(p.organization||'-')}</td>
       <td class="p-phone">${esc(p.phone||'-')}</td>
-      <td class="p-seat"><strong>${esc(displaySeat(p.seat)||'미배정')}</strong></td>
+      <td class="p-seat"><strong>${esc(displaySeat(p.seat)||'스탠딩석')}</strong></td>
       <td class="p-status">${p.arrived?'<b class="yes">도착</b>':(p.participationStatus==='미참여'||p.active===false?'<span class="no">미참여</span>':'미도착')}</td>
       <td class="p-actions"><button data-edit="${esc(p.id)}">수정</button><button data-check="${esc(p.id)}">접수</button>${p.arrived?`<button data-undo="${esc(p.id)}">취소</button>`:''}<button data-sms-history="${esc(p.id)}">문자</button><button data-delete="${esc(p.id)}" class="danger">삭제</button></td>
     </tr>`).join('')||'<tr><td colspan="7">없음</td></tr>';
@@ -125,7 +125,7 @@ async function openParticipantEdit(id){
         <label>연락처<input name="phone" value="${esc(p.phone||'')}"></label>
         <label>소속기관<input name="organization" value="${esc(p.organization||'')}"></label>
         <label>참여상태<select name="participationStatus"><option ${p.participationStatus==='참여'?'selected':''}>참여</option><option ${p.participationStatus==='미참여'?'selected':''}>미참여</option><option ${p.participationStatus==='취소'?'selected':''}>취소</option><option ${p.participationStatus==='비활성'?'selected':''}>비활성</option></select></label>
-        <label>좌석<input value="${esc(displaySeat(p.seat)||'미배정')}" disabled></label>
+        <label>좌석<input value="${esc(displaySeat(p.seat)||'스탠딩석')}" disabled></label>
         <label>도착상태<select name="arrived"><option value="true" ${p.arrived?'selected':''}>도착</option><option value="false" ${!p.arrived?'selected':''}>미도착</option></select></label>
         <label class="check"><input type="checkbox" name="wheelchairUser" ${p.wheelchairUser?'checked':''}> 휠체어 이용</label>
         <label class="check"><input type="checkbox" name="disabledPerson" ${p.disabledPerson?'checked':''}> 장애인 당사자</label>
@@ -230,7 +230,7 @@ async function openGroupEditor(groupId=''){
   const selected=new Set(group?.memberIds||[]);
   const searchAndRender=async()=>{
     const q=$('#groupMemberSearch').value.trim(),d=await api(`/api/participants/search?q=${encodeURIComponent(q)}`);
-    $('#groupMemberList').innerHTML=d.rows.map(p=>`<label class="participant-pick"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${esc(p.phone||'')} · ${esc(displaySeat(p.seat)||'미배정')}</small></span></label>`).join('');
+    $('#groupMemberList').innerHTML=d.rows.map(p=>`<label class="participant-pick"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${esc(p.phone||'')} · ${esc(displaySeat(p.seat)||'스탠딩석')}</small></span></label>`).join('');
     $('#groupMemberList').querySelectorAll('input').forEach(ch=>ch.onchange=()=>{ch.checked?selected.add(ch.value):selected.delete(ch.value);renderRep()});
   };
   const renderRep=()=>{
@@ -390,7 +390,7 @@ async function openSeatManager(code){
   $('#closeSeatManager').onclick=closeModal;
   const render=async()=>{
     const d=await api(`/api/participants/search?q=${encodeURIComponent($('#seatParticipantSearch').value.trim())}`);
-    $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(displaySeat(p.seat)||'미배정')}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
+    $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(displaySeat(p.seat)||'스탠딩석')}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
   };
   $('#seatParticipantSearch').oninput=()=>{clearTimeout(render.tm);render.tm=setTimeout(render,200)};await render();
   if($('#seatQuickAddForm'))$('#seatQuickAddForm').onsubmit=async e=>{
@@ -484,8 +484,8 @@ function renderRaffleProducts(rows){
 }
 function renderRaffleHistory(rows){
   $('#raffleHistory').innerHTML=rows.slice(0,80).map(x=>`<div class="history-row raffle-history-row">
-    <strong>${esc(x.prizeName)} · ${esc(x.participantName)}</strong>
-    <small>${esc(x.seat||'좌석없음')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')} · ${x.enabled===false?'당첨취소':'유효'}</small>
+    <strong>${esc(x.prizeName)} · ${esc(x.participantDisplayName||`${x.participantName}${x.participantPhoneLast4?` (${x.participantPhoneLast4})`:''}`)}</strong>
+    <small>${esc(x.seat||'스탠딩석')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')} · ${x.enabled===false?'당첨취소':'유효'}</small>
     ${x.winnerSmsSentAt?`<small class="winner-sms-done">당첨문자 요청완료 · ${esc(x.winnerSmsTargetName||'수신자')}</small>`:''}
     <div class="actions">
       ${x.enabled===false?'':`<button data-winnersms="${esc(x.drawId)}" data-pid="${esc(x.participantId)}">${x.winnerSmsSentAt?'당첨문자 재발송':'당첨확인문자 보내기'}</button>`}
@@ -670,7 +670,7 @@ $('#raffleForm').onsubmit=async e=>{
       productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value),filter:$('#raffleFilter').value
     })});
     const result=await run777Raffle(prep);
-    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(result.product.name)}</h3>${result.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;
+    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(result.product.name)}</h3>${result.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'스탠딩석')}</p>`).join('')}</div>`;
     loadRaffle();
   }catch(x){
     $('#raffleStage')?.classList.add('hidden');
@@ -734,7 +734,7 @@ $('#remoteRaffleStop')?.addEventListener('click',async()=>{
   if(!confirm('지금 멈추고 당첨자를 확정할까요?'))return;
   try{
     const d=await api('/api/raffle/remote/stop',{method:'POST',body:'{}'});
-    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;
+    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'스탠딩석')}</p>`).join('')}</div>`;
     if(navigator.vibrate)navigator.vibrate([80,50,160]);
     toast(`${d.winners.length}명 당첨자를 확정하고 무대 화면에 공개했습니다.`,6500);
     loadRaffle();
@@ -915,7 +915,7 @@ function renderXlsxPreview(d){
   if(s.duplicateQr)warnings.push(`중복 QR ${s.duplicateQr}건`);
   if(s.blankPhones)warnings.push(`연락처 공란 ${s.blankPhones}명`);
   $('#xlsxPreviewWarnings').innerHTML=warnings.length?`<div class="warning"><strong>확인 필요</strong><br>${warnings.map(esc).join(' · ')}</div>`:'<div class="successbox">기본 형식 검사에서 큰 문제를 찾지 못했습니다.</div>';
-  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(displaySeat(p.seat)||'미배정')}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
+  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(displaySeat(p.seat)||'스탠딩석')}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
   $('#xlsxPreviewSeats').innerHTML=d.sampleSeats.map(s=>`<tr><td>${esc(s.code)}</td><td>${esc(s.zone||'-')}</td><td>${s.autoAssignable?'예':'아니오'}</td><td>${s.wheelchairAssignable?'예':'아니오'}</td><td>${s.enabled?'예':'아니오'}</td></tr>`).join('');
 }
 $('#xlsxPreviewBtn')?.addEventListener('click',async()=>{
