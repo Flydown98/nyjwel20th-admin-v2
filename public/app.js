@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.11';
+const FRONTEND_VERSION='0.9.12';
 
 function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
 
@@ -33,7 +33,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.11';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.12';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -112,7 +112,7 @@ async function loadParticipants(){
       <td class="p-phone">${esc(p.phone||'-')}</td>
       <td class="p-seat"><strong>${esc(displaySeat(p.seat)||'미배정')}</strong></td>
       <td class="p-status">${p.arrived?'<b class="yes">도착</b>':(p.participationStatus==='미참여'||p.active===false?'<span class="no">미참여</span>':'미도착')}</td>
-      <td class="p-actions"><button data-edit="${esc(p.id)}">수정</button><button data-check="${esc(p.id)}">접수</button>${p.arrived?`<button data-undo="${esc(p.id)}">취소</button>`:''}<button data-sms-history="${esc(p.id)}">문자</button></td>
+      <td class="p-actions"><button data-edit="${esc(p.id)}">수정</button><button data-check="${esc(p.id)}">접수</button>${p.arrived?`<button data-undo="${esc(p.id)}">취소</button>`:''}<button data-sms-history="${esc(p.id)}">문자</button><button data-delete="${esc(p.id)}" class="danger">삭제</button></td>
     </tr>`).join('')||'<tr><td colspan="7">없음</td></tr>';
   }catch(e){toast(e.message)}
 }
@@ -148,9 +148,16 @@ $('#reloadParticipants').onclick=loadParticipants;
 $('#participantSearch').oninput=()=>{clearTimeout(loadParticipants.tm);loadParticipants.tm=setTimeout(loadParticipants,250)};
 $('#participantStatus').onchange=loadParticipants;
 $('#participantRows').onclick=async e=>{
-  const edit=e.target.closest('[data-edit]'),c=e.target.closest('[data-check]'),u=e.target.closest('[data-undo]');
+  const edit=e.target.closest('[data-edit]'),c=e.target.closest('[data-check]'),u=e.target.closest('[data-undo]'),del=e.target.closest('[data-delete]');
   if(edit)return openParticipantEdit(edit.dataset.edit);
   if(c)return processCode(c.dataset.check);
+  if(del){
+    const id=del.dataset.delete;
+    const p=participantRows?.querySelector?.(`[data-edit="${CSS.escape(id)}"]`)?.closest('tr')?.querySelector('.p-name strong')?.textContent||'이 참가자';
+    if(!confirm(`${p} 참가자를 목록에서 삭제할까요?\n\n좌석 배정도 함께 사라집니다. 기존 문자/당첨 로그는 감사기록을 위해 유지됩니다.`))return;
+    try{await api(`/api/participants/${encodeURIComponent(id)}/delete`,{method:'POST',body:'{}'});toast('참가자를 삭제했습니다.');loadParticipants();loadSeats();refreshDashboard()}catch(x){toast(x.message,7000)}
+    return;
+  }
   if(u&&confirm('접수를 취소하고 좌석·기념품 상태도 되돌릴까요?')){
     try{await api('/api/checkin/undo',{method:'POST',body:JSON.stringify({code:u.dataset.undo})});loadParticipants();refreshDashboard()}catch(x){toast(x.message)}
   }
@@ -369,6 +376,16 @@ async function openSeatManager(code){
     <div class="notice">${s.participant?`현재 배정: <strong>${esc(s.participant.name)}</strong> · ${s.arrived?'도착완료':'미도착'}`:'현재 빈좌석입니다.'}</div>
     <label>참가자 검색<input id="seatParticipantSearch" placeholder="이름 / 기관 / 연락처 / QR"></label>
     <div id="seatParticipantList" class="participant-pick-list"></div>
+    ${s.participant?'':`<details class="seat-quick-add" open><summary><strong>이 좌석에 새 참가자 바로 추가</strong></summary>
+      <form id="seatQuickAddForm" class="form-grid compact">
+        <label>이름<input name="name" required placeholder="이름"></label>
+        <label>연락처<input name="phone" placeholder="선택"></label>
+        <label>기관<input name="organization" placeholder="선택"></label>
+        <label class="check"><input type="checkbox" name="usesCenter"> 복지관 이용</label>
+        <label class="check"><input type="checkbox" name="disabledPerson"> 장애인 당사자</label>
+        <label class="check"><input type="checkbox" name="wheelchairUser"> 휠체어 이용</label>
+        <button class="primary wide-field">이 좌석에 추가</button>
+      </form></details>`}
     <div class="actions">${s.participant?`${s.participant.seatLocked?'<button id="unlockSeatParticipant">좌석확정 해제</button>':''}<button id="releaseSeat" class="danger">이 좌석 해제</button>`:''}<button id="closeSeatManager">닫기</button></div>`);
   $('#closeSeatManager').onclick=closeModal;
   const render=async()=>{
@@ -376,6 +393,15 @@ async function openSeatManager(code){
     $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(displaySeat(p.seat)||'미배정')}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
   };
   $('#seatParticipantSearch').oninput=()=>{clearTimeout(render.tm);render.tm=setTimeout(render,200)};await render();
+  if($('#seatQuickAddForm'))$('#seatQuickAddForm').onsubmit=async e=>{
+    e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());
+    b.usesCenter=f.has('usesCenter');b.disabledPerson=f.has('disabledPerson');b.wheelchairUser=f.has('wheelchairUser');b.seatLocked=true;
+    try{
+      const d=await api(`/api/seats/${encodeURIComponent(code)}/add-participant`,{method:'POST',body:JSON.stringify(b)});
+      toast(`${d.participant.name} 참가자를 ${displaySeat(code)}에 추가했습니다.`,6500);
+      closeModal();loadSeats();loadParticipants();refreshDashboard();
+    }catch(x){toast(x.message,7000)}
+  };
   $('#seatParticipantList').onclick=async e=>{
     const b=e.target.closest('[data-seatassign]');if(!b)return;
     const p=(await api(`/api/participant/${encodeURIComponent(b.dataset.seatassign)}`)).participant;
@@ -449,10 +475,15 @@ function renderRaffleProducts(rows){
   </div>`).join('')||'<p class="muted">등록된 상품이 없습니다. 위에서 상품명과 수량을 추가하세요.</p>';
 }
 function renderRaffleHistory(rows){
-  $('#raffleHistory').innerHTML=rows.slice(0,50).map(x=>`<div class="history-row">
+  $('#raffleHistory').innerHTML=rows.slice(0,80).map(x=>`<div class="history-row raffle-history-row">
     <strong>${esc(x.prizeName)} · ${esc(x.participantName)}</strong>
     <small>${esc(x.seat||'좌석없음')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')} · ${x.enabled===false?'당첨취소':'유효'}</small>
-    ${x.enabled===false?'':(x.received?'<b>수령완료</b>':`<button data-redeem="${x.drawId}" data-pid="${x.participantId}">수령완료</button> <button data-cancelwin="${x.drawId}" data-pid="${x.participantId}">당첨취소</button>`)}
+    ${x.winnerSmsSentAt?`<small class="winner-sms-done">당첨문자 요청완료 · ${esc(x.winnerSmsTargetName||'수신자')}</small>`:''}
+    <div class="actions">
+      ${x.enabled===false?'':`<button data-winnersms="${esc(x.drawId)}" data-pid="${esc(x.participantId)}">${x.winnerSmsSentAt?'당첨문자 재발송':'당첨확인문자 보내기'}</button>`}
+      ${x.enabled===false?'':(x.received?'<b>경품 수령완료</b>':`<button data-redeem="${esc(x.drawId)}" data-pid="${esc(x.participantId)}">경품 수령완료</button>`)}
+      ${x.enabled===false?'':`<button data-cancelwin="${esc(x.drawId)}" data-pid="${esc(x.participantId)}" class="danger">당첨취소</button>`}
+    </div>
   </div>`).join('')||'<p class="muted">아직 당첨 기록이 없습니다.</p>';
 }
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
@@ -640,8 +671,13 @@ $('#raffleForm').onsubmit=async e=>{
 };
 $('#reloadRaffleHistory').onclick=loadRaffle;
 $('#raffleHistory').onclick=async e=>{
-  const r=e.target.closest('[data-redeem]'),c=e.target.closest('[data-cancelwin]');
+  const r=e.target.closest('[data-redeem]'),c=e.target.closest('[data-cancelwin]'),sms=e.target.closest('[data-winnersms]');
   try{
+    if(sms){
+      if(!confirm('당첨자 또는 단체 대표 연락처로 당첨확인 문자를 보낼까요?\n경품 수령 시 이 문자를 보여달라는 안내가 포함됩니다.'))return;
+      const d=await api('/api/raffle/winner-sms',{method:'POST',body:JSON.stringify({drawId:sms.dataset.winnersms,participantId:sms.dataset.pid})});
+      toast(`${d.target.name}님에게 당첨확인 문자 발송을 요청했습니다.${d.target.isRepresentative?' (대표 연락처)':''}`,7500);loadRaffle();return;
+    }
     if(r){await api('/api/raffle/redeem',{method:'POST',body:JSON.stringify({drawId:r.dataset.redeem,participantId:r.dataset.pid})});loadRaffle()}
     if(c&&confirm('이 당첨을 취소할까요? 취소하면 이 참가자는 다시 추첨 대상이 됩니다.')){await api('/api/raffle/cancel',{method:'POST',body:JSON.stringify({drawId:c.dataset.cancelwin,participantId:c.dataset.pid})});loadRaffle()}
   }catch(x){toast(x.message,7000)}
@@ -649,7 +685,7 @@ $('#raffleHistory').onclick=async e=>{
 
 
 let remoteStageUrl='';
-async function loadRemoteRaffleStatus(){if(!token)return;try{const d=await api('/api/raffle/remote/status');const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');if(badge){badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';badge.classList.toggle('ok',d.connectedScreens>0)}if(stateBox){if(d.status==='spinning'){stateBox.className='remote-state spinning';stateBox.innerHTML=`<strong>${d.currentIndex||1} / ${d.targetCount||d.count||1} 번째 당첨자 추첨 중</strong><br>${esc(d.product?.name||'행운상품')} · 슬롯을 멈춰주세요`}else if(d.status==='step-winner'){const last=(d.winners||[]).at(-1);stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>${d.currentIndex} / ${d.targetCount} 번째 당첨자</strong><br>${last?`${esc(last.participantName)} ${last.seat?`(${esc(last.seat)})`:''}`:''}<br><small>다음 당첨자 추첨 버튼을 눌러 계속하세요.</small>`}else if(d.status==='final'){stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>최종 ${d.winners?.length||0}명 추첨 완료</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`}else{stateBox.className='remote-state';stateBox.textContent='원격 추첨 대기 중'}}$('#remoteRaffleStart').disabled=['spinning','step-winner'].includes(d.status);$('#remoteRaffleStop').disabled=d.status!=='spinning';$('#remoteRaffleNext').disabled=d.status!=='step-winner'}catch(_){}}
+async function loadRemoteRaffleStatus(){if(!token)return;try{const d=await api('/api/raffle/remote/status');const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');if(badge){badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';badge.classList.toggle('ok',d.connectedScreens>0)}if(stateBox){if(d.status==='spinning'){stateBox.className='remote-state spinning';stateBox.innerHTML=`<strong>${d.currentIndex||1} / ${d.targetCount||d.count||1} 번째 당첨자 추첨 중</strong><br>${esc(d.product?.name||'행운상품')} · 슬롯을 멈춰주세요`}else if(d.status==='step-winner'){const last=(d.winners||[]).at(-1);stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>${d.currentIndex} / ${d.targetCount} 번째 당첨자</strong><br>${last?`${esc(last.participantName)} ${last.seat?`(${esc(last.seat)})`:''}`:''}<br><small>다음 당첨자 추첨 버튼을 눌러 계속하세요.</small>`}else if(d.status==='final'){stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>최종 ${d.winners?.length||0}명 추첨 완료</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`}else{stateBox.className='remote-state';stateBox.textContent='원격 추첨 대기 중'}}$('#remoteRaffleStart').disabled=['spinning','step-winner'].includes(d.status);$('#remoteRaffleStop').disabled=d.status!=='spinning';if($('#remoteRaffleNext'))$('#remoteRaffleNext').disabled=true}catch(_){}}
 async function getRemoteStageUrl(){
   const d=await api('/api/raffle/stage-link');
   remoteStageUrl=d.url;
@@ -689,7 +725,7 @@ $('#remoteRaffleStop')?.addEventListener('click',async()=>{
     const d=await api('/api/raffle/remote/stop',{method:'POST',body:'{}'});
     $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'좌석없음')}</p>`).join('')}</div>`;
     if(navigator.vibrate)navigator.vibrate([80,50,160]);
-    toast('당첨자를 확정하고 무대 화면에 공개했습니다.',6000);
+    toast(`${d.winners.length}명 당첨자를 확정하고 무대 화면에 공개했습니다.`,6500);
     loadRaffle();
   }catch(x){toast(x.message,7000)}
 });

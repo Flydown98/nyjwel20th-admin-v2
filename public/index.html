@@ -117,13 +117,13 @@
   <div class="remote-control-grid">
     <label>상품<select id="remoteRaffleProduct"></select></label>
     <label>대상<select id="remoteRaffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
-    <label>당첨 인원<input id="remoteRaffleCount" type="number" min="1" max="20" value="1"></label>
+    <label>당첨 인원<input id="remoteRaffleCount" type="number" min="1" max="5" value="1"></label>
   </div>
 
   <div id="remoteRaffleState" class="remote-state">원격 추첨 대기 중</div>
   <div class="remote-main-buttons">
     <button type="button" id="remoteRaffleStart" class="primary">▶ 추첨 시작</button>
-    <button type="button" id="remoteRaffleStop" class="danger" disabled>■ 슬롯 멈춤 · 당첨자 공개</button><button type="button" id="remoteRaffleNext" class="primary" disabled>▶ 다음 당첨자 추첨</button>
+    <button type="button" id="remoteRaffleStop" class="danger" disabled>■ 슬롯 멈춤 · 당첨자 공개</button>
     <button type="button" id="remoteRaffleReset">화면 초기화</button>
   </div>
 </article>
@@ -132,11 +132,11 @@
   <article class="card">
     <p class="eyebrow">LUCKY DRAW · PREMIUM STAGE</p>
     <h2>복지관 이용인 슬롯 추첨</h2>
-    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 여러 명을 뽑아도 슬롯머신을 한 명씩 멈춰 당첨자를 공개합니다. 마지막 인원까지 끝나면 전체 당첨자가 무대 중앙에 한 번에 정리되어 표시됩니다.</p>
+    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 한 번에 1~5명을 선택할 수 있습니다. 여러 명을 선택하면 1~5개의 슬롯이 동시에 돌아가고 순서대로 빠르게 멈춘 뒤 전체 당첨자가 한 화면에 표시됩니다.</p>
     <form id="raffleForm" class="stack">
       <label>상품<select id="raffleProduct"></select></label>
       <label>대상<select id="raffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
-      <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="20" value="1"></label>
+      <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="5" value="1"></label>
       <button class="primary big-action">행운권 추첨 시작</button>
     </form>
     <details class="raffle-product-manager" open>
@@ -149,7 +149,7 @@
       <div id="raffleProductList"></div>
     </details>
     <div class="raffle-help">
-      <strong>진행</strong> · 추첨 시작 → 슬롯머신 회전 → <kbd>SPACE</kbd> → 자연스러운 감속 → 한 명씩 당첨자 공개
+      <strong>진행</strong> · 1~5명 선택 → 슬롯 동시 회전 → 멈춤 → 슬롯들이 빠르게 순서대로 정지 → 전체 당첨자 공개
     </div>
     <div id="raffleWinners"></div>
   </article>

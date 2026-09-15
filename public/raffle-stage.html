@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07050b">
 <title>남양주시장애인복지관 20주년 · 행운권 무대</title>
-<link rel="stylesheet" href="/raffle-stage.css?v=0.9.11">
+<link rel="stylesheet" href="/raffle-stage.css?v=0.9.12">
 </head>
 <body>
 <main id="stage" class="stage idle" aria-live="polite">
@@ -46,12 +46,7 @@
     <div class="machine-shell">
       <div class="marquee marquee-top" aria-hidden="true"></div>
       <div class="slot-brand">NYJWEL · LUCKY SLOT</div>
-      <div id="reel" class="reel-window">
-        <div id="track" class="slot-track"></div>
-        <div class="reel-shade reel-shade-top"></div>
-        <div class="reel-shade reel-shade-bottom"></div>
-        <div class="focus-slot" aria-hidden="true"><span></span><span></span></div>
-      </div>
+      <div id="multiReels" class="multi-reels" data-count="1"></div>
       <div class="machine-footer">
         <span id="status">행운의 주인공을 찾고 있습니다</span>
         <div id="progressDots" class="progress-dots"></div>
@@ -105,6 +100,6 @@
 </main>
 <audio id="spinAudio" src="/stage-roulette.wav" preload="auto" loop></audio>
 <audio id="winnerAudio" src="/stage-winner.wav" preload="auto"></audio>
-<script src="/raffle-stage.js?v=0.9.11"></script>
+<script src="/raffle-stage.js?v=0.9.12"></script>
 </body>
 </html>

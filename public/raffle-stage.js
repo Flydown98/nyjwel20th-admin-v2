@@ -54,131 +54,93 @@ function showIdle(mode='idle'){
   showScene('idle');setPrize('행운권 추첨');lastWinners=[];targetCount=1;currentIndex=1;
 }
 
+let reelAnimations=[];
+function multiReelMarkup(index){
+  return `<div class="mini-reel" data-reel="${index}">
+    <div class="mini-reel-number">${index+1}</div>
+    <div class="reel-window">
+      <div class="slot-track"></div>
+      <div class="reel-shade reel-shade-top"></div>
+      <div class="reel-shade reel-shade-bottom"></div>
+      <div class="focus-slot" aria-hidden="true"><span></span><span></span></div>
+    </div>
+  </div>`;
+}
 function startSpin(samples, product, meta={}){
   $('#stage').classList.remove('blackout');
   currentSamples=(samples?.length?samples:[{name:'행운의 주인공',seat:''}]).map(normalizePerson);
-  if(meta.previousWinners)lastWinners=meta.previousWinners.map(winnerPerson);
+  lastWinners=[];
   setPrize(product||lastProduct||{name:'행운상품'});
-  setRound(meta.currentIndex||lastWinners.length+1,meta.targetCount||meta.count||targetCount||1);
-  showScene('machine');
-  setMachinePhase('spin');
-  setTrackBlur(false);
-  setStatus('슬롯이 돌아가고 있습니다 · 멈춤 버튼을 눌러주세요');
-  renderProgress();
-
-  // 충분히 긴 트랙을 만들어 3개의 큰 슬롯이 끊김 없이 계속 흐르도록 한다.
-  const rounds=Math.max(12,Math.ceil(180/currentSamples.length));
-  const seq=[];
-  for(let r=0;r<rounds;r++)currentSamples.forEach(x=>seq.push(x));
-  const track=$('#track');
-  track.innerHTML=seq.map(reelItem).join('');
-  const h=itemHeight(), loop=currentSamples.length*h, start=baseY();
-  track.style.transform=`translateY(${start}px)`;
-
-  spinAnim?.cancel();
-  spinAnim=track.animate(
-    [{transform:`translateY(${start}px)`},{transform:`translateY(${start-loop}px)`}],
-    {duration:Math.max(930,currentSamples.length*30),iterations:Infinity,easing:'linear'}
-  );
+  targetCount=Math.max(1,Math.min(5,Number(meta.targetCount||meta.count||1)));
+  currentIndex=1;
+  $('#roundText').textContent=targetCount===1?'1명 추첨':'동시 '+targetCount+'명 추첨';
+  showScene('machine');setMachinePhase('spin');setStatus('슬롯이 돌아가고 있습니다 · 멈춤 버튼을 눌러주세요');
+  const box=$('#multiReels');box.dataset.count=String(targetCount);box.innerHTML=Array.from({length:targetCount},(_,i)=>multiReelMarkup(i)).join('');
+  reelAnimations.forEach(x=>{try{x.cancel()}catch(_){}});reelAnimations=[];
+  box.querySelectorAll('.mini-reel').forEach((reel,i)=>{
+    const track=reel.querySelector('.slot-track'),rounds=Math.max(12,Math.ceil(150/currentSamples.length)),seq=[];
+    for(let r=0;r<rounds;r++)currentSamples.forEach(x=>seq.push(x));
+    track.innerHTML=seq.map(reelItem).join('');
+    const h=parseFloat(getComputedStyle(reel.querySelector('.reel-window')).getPropertyValue('--item-h'))||150;
+    const base=-h + h; // first item starts above; transform below centers looping sequence
+    const loop=currentSamples.length*h;
+    track.style.transform=`translateY(${base}px)`;
+    const anim=track.animate([{transform:`translateY(${base}px)`},{transform:`translateY(${base-loop}px)`}],{
+      duration:Math.max(900,currentSamples.length*28)+(i*70),iterations:Infinity,easing:'linear'
+    });
+    reelAnimations.push(anim);
+  });
   playSpin();
 }
-async function revealWinner(winners,product,animate=true,meta={}){
-  revealInProgress=Boolean(animate);
+async function revealBatchWinners(winners,product,meta={}){
+  revealInProgress=true;
   lastWinners=(winners||[]).map(winnerPerson);
   setPrize(product||lastProduct||{name:'행운상품'});
-  const w=lastWinners.at(-1)||{name:'당첨자',seat:''};
-  targetCount=Math.max(1,Number(meta.targetCount)||targetCount||lastWinners.length||1);
-  currentIndex=Math.max(1,Number(meta.currentIndex)||lastWinners.length||1);
+  targetCount=lastWinners.length||1;
+  setMachinePhase('braking');setStatus('슬롯이 하나씩 멈추고 있습니다…');
+  stopSpin(3500);
+  const reels=[...$('#multiReels').querySelectorAll('.mini-reel')];
 
-  if(animate){
-    // 1) 기존 회전을 바로 끊지 않고 실제 슬롯머신처럼 먼저 감속한다.
-    setMachinePhase('braking');
-    setStatus('천천히 멈추고 있습니다…');
-    setTrackBlur(true);
-    stopSpin(2800);
-
-    if(spinAnim){
-      const initialRate=Math.max(.85,spinAnim.playbackRate||1);
-      const brakeStart=performance.now();
-      await new Promise(resolve=>{
-        const tick=now=>{
-          const t=Math.min(1,(now-brakeStart)/1450);
-          // 1.0 → 0.16까지 부드럽게 감속
-          const eased=1-Math.pow(1-t,2.2);
-          try{spinAnim.playbackRate=initialRate-(initialRate-.16)*eased}catch(_){}
-          if(t<1)requestAnimationFrame(tick);else resolve();
-        };
-        requestAnimationFrame(tick);
-      });
-      try{spinAnim.cancel()}catch(_){}
-      spinAnim=null;
+  for(let i=0;i<reels.length;i++){
+    const reel=reels[i],w=lastWinners[i]||lastWinners.at(-1)||{name:'당첨자',seat:''},track=reel.querySelector('.slot-track');
+    const oldAnim=reelAnimations[i];
+    if(oldAnim){
+      try{oldAnim.playbackRate=.23}catch(_){}
+      await sleep(i===0?900:260);
+      try{oldAnim.cancel()}catch(_){}
     }
-
-    // 2) 마지막 8칸은 눈으로 한 칸씩 읽히도록 별도 감속 트랙을 구성한다.
-    setTrackBlur(false);
-    setMachinePhase('landing');
-    setStatus('당첨자를 결정하고 있습니다…');
-
-    const h=itemHeight();
-    const lead=[];
-    for(let i=0;i<9;i++)lead.push(randomCandidate(w.name));
-    // 마지막에 당첨자가 정확히 중앙 포커스 칸에 걸린다.
+    reel.classList.add('landing');
+    const windowEl=reel.querySelector('.reel-window');
+    const h=parseFloat(getComputedStyle(windowEl).getPropertyValue('--item-h'))||150;
+    const lead=[];for(let k=0;k<6;k++)lead.push(randomCandidate(w.name));
     const seq=[...lead,w];
-    const track=$('#track');
     track.innerHTML=seq.map(reelItem).join('');
-
-    const startY=baseY();
-    const winnerIndex=seq.length-1;
-    const endY=startY-winnerIndex*h;
-
+    const startY=0,endY=-(seq.length-1)*h+h;
     track.style.transform=`translateY(${startY}px)`;
-
-    // 마지막 몇 칸을 느리게 지나가는 것이 확실히 보이도록 단계별 keyframe.
-    const keyframes=[
+    const land=track.animate([
       {transform:`translateY(${startY}px)`,offset:0},
-      {transform:`translateY(${endY+h*5.0}px)`,offset:.34},
-      {transform:`translateY(${endY+h*3.0}px)`,offset:.56},
-      {transform:`translateY(${endY+h*1.65}px)`,offset:.72},
-      {transform:`translateY(${endY+h*.78}px)`,offset:.84},
-      {transform:`translateY(${endY+h*.28}px)`,offset:.92},
-      {transform:`translateY(${endY-h*.055}px)`,offset:.975},
+      {transform:`translateY(${endY+h*2.8}px)`,offset:.46},
+      {transform:`translateY(${endY+h*1.3}px)`,offset:.70},
+      {transform:`translateY(${endY+h*.45}px)`,offset:.87},
+      {transform:`translateY(${endY-h*.06}px)`,offset:.97},
       {transform:`translateY(${endY}px)`,offset:1}
-    ];
-    const landing=track.animate(keyframes,{
-      duration:3850,
-      easing:'cubic-bezier(.10,.70,.10,1)',
-      fill:'forwards'
-    });
-    await landing.finished.catch(()=>{});
+    ],{duration:1750,easing:'cubic-bezier(.12,.72,.12,1)',fill:'forwards'});
+    await land.finished.catch(()=>{});
     track.style.transform=`translateY(${endY}px)`;
-
-    // 3) 당첨자가 중앙 슬롯에 걸린 상태를 잠깐 보여준 뒤 결과 화면으로 전환.
-    $('#machineScene').classList.add('winner-locked');
-    setStatus(`${w.name}${w.seat?` · ${w.seat}`:''} — 당첨!`);
+    reel.classList.remove('landing');reel.classList.add('locked');
     playWinner();
-    await sleep(1600);
-    $('#machineScene').classList.remove('winner-locked');
-  } else {
-    stopSpin(100);
   }
 
-  $('#winnerProgress').textContent=`${currentIndex} / ${targetCount} 번째 당첨자`;
-  $('#winnerName').textContent=w.name;
-  fitWinnerName(w.name);
-  $('#winnerSeat').textContent=w.seat?`좌석  ${w.seat}`:'좌석 미배정';
-  $('#winnerGuide').textContent=currentIndex<targetCount?'다음 당첨자 추첨을 준비해주세요':'마지막 당첨자입니다';
-  showScene('winner');
-
-  // animate=false는 새로고침 복원 상태이므로 효과음을 다시 울리지 않는다.
-  if(animate){
-    particles(90);
-    await sleep(1800);
-  }
+  setStatus(targetCount===1?`${lastWinners[0]?.name||''}님 당첨!`:`${targetCount}명 당첨 완료!`);
+  particles(110);
+  await sleep(1450);
   revealInProgress=false;
-  if(pendingFinalPayload){
-    const p=pendingFinalPayload;pendingFinalPayload=null;
-    showFinalWinners(p.winners,p.product);
-  }
+  showFinalWinners(lastWinners,product);
+}
+async function revealWinner(winners,product,animate=true,meta={}){
+  // 기존 단일 당첨 이벤트도 v0.9.12 다중 슬롯 연출로 통일
+  if(animate)return revealBatchWinners(winners,product,meta);
+  lastWinners=(winners||[]).map(winnerPerson);showFinalWinners(lastWinners,product);
 }
 function fitWinnerName(name){const el=$('#winnerName'),n=[...String(name||'')].length;el.style.fontSize=n>=12?'clamp(60px,6.5vw,150px)':n>=8?'clamp(72px,8vw,180px)':'clamp(92px,10vw,230px)'}
 function showFinalWinners(winners,product){
@@ -203,7 +165,8 @@ function connect(){
   es.addEventListener('raffle-sync',e=>{try{const d=JSON.parse(e.data),r=d.remote||{};lastProduct=r.product||lastProduct;lastWinners=(r.winners||[]).map(winnerPerson);targetCount=r.targetCount||r.count||1;currentIndex=r.currentIndex||Math.max(1,lastWinners.length+1);if(r.status==='spinning')startSpin(r.sample,r.product,{currentIndex,targetCount,previousWinners:lastWinners});else if(r.status==='step-winner'&&lastWinners.length)revealWinner(r.winners,r.product,false,{currentIndex:r.currentIndex,targetCount:r.targetCount});else if(r.status==='final'&&lastWinners.length)showFinalWinners(r.winners,r.product);else showIdle(r.screen==='black'?'black':'idle')}catch(_){}});
   es.addEventListener('stage-mode',e=>{try{const d=JSON.parse(e.data);showIdle(d.mode==='black'?'black':'idle')}catch(_){}});
   es.addEventListener('raffle-start',e=>{try{const d=JSON.parse(e.data);startSpin(d.sample,d.product,d)}catch(_){}});
-  es.addEventListener('raffle-step-winner',e=>{try{const d=JSON.parse(e.data);revealWinner(d.winners,d.product,true,d)}catch(_){}});
+    es.addEventListener('raffle-batch-winners',e=>{try{const d=JSON.parse(e.data);revealBatchWinners(d.winners,d.product,d)}catch(_){}});
+es.addEventListener('raffle-step-winner',e=>{try{const d=JSON.parse(e.data);revealWinner(d.winners,d.product,true,d)}catch(_){}});
   es.addEventListener('raffle-final',e=>{try{const d=JSON.parse(e.data);if(revealInProgress)pendingFinalPayload=d;else showFinalWinners(d.winners,d.product)}catch(_){}});
   es.addEventListener('raffle-winner',e=>{try{const d=JSON.parse(e.data);if((d.winners||[]).length>1)showFinalWinners(d.winners,d.product);else revealWinner(d.winners,d.product,true,{currentIndex:1,targetCount:1})}catch(_){}});
   es.onerror=()=>setConnection('RECONNECTING','error');
