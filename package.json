@@ -1,6 +1,6 @@
 {
   "name": "nyjwel20th-admin-v2",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "private": true,
   "description": "남양주시장애인복지관 개관 20주년 현장 관리자 v2",
   "main": "server.js",

@@ -2,67 +2,109 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#08070c">
-<title>20주년 행운권 무대화면</title>
-<link rel="stylesheet" href="/raffle-stage.css?v=0.9.8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07050b">
+<title>남양주시장애인복지관 20주년 · 행운권 무대</title>
+<link rel="stylesheet" href="/raffle-stage.css?v=0.9.9">
 </head>
 <body>
-<main id="stage" class="stage idle">
+<main id="stage" class="stage idle" aria-live="polite">
   <canvas id="fxCanvas" class="fx-canvas"></canvas>
-  <div class="backdrop">
-    <div class="backdrop-curtain left"></div>
-    <div class="backdrop-curtain right"></div>
-    <div class="light-beam beam-a"></div>
-    <div class="light-beam beam-b"></div>
-    <div class="light-beam beam-c"></div>
-    <div class="floor-glow"></div>
-  </div>
+  <div class="stage-bg" aria-hidden="true"></div>
+  <div class="beam beam-left" aria-hidden="true"></div>
+  <div class="beam beam-right" aria-hidden="true"></div>
+  <div class="floor-glow" aria-hidden="true"></div>
 
   <header class="stage-header">
-    <div class="brandline">NAMYANGJU CITY DISABLED WELFARE CENTER · 20TH ANNIVERSARY</div>
-    <div class="brand-tag">LUCKY DRAW SHOW</div>
+    <div class="header-brand">
+      <b>NYJWEL</b>
+      <span>NAMYANGJU CITY DISABLED WELFARE CENTER</span>
+    </div>
+    <div class="header-event">20TH ANNIVERSARY · LUCKY SLOT</div>
+    <div id="connectionBadge" class="connection-badge"><i></i><span>CONNECTING</span></div>
   </header>
 
-  <section class="hero-shell">
-    <div class="hero-topline">행운권 추첨</div>
-    <div id="prize" class="prize-board">행운권 추첨</div>
-
-    <div class="stage-screen-wrap">
-      <div class="screen-deco left"></div>
-      <div class="screen-deco right"></div>
-      <section id="reel" class="reel">
-        <div class="reel-led led-top"></div>
-        <div class="reel-led led-bottom"></div>
-        <div id="track" class="track"></div>
-        <div class="focus-frame"></div>
-        <div class="focus-line left"></div>
-        <div class="focus-line right"></div>
-        <div class="shade top"></div>
-        <div class="shade bottom"></div>
-      </section>
-      <div id="idleTitle" class="idle-title">
-        <div class="title-kicker">20th Anniversary</div>
-        <strong>20</strong>
-        <span>스무번의 계절, 스물한 번째 약속</span>
-      </div>
+  <section id="idleScene" class="scene idle-scene">
+    <img class="idle-burst" src="/stage-winner-burst.svg" alt="">
+    <div class="anniversary-mark">20</div>
+    <div class="idle-copy">
+      <div class="eyebrow">20TH ANNIVERSARY</div>
+      <h1>스무번의 계절,<br><em>스물한 번째 약속</em></h1>
+      <div class="gold-rule"></div>
+      <p>20주년 기념 행운권 추첨</p>
+      <small>잠시 후 추첨이 시작됩니다</small>
     </div>
-
-    <div id="status" class="status">진행자 화면에서 추첨을 시작해주세요</div>
   </section>
 
-  <section id="winner" class="winner hidden">
-    <div class="winner-spotlight"></div>
+  <section id="machineScene" class="scene machine-scene hidden">
+    <div class="machine-heading">
+      <div class="eyebrow">LUCKY SLOT DRAW</div>
+      <h2 id="prize">행운상품</h2>
+      <div id="roundText" class="round-text">1 / 1 번째 당첨자</div>
+    </div>
+
+    <div class="machine-shell">
+      <div class="marquee marquee-top" aria-hidden="true"></div>
+      <div class="slot-brand">NYJWEL · LUCKY SLOT</div>
+      <div id="reel" class="reel-window">
+        <div id="track" class="slot-track"></div>
+        <div class="reel-shade reel-shade-top"></div>
+        <div class="reel-shade reel-shade-bottom"></div>
+        <div class="focus-slot" aria-hidden="true"><span></span><span></span></div>
+      </div>
+      <div class="machine-footer">
+        <span id="status">행운의 주인공을 찾고 있습니다</span>
+        <div id="progressDots" class="progress-dots"></div>
+      </div>
+      <div class="marquee marquee-bottom" aria-hidden="true"></div>
+      <div class="lever" aria-hidden="true"><i></i><b></b></div>
+    </div>
+  </section>
+
+  <section id="winnerScene" class="scene winner-scene hidden">
+    <img class="winner-burst" src="/stage-winner-burst.svg" alt="">
     <div class="winner-card">
       <div class="winner-kicker">CONGRATULATIONS</div>
+      <div id="winnerProgress" class="winner-progress"></div>
       <div id="winnerName" class="winner-name"></div>
       <div id="winnerSeat" class="winner-seat"></div>
-      <div id="winnerPrize" class="winner-prize"></div><div id="winnerProgress" class="winner-progress"></div><div id="finalWinnerList" class="final-winner-list hidden"></div>
+      <div class="winner-rule"></div>
+      <div id="winnerPrize" class="winner-prize"></div>
+      <div id="winnerGuide" class="winner-guide">다음 당첨자 추첨을 준비해주세요</div>
     </div>
   </section>
 
-  <div id="particles" class="particles"></div>
+  <section id="finalScene" class="scene final-scene hidden">
+    <div class="final-head">
+      <div class="eyebrow">FINAL WINNERS</div>
+      <h2 id="finalPrize">행운상품</h2>
+      <p>축하드립니다!</p>
+    </div>
+    <div id="finalWinnerList" class="final-winner-list"></div>
+  </section>
+
+  <footer class="stage-footer">
+    <span>남양주시장애인복지관 개관 20주년</span>
+    <b id="footerStatus">무대 연결 중</b>
+  </footer>
+
+  <div id="particles" class="particles" aria-hidden="true"></div>
+
+  <div id="launchOverlay" class="launch-overlay">
+    <div class="launch-panel">
+      <div class="launch-logo">20</div>
+      <div class="eyebrow">EVENT STAGE READY</div>
+      <h2>20주년 행운권 무대화면</h2>
+      <p>행사장 PC에서는 이 버튼만 한 번 눌러주세요.<br>전체화면과 효과음을 준비한 뒤 휴대폰 관리자에서 조작할 수 있습니다.</p>
+      <button id="launchStage" type="button">무대 화면 시작</button>
+      <small>ESC를 누르면 브라우저 전체화면을 종료할 수 있습니다.</small>
+    </div>
+  </div>
+
+  <button id="fullscreenButton" class="fullscreen-button" type="button" title="전체화면">⛶</button>
 </main>
-<script src="/raffle-stage.js?v=0.9.8"></script>
+<audio id="spinAudio" src="/stage-roulette.wav" preload="auto" loop></audio>
+<audio id="winnerAudio" src="/stage-winner.wav" preload="auto"></audio>
+<script src="/raffle-stage.js?v=0.9.9"></script>
 </body>
 </html>

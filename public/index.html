@@ -123,7 +123,7 @@
   <div id="remoteRaffleState" class="remote-state">원격 추첨 대기 중</div>
   <div class="remote-main-buttons">
     <button type="button" id="remoteRaffleStart" class="primary">▶ 추첨 시작</button>
-    <button type="button" id="remoteRaffleStop" class="danger" disabled>■ 멈춤 · 당첨자 공개</button><button type="button" id="remoteRaffleNext" class="primary" disabled>▶ 다음 당첨자 추첨</button>
+    <button type="button" id="remoteRaffleStop" class="danger" disabled>■ 슬롯 멈춤 · 당첨자 공개</button><button type="button" id="remoteRaffleNext" class="primary" disabled>▶ 다음 당첨자 추첨</button>
     <button type="button" id="remoteRaffleReset">화면 초기화</button>
   </div>
 </article>
@@ -131,8 +131,8 @@
 <div class="two">
   <article class="card">
     <p class="eyebrow">LUCKY DRAW · PREMIUM STAGE</p>
-    <h2>복지관 이용인 행운권 추첨</h2>
-    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 여러 명을 뽑아도 한 명씩 룰렛을 멈춰 당첨자를 공개합니다. 마지막 인원까지 끝나면 전체 당첨자가 무대 중앙에 한 번에 정리되어 표시됩니다.</p>
+    <h2>복지관 이용인 슬롯 추첨</h2>
+    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 여러 명을 뽑아도 슬롯머신을 한 명씩 멈춰 당첨자를 공개합니다. 마지막 인원까지 끝나면 전체 당첨자가 무대 중앙에 한 번에 정리되어 표시됩니다.</p>
     <form id="raffleForm" class="stack">
       <label>상품<select id="raffleProduct"></select></label>
       <label>대상<select id="raffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
@@ -149,7 +149,7 @@
       <div id="raffleProductList"></div>
     </details>
     <div class="raffle-help">
-      <strong>진행</strong> · 추첨 시작 → 세로 릴 회전 → <kbd>SPACE</kbd> → 자연스러운 감속 → 당첨자 공개
+      <strong>진행</strong> · 추첨 시작 → 슬롯머신 회전 → <kbd>SPACE</kbd> → 자연스러운 감속 → 한 명씩 당첨자 공개
     </div>
     <div id="raffleWinners"></div>
   </article>

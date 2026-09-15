@@ -1,0 +1,34 @@
+v0.9.9 주요 변경 파일
+
+[행운권 웹 무대]
+public/raffle-stage.html
+public/raffle-stage.css
+public/raffle-stage.js
+public/stage-roulette.wav
+public/stage-winner.wav
+public/stage-bg-3440.svg
+public/stage-winner-burst.svg
+public/stage-slot-frame.svg
+public/stage-corner-gold.svg
+
+[관리자/서버 연동 및 문구]
+public/index.html
+public/app.js
+server.js
+public/sw.js
+package.json
+
+[그대로 포함되는 v0.9.8 기능]
+- 뒤쪽 M~T 20석 선택 가능
+- A~L 8+8 / M~T 20석 구조
+- 현재 배정좌석 확정(seatLocked)
+- 접수 시 사전확정 좌석 유지
+- 순차 다중 행운권 추첨
+- 문자/그룹/좌석/백업 기능
+
+[Cloudtype]
+새 환경변수 없음. Cloudtype 설정 수정 없음.
+기존 GitHub main 자동배포 연결만 유지하면 됩니다.
+
+[Google Apps Script]
+이번 ZIP에는 포함하지 않음. 기존에 정상 동작하는 외부백업 스크립트를 그대로 사용.

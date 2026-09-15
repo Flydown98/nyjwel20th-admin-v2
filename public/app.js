@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.8';
+const FRONTEND_VERSION='0.9.9';
 
 function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
 
@@ -33,7 +33,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.8';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.9';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -650,7 +650,7 @@ $('#raffleHistory').onclick=async e=>{
 
 
 let remoteStageUrl='';
-async function loadRemoteRaffleStatus(){if(!token)return;try{const d=await api('/api/raffle/remote/status');const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');if(badge){badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';badge.classList.toggle('ok',d.connectedScreens>0)}if(stateBox){if(d.status==='spinning'){stateBox.className='remote-state spinning';stateBox.innerHTML=`<strong>${d.currentIndex||1} / ${d.targetCount||d.count||1} 번째 당첨자 추첨 중</strong><br>${esc(d.product?.name||'행운상품')} · 룰렛을 멈춰주세요`}else if(d.status==='step-winner'){const last=(d.winners||[]).at(-1);stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>${d.currentIndex} / ${d.targetCount} 번째 당첨자</strong><br>${last?`${esc(last.participantName)} ${last.seat?`(${esc(last.seat)})`:''}`:''}<br><small>다음 당첨자 추첨 버튼을 눌러 계속하세요.</small>`}else if(d.status==='final'){stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>최종 ${d.winners?.length||0}명 추첨 완료</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`}else{stateBox.className='remote-state';stateBox.textContent='원격 추첨 대기 중'}}$('#remoteRaffleStart').disabled=['spinning','step-winner'].includes(d.status);$('#remoteRaffleStop').disabled=d.status!=='spinning';$('#remoteRaffleNext').disabled=d.status!=='step-winner'}catch(_){}}
+async function loadRemoteRaffleStatus(){if(!token)return;try{const d=await api('/api/raffle/remote/status');const badge=$('#raffleScreenStatus'),stateBox=$('#remoteRaffleState');if(badge){badge.textContent=d.connectedScreens>0?`무대화면 ${d.connectedScreens}대 연결`:'무대화면 미연결';badge.classList.toggle('ok',d.connectedScreens>0)}if(stateBox){if(d.status==='spinning'){stateBox.className='remote-state spinning';stateBox.innerHTML=`<strong>${d.currentIndex||1} / ${d.targetCount||d.count||1} 번째 당첨자 추첨 중</strong><br>${esc(d.product?.name||'행운상품')} · 슬롯을 멈춰주세요`}else if(d.status==='step-winner'){const last=(d.winners||[]).at(-1);stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>${d.currentIndex} / ${d.targetCount} 번째 당첨자</strong><br>${last?`${esc(last.participantName)} ${last.seat?`(${esc(last.seat)})`:''}`:''}<br><small>다음 당첨자 추첨 버튼을 눌러 계속하세요.</small>`}else if(d.status==='final'){stateBox.className='remote-state winner';stateBox.innerHTML=`<strong>최종 ${d.winners?.length||0}명 추첨 완료</strong><br>${(d.winners||[]).map(w=>`${esc(w.participantName)}${w.seat?` (${esc(w.seat)})`:''}`).join(' · ')}`}else{stateBox.className='remote-state';stateBox.textContent='원격 추첨 대기 중'}}$('#remoteRaffleStart').disabled=['spinning','step-winner'].includes(d.status);$('#remoteRaffleStop').disabled=d.status!=='spinning';$('#remoteRaffleNext').disabled=d.status!=='step-winner'}catch(_){}}
 async function getRemoteStageUrl(){
   const d=await api('/api/raffle/stage-link');
   remoteStageUrl=d.url;
