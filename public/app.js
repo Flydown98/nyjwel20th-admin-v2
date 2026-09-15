@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.10';
+const FRONTEND_VERSION='0.9.11';
 
 function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
 
@@ -33,7 +33,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.10';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.11';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -319,7 +319,7 @@ function updateSeatSelection(){const box=$('#seatSelectionInfo');const s=seatCac
 async function loadSeats(){
   try{
     const d=await api('/api/seats');seatCache=d.rows;
-    $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석`;
+    $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석 · 자동좌석 ${d.autoSeatAssignOnCheckin?'ON':'OFF'}`;
     const frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split('');
     const byRow=new Map();
     d.rows.forEach(s=>{
@@ -342,26 +342,25 @@ async function loadSeats(){
       </div>`;
     }).join('');
 
-    const rear=rearRows.map((row,ri)=>{
-      // 서버가 돌려준 실제 M~T 좌석을 그대로 그린다. 코드 형식이 달라도 data-seat가 살아 있어 선택 가능.
-      const rowSeats=(byRow.get(row)||[])
-        .filter(s=>String(s.section||'rear')==='rear'||String(s.side).toUpperCase()==='B')
-        .sort((x,y)=>Number(x.displayNumber||x.number)-Number(y.displayNumber||y.number))
-        .slice(0,20);
-      const seatByNo=new Map(rowSeats.map(s=>[Number(s.displayNumber||s.number),s]));
+    const rearHeader=`<div class="rear-number-header"><span></span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
+    const rear=rearRows.map(row=>{
+      const rowSeats=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B').sort((x,y)=>Number(x.number)-Number(y.number));
+      const seatByNo=new Map(rowSeats.map(s=>[Number(s.number),s]));
       const seats=Array.from({length:20},(_,i)=>seatCellHtml(seatByNo.get(i+1),i+1)).join('');
-      return `<div class="rear-seat-row${ri===0?' rear-start':''}">
-        <div class="seat-row-label">${row}</div>
-        <div class="seat-block twenty">${seats}</div>
-      </div>`;
+      return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twenty">${seats}</div></div>`;
     }).join('');
 
-    $('#seatGrid').innerHTML=`<div class="seat-stage-label">무대 / 스테이지</div>
+    const repairNotice=d.layoutNeedsRepair
+      ? `<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>아래 '352석 최신 배치 적용'을 한 번 누르면 M~T가 1~20번 × 8줄로 정리됩니다. 호환 가능한 기존 좌석은 최대한 유지합니다.</span></div>`
+      : '';
+
+    $('#seatGrid').innerHTML=`${repairNotice}<div class="seat-stage-label">무대 / 스테이지</div>
       <div class="front-layout-label"><span>왼쪽 8×6 블록</span><span>런웨이</span><span>오른쪽 8×6 블록</span></div>
       ${front}
-      <div class="runway-end-cap">런웨이 끝 · 뒤쪽 160석 대형블록 시작</div>
-      ${rear}`;
+      <div class="runway-end-cap">런웨이 끝 · 뒤쪽 일반석 20석 × 8줄</div>
+      <div class="rear-layout">${rearHeader}${rear}</div>`;
     updateSeatSelection();
+    const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
   }catch(e){toast(e.message)}
 }
 async function openSeatManager(code){
@@ -390,14 +389,14 @@ async function openSeatManager(code){
   if($('#releaseSeat'))$('#releaseSeat').onclick=async()=>{if(!confirm(`${s.participant.name}님의 ${code} 좌석을 해제할까요?`))return;try{await api(`/api/seats/${encodeURIComponent(code)}/release`,{method:'POST',body:'{}'});closeModal();loadSeats();refreshDashboard()}catch(x){toast(x.message)}};
 }
 $('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
-$('#apply400Layout')?.addEventListener('click',async()=>{if(!confirm('352석 새 좌석배치를 적용할까요?\n\nA~L: 좌8 + 런웨이 + 우8 = 192석\nM~T: 20석 × 8줄 = 160석\n총 352석\n\n기존 좌석배정은 모두 해제됩니다. 적용 전 자동 백업을 생성합니다.'))return;if(!confirm('정말 적용할까요? 기존 좌석배정은 초기화됩니다.'))return;try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:'{}'});selectedSeatCode='';toast(`352석 배치 적용 완료 · 기존 배정 ${d.clearedAssignments}명 해제`,8000);loadSeats();refreshDashboard()}catch(e){toast(e.message,8000)}});
-$('#lockCurrentSeats')?.addEventListener('click',async()=>{
-  if(!confirm('현재 좌석이 배정된 참가자들의 좌석을 모두 “사전 확정” 처리할까요?\n\n확정 후에는 행사 당일 QR 접수, 단체접수, 접수취소를 해도 좌석이 유지됩니다.\n관리자가 좌석관리에서 직접 변경하는 것은 계속 가능합니다.'))return;
+$('#apply400Layout')?.addEventListener('click',async()=>{
+  if(!confirm('352석 최신 좌석배치를 적용할까요?\n\n앞쪽 A~L: 좌 8석 + 런웨이 + 우 8석\n뒤쪽 M~T: 왼쪽부터 1~20번 × 정확히 8줄\n\n현재 배정좌석은 새 구조와 호환되면 최대한 유지합니다. 적용 전/후 자동 백업도 생성됩니다.'))return;
   try{
-    const d=await api('/api/seats/lock-current',{method:'POST',body:'{}'});
-    toast(`현재 좌석 확정 완료 · 신규 ${d.locked}명 / 총 확정 ${d.totalLocked}명`,8000);
-    loadSeats();
-  }catch(e){toast(e.message,8000)}
+    const d=await api('/api/seats/apply-event-400',{method:'POST',body:JSON.stringify({preserveAssignments:true})});
+    selectedSeatCode='';
+    toast(`최신 352석 배치 완료 · 유지 ${d.preserved}명 · 변환 ${d.moved}명 · 해제 ${d.cleared}명 · 자동좌석 ON`,9000);
+    loadSeats();refreshDashboard();
+  }catch(e){toast(e.message,9000)}
 });
 $('#reloadSeats').onclick=loadSeats;
 $('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자의 현재 좌석을 모두 해제할까요? 도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};

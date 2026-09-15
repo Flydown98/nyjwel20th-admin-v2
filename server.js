@@ -27,7 +27,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.10';
+const FRONTEND_VERSION = '0.9.11';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.10',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.11',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.10'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.11'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -261,14 +261,14 @@ function occupiedSeatSet(excludeIds=[]){
 }
 function seatByCode(code){return state.seats.find(s=>str(s.code).toUpperCase()===str(code).toUpperCase())}
 
-function buildEvent400Seats(){
+function buildEvent352Seats(){
   const out=[];let sort=1;
   const frontRows='ABCDEFGHIJKL'.split('');
   const rearRows='MNOPQRST'.split('');
   frontRows.forEach((row,ri)=>{
     const blockBand=ri<6?'FRONT-1':'FRONT-2';
-    for(let n=1;n<=8;n++)out.push({code:`${row}L-${String(n).padStart(2,'0')}`,label:`${row}${n}`,row,side:'L',number:n,displayNumber:n,section:'front',block:`${blockBand}-L`,zone:ri<3?'우선석':(ri<6?'내빈석':'일반석'),enabled:true,autoAssignable:ri>=6,wheelchairAssignable:ri<3&&n<=4,wheelchairOnly:ri<3&&n<=4,sortOrder:sort++});
-    for(let n=1;n<=8;n++){const dn=n+8;out.push({code:`${row}R-${String(n).padStart(2,'0')}`,label:`${row}${dn}`,row,side:'R',number:n,displayNumber:dn,section:'front',block:`${blockBand}-R`,zone:ri<3?'우선석':(ri<6?'내빈석':'일반석'),enabled:true,autoAssignable:ri>=6,wheelchairAssignable:ri<3&&n>=5,wheelchairOnly:ri<3&&n>=5,sortOrder:sort++});}
+    for(let n=1;n<=8;n++)out.push({code:`${row}L-${String(n).padStart(2,'0')}`,label:`${row}${n}`,row,side:'L',number:n,displayNumber:n,section:'front',block:`${blockBand}-L`,zone:ri<3?'우선석':(ri<6?'내빈석':'일반석'),enabled:true,autoAssignable:true,wheelchairAssignable:ri<3&&n<=4,wheelchairOnly:ri<3&&n<=4,sortOrder:sort++});
+    for(let n=1;n<=8;n++){const dn=n+8;out.push({code:`${row}R-${String(n).padStart(2,'0')}`,label:`${row}${dn}`,row,side:'R',number:n,displayNumber:dn,section:'front',block:`${blockBand}-R`,zone:ri<3?'우선석':(ri<6?'내빈석':'일반석'),enabled:true,autoAssignable:true,wheelchairAssignable:ri<3&&n>=5,wheelchairOnly:ri<3&&n>=5,sortOrder:sort++});}
   });
   rearRows.forEach(row=>{for(let n=1;n<=20;n++)out.push({code:`${row}B-${String(n).padStart(2,'0')}`,label:`${row}${n}`,row,side:'B',number:n,displayNumber:n,section:'rear',block:'REAR-160',zone:'일반석',enabled:true,autoAssignable:true,wheelchairAssignable:false,wheelchairOnly:false,sortOrder:sort++});});
   return out;
@@ -286,12 +286,12 @@ function displaySeatCode(code){
 
 function assignableSeats(wheelchair=false, excludeIds=[]){
   const occ=occupiedSeatSet(excludeIds);
-  return state.seats.filter(s=>{
-    if(!s.enabled||!s.autoAssignable||occ.has(str(s.code).toUpperCase()))return false;
-    if(wheelchair && !s.wheelchairAssignable)return false;
-    if(!wheelchair && s.wheelchairOnly)return false;
-    return true;
-  }).sort((a,b)=>(num(a.sortOrder)-num(b.sortOrder)) || str(a.code).localeCompare(str(b.code),'ko'));
+  return state.seats.filter(seat=>{
+    if(!seat.enabled||seat.autoAssignable===false||occ.has(str(seat.code).toUpperCase()))return false;
+    const category=seatCodeCategory(seat.code);
+    if(wheelchair)return category==='wheelchair' && seat.wheelchairAssignable!==false;
+    return category==='general' && !seat.wheelchairOnly;
+  }).sort((x,y)=>(num(x.sortOrder)-num(y.sortOrder)) || str(x.code).localeCompare(str(y.code),'ko'));
 }
 function assignOne(p, excludeIds=[]){
   if(p.seat && seatByCode(p.seat)) return p.seat;
@@ -673,7 +673,13 @@ function markArrived(p,{station='관리자 웹',sendSms=true}={}){
   const already=Boolean(p.arrived);
   if(!already){
     p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso();
-    if(!p.seat && state.settings.autoSeatAssignOnCheckin!==false)assignOne(p);
+    if(!p.seat && state.settings.autoSeatAssignOnCheckin!==false){
+      if(p.seatCategory==='vip')assignOneCategory(p,'vip');
+      else if(p.seatCategory==='guest')assignOneCategory(p,'guest');
+      else if(p.wheelchairUser||p.seatCategory==='wheelchair'){
+        assignOneCategory(p,'wheelchair')||assignOneCategory(p,'general');
+      }else assignOneCategory(p,'general');
+    }
     addLog('QR접수',p,'기념품 지급완료',station);
     const priority=(p.seatCategory==='vip'||p.seatCategory==='guest')?'VIP/내빈':((p.wheelchairUser||p.seatCategory==='wheelchair')?'이동지원':'');
     if(priority)broadcastEvent('priority-arrival',{priority,participant:{id:p.id,name:p.name,seat:p.seat,organization:p.organization,wheelchairUser:Boolean(p.wheelchairUser)},station});
@@ -738,7 +744,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.10',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.11',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -827,7 +833,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.10',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.11',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1198,15 +1204,72 @@ app.post('/api/groups/:id/representative',auth,(req,res)=>{
   const before=g.representativeId;g.representativeId=pid;adminAudit('그룹대표자변경',g,{representativeId:before},{representativeId:pid});saveState();res.json({ok:true});
 });
 
-app.post('/api/seats/apply-event-400',auth,(req,res)=>{
-  const before=backupNow('before-400-seat-layout');let cleared=0;
-  state.participants.forEach(p=>{if(p.seat){p.seat='';p.modifiedAt=nowIso();cleared++}});
-  state.seats=buildEvent400Seats();state.meta.seatLayout='EVENT400-U';state.meta.seatLayoutAppliedAt=nowIso();
-  adminAudit('400석좌석배치적용',{id:'EVENT400-U',name:'352석 ㄷ자형 배치'},null,{seats:352,clearedAssignments:cleared});
-  saveState();const after=backupNow('after-400-seat-layout');
-  res.json({ok:true,seats:state.seats.length,totalLayoutSeats:352,clearedAssignments:cleared,beforeBackup:before,afterBackup:after});
-});
 
+function migrateSeatCodeTo352(code){
+  const raw=str(code).toUpperCase();
+  if(!raw)return '';
+  let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);
+  if(m){
+    const row=m[1],side=m[2],n=num(m[3]);
+    if(side==='L'&&n>=1&&n<=8)return `${row}L-${String(n).padStart(2,'0')}`;
+    if(side==='R'&&n>=1&&n<=8)return `${row}R-${String(n).padStart(2,'0')}`;
+    const visible=side==='L'?n:n+10;
+    if(visible>=1&&visible<=8)return `${row}L-${String(visible).padStart(2,'0')}`;
+    if(visible>=9&&visible<=16)return `${row}R-${String(visible-8).padStart(2,'0')}`;
+    return '';
+  }
+  m=raw.match(/^([M-T])B-(\d{1,2})$/);
+  if(m&&num(m[2])>=1&&num(m[2])<=20)return `${m[1]}B-${String(num(m[2])).padStart(2,'0')}`;
+  m=raw.match(/^([M-T])([LR])-(\d{1,2})$/);
+  if(m){
+    const visible=m[2]==='L'?num(m[3]):num(m[3])+10;
+    if(visible>=1&&visible<=20)return `${m[1]}B-${String(visible).padStart(2,'0')}`;
+  }
+  m=raw.match(/^([A-T])(\d{1,2})$/);
+  if(m){
+    const row=m[1],visible=num(m[2]);
+    if(row<='L'){
+      if(visible>=1&&visible<=8)return `${row}L-${String(visible).padStart(2,'0')}`;
+      if(visible>=9&&visible<=16)return `${row}R-${String(visible-8).padStart(2,'0')}`;
+    }else if(visible>=1&&visible<=20)return `${row}B-${String(visible).padStart(2,'0')}`;
+  }
+  return '';
+}
+function applyCanonical352Layout({preserveAssignments=true}={}){
+  const canonical=buildEvent352Seats(), valid=new Set(canonical.map(x=>x.code));
+  let preserved=0,cleared=0,moved=0;
+  state.participants.forEach(p=>{
+    if(!p.seat)return;
+    if(!preserveAssignments){p.seat='';p.modifiedAt=nowIso();cleared++;return}
+    const mapped=migrateSeatCodeTo352(p.seat);
+    if(mapped&&valid.has(mapped)){
+      if(mapped!==p.seat)moved++;
+      p.seat=mapped;p.modifiedAt=nowIso();preserved++;
+    }else{
+      p.seat='';p.seatLocked=false;p.modifiedAt=nowIso();cleared++;
+    }
+  });
+  const used=new Set();
+  state.participants.filter(participantActive).sort((x,y)=>num(x.receptionNo)-num(y.receptionNo)).forEach(p=>{
+    if(!p.seat)return;
+    if(used.has(p.seat)){p.seat='';p.seatLocked=false;p.modifiedAt=nowIso();cleared++;preserved=Math.max(0,preserved-1)}
+    else used.add(p.seat);
+  });
+  state.seats=canonical;
+  state.settings.autoSeatAssignOnCheckin=true;
+  state.meta.seatLayout='EVENT352-V3';
+  state.meta.seatLayoutAppliedAt=nowIso();
+  return {preserved,cleared,moved,seats:canonical.length};
+}
+
+app.post('/api/seats/apply-event-400',auth,(req,res)=>{
+  const before=backupNow('before-352-seat-layout-v3');
+  const result=applyCanonical352Layout({preserveAssignments:req.body?.preserveAssignments!==false});
+  adminAudit('352석최신배치적용',{id:'EVENT352-V3',name:'352석 최신 좌석배치'},null,result);
+  saveState();
+  const after=backupNow('after-352-seat-layout-v3');
+  res.json({ok:true,...result,beforeBackup:before,afterBackup:after,autoSeatAssignOnCheckin:true});
+});
 
 app.post('/api/seats/lock-current',auth,(req,res)=>{
   const locked=lockCurrentAssignedSeats();
@@ -1234,6 +1297,10 @@ app.get('/api/seats',auth,(req,res)=>{
     total:rows.length,
     assigned:rows.filter(x=>x.occupied).length,
     arrivedAssigned:rows.filter(x=>x.arrived).length,
+    layoutVersion:state.meta.seatLayout||'',
+    layoutNeedsRepair:state.meta.seatLayout!=='EVENT352-V3' || rows.length!==352 ||
+      'MNOPQRST'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==20),
+    autoSeatAssignOnCheckin:state.settings.autoSeatAssignOnCheckin!==false,
     rows
   });
 });
@@ -1489,7 +1556,20 @@ app.post('/api/raffle/remote/stop',auth,(req,res)=>{
   if(raffleRemote.status!=='spinning'||!raffleRemote.token)return res.status(409).json({ok:false,error:'현재 회전 중인 슬롯 추첨이 없습니다.'});
   const prep=rafflePreparations.get(raffleRemote.token);if(!prep)return res.status(400).json({ok:false,error:'추첨 준비정보가 만료되었습니다.'});
   try{const result=commitOneRaffle(prep,'모바일 원격 순차 랜덤');raffleRemote.winners=result.winners;raffleRemote.currentIndex=result.winners.length;raffleRemote.product={number:result.product.number,name:result.product.name,remaining:productRemaining(result.product)};raffleRemote.lastActionAt=nowIso();
-    if(result.done){raffleRemote.status='final';raffleRemote.screen='final';const all=[...result.winners];rafflePreparations.delete(raffleRemote.token);raffleRemote.token='';broadcastRaffleStage('raffle-final',{product:{name:result.product.name},winners:all,targetCount:prep.count});adminAudit('원격행운권최종',{id:prep.drawSessionId,name:result.product.name},null,{winnerIds:all.map(x=>x.participantId),count:all.length,filter:prep.filter});return res.json({ok:true,status:'final',done:true,winner:result.record,winners:all,product:raffleRemote.product,connectedScreens:raffleStageClients.size});}
+    if(result.done){
+      const all=[...result.winners];
+      const activeToken=raffleRemote.token;
+      raffleRemote.status='step-winner';raffleRemote.screen='winner-step';raffleRemote.winners=all;raffleRemote.currentIndex=all.length;raffleRemote.lastActionAt=nowIso();
+      raffleRemote.token='';
+      if(activeToken)rafflePreparations.delete(activeToken);
+      broadcastRaffleStage('raffle-step-winner',{product:{name:result.product.name},winner:result.record,winners:all,currentIndex:all.length,targetCount:prep.count,isFinalWinner:true});
+      adminAudit('원격행운권최종',{id:prep.drawSessionId,name:result.product.name},null,{winnerIds:all.map(x=>x.participantId),count:all.length,filter:prep.filter});
+      setTimeout(()=>{
+        raffleRemote.status='final';raffleRemote.screen='final';raffleRemote.winners=all;raffleRemote.currentIndex=all.length;raffleRemote.lastActionAt=nowIso();
+        broadcastRaffleStage('raffle-final',{product:{name:result.product.name},winners:all,targetCount:prep.count});
+      },9000).unref?.();
+      return res.json({ok:true,status:'step-winner',finalPending:true,done:true,winner:result.record,winners:all,product:raffleRemote.product,connectedScreens:raffleStageClients.size});
+    }
     raffleRemote.status='step-winner';raffleRemote.screen='winner-step';broadcastRaffleStage('raffle-step-winner',{product:{name:result.product.name},winner:result.record,winners:result.winners,currentIndex:result.winners.length,targetCount:prep.count});res.json({ok:true,status:'step-winner',done:false,winner:result.record,winners:result.winners,currentIndex:result.winners.length,targetCount:prep.count,product:raffleRemote.product,connectedScreens:raffleStageClients.size});
   }catch(e){res.status(400).json({ok:false,error:e.message})}
 });
@@ -1873,4 +1953,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.10 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.11 · :${PORT}`));

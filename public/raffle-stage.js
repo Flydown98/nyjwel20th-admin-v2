@@ -9,6 +9,8 @@ let targetCount = 1;
 let currentIndex = 1;
 let audioUnlocked = false;
 let spinFadeTimer = null;
+let revealInProgress = false;
+let pendingFinalPayload = null;
 
 const spinAudio = $('#spinAudio');
 const winnerAudio = $('#winnerAudio');
@@ -81,6 +83,7 @@ function startSpin(samples, product, meta={}){
   playSpin();
 }
 async function revealWinner(winners,product,animate=true,meta={}){
+  revealInProgress=Boolean(animate);
   lastWinners=(winners||[]).map(winnerPerson);
   setPrize(product||lastProduct||{name:'행운상품'});
   const w=lastWinners.at(-1)||{name:'당첨자',seat:''};
@@ -153,7 +156,7 @@ async function revealWinner(winners,product,animate=true,meta={}){
     $('#machineScene').classList.add('winner-locked');
     setStatus(`${w.name}${w.seat?` · ${w.seat}`:''} — 당첨!`);
     playWinner();
-    await sleep(1050);
+    await sleep(1600);
     $('#machineScene').classList.remove('winner-locked');
   } else {
     stopSpin(100);
@@ -169,6 +172,12 @@ async function revealWinner(winners,product,animate=true,meta={}){
   // animate=false는 새로고침 복원 상태이므로 효과음을 다시 울리지 않는다.
   if(animate){
     particles(90);
+    await sleep(1800);
+  }
+  revealInProgress=false;
+  if(pendingFinalPayload){
+    const p=pendingFinalPayload;pendingFinalPayload=null;
+    showFinalWinners(p.winners,p.product);
   }
 }
 function fitWinnerName(name){const el=$('#winnerName'),n=[...String(name||'')].length;el.style.fontSize=n>=12?'clamp(60px,6.5vw,150px)':n>=8?'clamp(72px,8vw,180px)':'clamp(92px,10vw,230px)'}
@@ -195,7 +204,7 @@ function connect(){
   es.addEventListener('stage-mode',e=>{try{const d=JSON.parse(e.data);showIdle(d.mode==='black'?'black':'idle')}catch(_){}});
   es.addEventListener('raffle-start',e=>{try{const d=JSON.parse(e.data);startSpin(d.sample,d.product,d)}catch(_){}});
   es.addEventListener('raffle-step-winner',e=>{try{const d=JSON.parse(e.data);revealWinner(d.winners,d.product,true,d)}catch(_){}});
-  es.addEventListener('raffle-final',e=>{try{const d=JSON.parse(e.data);showFinalWinners(d.winners,d.product)}catch(_){}});
+  es.addEventListener('raffle-final',e=>{try{const d=JSON.parse(e.data);if(revealInProgress)pendingFinalPayload=d;else showFinalWinners(d.winners,d.product)}catch(_){}});
   es.addEventListener('raffle-winner',e=>{try{const d=JSON.parse(e.data);if((d.winners||[]).length>1)showFinalWinners(d.winners,d.product);else revealWinner(d.winners,d.product,true,{currentIndex:1,targetCount:1})}catch(_){}});
   es.onerror=()=>setConnection('RECONNECTING','error');
 }
