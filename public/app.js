@@ -1,12 +1,11 @@
 'use strict';
-const FRONTEND_VERSION='0.9.16';
+const FRONTEND_VERSION='0.9.19';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
-  let m=raw.match(/^([A-F])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;
-  m=raw.match(/^([G-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;
-  m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;
-  const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;
+  let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;
+  m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;
+  const n=raw.match(/^([A-T])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;
 }
 
 const STATION_KEY='nyj20_station_name';
@@ -39,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.16';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.19';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -321,8 +320,7 @@ $('#representativeGroups').onclick=groupContainerClick;$('#companionGroups').onc
 
 let seatCache=[];
 function seatZoneClass(s){
-  if(s.extension===true||['XL','XR'].includes(String(s.side||'').toUpperCase()))return '';
-  const row=String(s.row||'').toUpperCase(),n=Number(s.number||0);
+  const row=String(s.row||'').toUpperCase(),n=Number(s.displayNumber||s.number||0);
   if(row>='A'&&row<='F')return 'guest';
   if(row>='G'&&row<='T'&&(n<=2||n>=19))return 'wheelchair';
   return '';
@@ -334,25 +332,16 @@ async function loadSeats(){
   try{
     const d=await api('/api/seats');seatCache=d.rows;
     $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석 · 자동좌석 ${d.autoSeatAssignOnCheckin?'ON':'OFF'}`;
-    const frontRows='ABCDEF'.split(''),mainRows='GHIJKLMNOPQRST'.split(''),byRow=new Map();
+    const frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split(''),byRow=new Map();
     d.rows.forEach(s=>{const row=String(s.row||'').toUpperCase();if(!byRow.has(row))byRow.set(row,[]);byRow.get(row).push(s)});
     const front=frontRows.map(row=>{
       const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s])),rm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));
       return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`;
     }).join('');
-    const head=`<div class="rear-number-header"><span></span><span class="ext-head">추가</span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}<span class="ext-head">추가</span></div>`;
-    const main=mainRows.map(row=>{
-      const all=byRow.get(row)||[];
-      const core=all.filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(core.map(s=>[Number(s.number),s]));
-      const left=all.filter(s=>String(s.side).toUpperCase()==='XL').sort((a,b)=>Number(b.number)-Number(a.number));
-      const right=all.filter(s=>String(s.side).toUpperCase()==='XR').sort((a,b)=>Number(a.number)-Number(b.number));
-      const extCell=(seat,label)=>seat?seatCellHtml(seat,label):'<div class="seat-cell extension-gap"></div>';
-      const leftSlots=row>='M'?['MNOP'.includes(row)?left.find(x=>Number(x.number)===2):null,left.find(x=>Number(x.number)===1)]:[null,null];
-      const rightSlots=row>='M'?[right.find(x=>Number(x.number)===1),'MNOP'.includes(row)?right.find(x=>Number(x.number)===2):null]:[null,null];
-      return `<div class="rear-seat-row extended"><div class="seat-row-label">${row}</div><div class="seat-block rear-24">${extCell(leftSlots[0],'L2')}${extCell(leftSlots[1],'L1')}${Array.from({length:20},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}${extCell(rightSlots[0],'R1')}${extCell(rightSlots[1],'R2')}</div></div>`
-    }).join('');
-    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>400석 후면 확장이 아직 적용되지 않았습니다.</strong><span>버튼을 누르면 기존 좌석과 배정은 그대로 두고 M~T 바깥쪽에 24석만 추가합니다.</span></div>`:'';
-    $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~F 내빈석</span><span>런웨이</span><span>A~F 내빈석</span></div>${front}<div class="runway-end-cap">A~L 기존 좌석 유지 · M~P 좌우 각 2석 추가 · Q~T 좌우 각 1석 추가 · 총 400석</div><div class="rear-layout">${head}${main}</div>`;
+    const head=`<div class="rear-number-header rear-number-header-26"><span></span>${Array.from({length:26},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
+    const rear=rearRows.map(row=>{const rs=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(rs.map(s=>[Number(s.number),s]));return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twentysix">${Array.from({length:26},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div></div>`}).join('');
+    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>400석 배치 적용을 눌러주세요. A~L과 기존 M~T 배정좌석은 그대로 유지하고 21~26번 좌석만 추가합니다.</span></div>`:'';
+    $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~L 좌측 8석</span><span>런웨이</span><span>A~L 우측 8석</span></div>${front}<div class="runway-end-cap">A~L 기존 좌석 그대로 · 192석 / M~T 26석 × 8줄 · 208석 / 총 400석</div><div class="rear-layout">${head}${rear}</div>`;
     updateSeatSelection();const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
   }catch(e){toast(e.message)}
 }
@@ -402,8 +391,8 @@ async function openSeatManager(code){
 }
 $('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
 $('#apply400Layout')?.addEventListener('click',async()=>{
-  if(!confirm('400석 후면 확장을 적용할까요?\n\nA~L 기존 좌석과 현재 배정은 변경하지 않습니다.\nM~P: 좌측 2석 + 우측 2석 추가\nQ~T: 좌측 1석 + 우측 1석 추가\n총 24석만 새로 추가됩니다.'))return;
-  try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:'{}'});selectedSeatCode='';toast(`400석 확장 완료 · 새 좌석 ${d.added}석 추가 · 기존 배정 ${d.preservedAssignments}명 유지`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
+  if(!confirm('400석 좌석배치를 적용할까요?\n\nA~L: 현재 좌석번호와 배정자를 그대로 유지 (16석 × 12줄 = 192석)\nM~T: 기존 1~20번을 그대로 유지하고 21~26번을 추가 (26석 × 8줄 = 208석)\n총 400석\n\n현재 배정된 좌석은 변경하지 않습니다.'))return;
+  try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:JSON.stringify({preserveAssignments:true})});selectedSeatCode='';toast(`400석 배치 완료 · 기존좌석 유지 ${d.preserved}명 · 변환 ${d.moved}명 · 해제 ${d.cleared}명`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
 });
 $('#reloadSeats').onclick=loadSeats;
 $('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자의 현재 좌석을 모두 해제할까요? 도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
@@ -998,7 +987,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.19',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 
