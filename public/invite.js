@@ -19,7 +19,6 @@ function renderInvite(x){
   $('#guestName').textContent=x.name||'';$('#guestOrg').textContent=x.organization||'남양주시장애인복지관과 함께하는 소중한 손님';
   $('#eventDate').textContent=x.eventDate||'';$('#eventVenue').textContent=x.eventVenue||'';$('#guestSeat').textContent=x.seat||'현장 안내';$('#guestCount').textContent=`${x.requestedCount||1}명`;
   const img=$('#guestQr');if(x.qrDataUrl){img.src=x.qrDataUrl;img.classList.remove('hidden')}else img.classList.add('hidden');
-  const seat=$('#seatGuideLink');if(x.seatGuideUrl){seat.href=x.seatGuideUrl;seat.classList.remove('hidden')}else seat.classList.add('hidden');
   $('#arrivalBadge').classList.toggle('hidden',!x.arrived);
   lookupCard.classList.add('hidden');inviteCard.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
 }

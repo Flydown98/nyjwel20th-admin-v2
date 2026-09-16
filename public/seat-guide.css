@@ -8,7 +8,7 @@ header{text-align:center}.brand{color:var(--p);font-size:12px;font-weight:900;le
 .number-head{display:grid;grid-template-columns:12px repeat(20,1fr);gap:1px;color:#eee;font-size:5px;text-align:center;margin-bottom:2px}.legend{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:12px;color:#fff;font-size:9px}.legend span{display:flex;align-items:center;gap:4px}.seat-dot,.runway-dot{width:9px;height:9px;border-radius:2px;background:#fff}.seat-dot.mine{background:var(--mine)}.runway-dot{background:transparent;border:1px dashed #fff}.foot{text-align:center;color:#80758a;font-size:11px;line-height:1.5;margin:14px 10px 0}
 @media(max-width:390px){.guide{padding-left:7px;padding-right:7px}.map-card{padding-left:5px;padding-right:5px}.front-row,.rear-row,.number-head{grid-template-columns:10px 1fr 15px 1fr}.rear-row{grid-template-columns:10px 1fr}.number-head{grid-template-columns:10px repeat(20,1fr)}}
 .twentysix{display:grid;grid-template-columns:repeat(26,1fr);gap:1px}.number-head-26{display:grid;grid-template-columns:12px repeat(26,1fr);gap:1px;align-items:end}.number-head-26 b{color:#e8dbee;font-size:4px;text-align:center;font-weight:700}
-/* v0.9.22 · 26석 후열 모바일/공개 배치 안정화 */
+/* v0.9.23 · 26석 후열 모바일/공개 배치 안정화 */
 .rear-row,.rear-row>*,.twentysix,.number-head-26{min-width:0!important;max-width:100%!important}
 .twentysix{width:100%!important;grid-template-columns:repeat(26,minmax(0,1fr))!important}
 .number-head-26{width:100%!important;grid-template-columns:12px repeat(26,minmax(0,1fr))!important}

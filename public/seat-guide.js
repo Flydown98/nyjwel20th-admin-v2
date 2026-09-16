@@ -7,22 +7,30 @@ function parseSeat(raw){
   m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2])};
   return null;
 }
-function dot(row,n,mine,exists=true){return `<i class="seat${exists?'':' gap'}${mine?.row===row&&mine?.n===n?' mine':''}" title="${row}${n}"></i>`}
-function render(mySeat,layout){
-  const mine=parseSeat(mySeat),byRow=new Map();(layout||[]).forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});
-  const front='ABCDEFGHIJKL'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="front-row"><b class="row-label">${row}</b><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+1,mine,nums.has(i+1))).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+9,mine,nums.has(i+9))).join('')}</div></div>`}).join('');
+function dot(row,n,mines,exists=true){const mine=(mines||[]).some(x=>x?.row===row&&x?.n===n);return `<i class="seat${exists?'':' gap'}${mine?' mine':''}" title="${row}${n}"></i>`}
+function render(mySeats,layout){
+  const mines=(Array.isArray(mySeats)?mySeats:[mySeats]).map(parseSeat).filter(Boolean),byRow=new Map();(layout||[]).forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});
+  const front='ABCDEFGHIJKL'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="front-row"><b class="row-label">${row}</b><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+1,mines,nums.has(i+1))).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+9,mines,nums.has(i+9))).join('')}</div></div>`}).join('');
   const head=`<div class="number-head number-head-26"><span></span>${Array.from({length:26},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
-  const main='MNOPQRST'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="rear-row"><b class="row-label">${row}</b><div class="twentysix">${Array.from({length:26},(_,i)=>dot(row,i+1,mine,nums.has(i+1))).join('')}</div></div>`}).join('');
+  const main='MNOPQRST'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="rear-row"><b class="row-label">${row}</b><div class="twentysix">${Array.from({length:26},(_,i)=>dot(row,i+1,mines,nums.has(i+1))).join('')}</div></div>`}).join('');
   $('#seatMap').innerHTML=front+`<div class="rear-start">M~T · 26석 × 8줄 · 총 208석</div>`+head+main;
 }
 async function load(){
   try{
     const [a,b]=await Promise.all([fetch(`/api/public/seat-guide?k=${encodeURIComponent(key)}`,{cache:'no-store'}),fetch('/api/public/seat-layout',{cache:'no-store'})]);
     const d=await a.json(),l=await b.json();if(!a.ok||!d.ok)throw new Error(d.error||'좌석 정보를 확인할 수 없습니다.');
-    $('#mySeat').textContent=d.hasAssignedSeat?d.seat:'스탠딩석';$('#myName').textContent=d.name?d.name+'님':'';
-    const p=d.hasAssignedSeat?parseSeat(d.seat):null;
-    $('#guideMsg').textContent=d.hasAssignedSeat?(p?`${p.row}열 ${p.n}번 좌석입니다.`:`${d.seat} 좌석입니다.`):'지정 좌석 없이 스탠딩석으로 안내됩니다. 현장 스태프 안내를 따라주세요.';
-    render(d.hasAssignedSeat?d.seat:'',l.rows||[]);
-  }catch(e){$('#mySeat').textContent='안내 확인 필요';$('#guideMsg').textContent=e.message;render('',[])}
+    const groupSeats=Array.isArray(d.seats)?d.seats.filter(x=>x.rawSeat):[];
+    if(d.group&&groupSeats.length){
+      $('#mySeat').textContent=`${groupSeats.length}석`;
+      $('#myName').textContent=d.groupName?`${d.groupName} · ${d.name}님`:d.name?d.name+'님':'';
+      $('#guideMsg').textContent=`현장 접수된 단체 좌석 ${groupSeats.length}자리를 보라색으로 표시했습니다.`;
+      render(groupSeats.map(x=>x.rawSeat),l.rows||[]);
+    }else{
+      $('#mySeat').textContent=d.hasAssignedSeat?d.seat:'스탠딩석';$('#myName').textContent=d.name?d.name+'님':'';
+      const p=d.hasAssignedSeat?parseSeat(d.seat):null;
+      $('#guideMsg').textContent=d.hasAssignedSeat?(p?`${p.row}열 ${p.n}번 좌석입니다.`:`${d.seat} 좌석입니다.`):'지정 좌석 없이 스탠딩석으로 안내됩니다. 현장 스태프 안내를 따라주세요.';
+      render(d.hasAssignedSeat?[d.rawSeat||d.seat]:[],l.rows||[]);
+    }
+  }catch(e){$('#mySeat').textContent='안내 확인 필요';$('#guideMsg').textContent=e.message;render([],[])}
 }
 load();

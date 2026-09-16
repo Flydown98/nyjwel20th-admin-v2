@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.9.22">
+<link rel="stylesheet" href="/style.css?v=0.9.24">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.22</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.24</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
 <div id="systemModeBanner" class="system-mode-banner hidden"></div>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
@@ -70,7 +70,7 @@
 
 <section id="view-groups" class="view">
 <article class="card">
-  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">같은 외부기관은 자동으로 한 그룹으로 묶고, 기관이 없는 동반신청은 '동반'으로 묶습니다. <strong>자동묶음도 직접 수정할 수 있으며</strong>, 저장한 수정사항은 자동 재구성 후에도 유지됩니다. 그룹의 어느 참가자 QR을 찍어도 그룹 접수가 열립니다.</p></div><button type="button" id="reloadGroups" class="primary">갱신</button></div>
+  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">동반신청은 우선 하나의 그룹으로 묶고, 그 외 같은 외부기관 참가자는 자동으로 한 그룹으로 묶습니다. <strong>자동묶음도 직접 수정할 수 있으며</strong>, 저장한 수정사항은 자동 재구성 후에도 유지됩니다. 그룹의 어느 참가자 QR을 찍어도 그룹 접수가 열립니다.</p></div><button type="button" id="reloadGroups" class="primary">갱신</button></div>
   <div class="group-policy-box">
     <strong>자동 기관묶음 제외어</strong>
     <p class="muted">아래 단어가 소속기관명에 포함되면 자동 기관그룹에서 제외됩니다. 필요하면 직접 추가·삭제한 뒤 재구성하세요.</p>
@@ -78,7 +78,7 @@
     <div class="actions"><button type="button" id="saveGroupExclusions">제외어 저장 + 자동그룹 재구성</button><button type="button" id="rebuildAutoGroups" class="primary">자동그룹 다시 만들기</button></div>
   </div>
   <details class="management-card" style="margin-top:10px">
-    <summary><strong>자동그룹에서 직접 제외한 기관/동반 보기 · 복원</strong></summary>
+    <summary><strong>자동그룹에서 직접 제외한 기관 보기 · 복원</strong></summary>
     <div id="excludedGroupsList" style="margin-top:10px"></div>
   </details>
   <div class="group-tabs"><button data-grouptab="auto" class="active">자동 기관그룹</button><button data-grouptab="representative">대표자 그룹</button><button data-grouptab="companion">동반</button><button id="createManualGroup" class="primary">대표자 그룹 만들기</button></div>
@@ -95,7 +95,7 @@
     <div class="actions"><button type="button" id="apply400Layout" class="danger">400석 배치 적용 (기존좌석 유지)</button><button type="button" id="lockCurrentSeats" class="primary">수동 지정좌석 확정</button><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="finalAutoAssign" class="primary">내빈·휠체어 사전배치</button><button type="button" id="reassignWheelchair" class="primary">휠체어 신청자만 재배치</button><button type="button" id="resetGeneralSeats">G~T 일반좌석 초기화</button><button type="button" id="autoAssignAll">현재 도착자 자동배치</button><button type="button" id="releasePendingSeats" class="danger">미도착 임시좌석 해제</button><button type="button" id="reloadSeats">갱신</button></div>
   </div>
   <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
-  <p class="muted">현재 적용 구조는 A~L의 기존 런웨이 좌·우 8석씩을 그대로 유지하고, M~T는 기존 1~20번 좌석을 보존한 채 21~26번을 추가하여 한 줄 26석으로 확장합니다. 총 좌석은 400석입니다. 휠체어 신청자 1명과 보호자 1명은 우선석에, 추가 동반자는 같은 줄 안쪽 일반석에 배치합니다. 좌석을 한 번 누르면 선택 강조와 참가자 정보가 표시되고, 다시 누르면 수정창이 열립니다.</p>
+  <p class="muted">현재 적용 구조는 A~L의 기존 런웨이 좌·우 8석씩을 그대로 유지하고, M~T는 1~26번까지 한 줄 26석으로 사용합니다. 21~26번도 좌석판에서 바로 눌러 참가자를 직접 지정할 수 있습니다. 총 좌석은 400석입니다. 휠체어 신청자 1명과 보호자 1명은 우선석에, 추가 동반자는 같은 줄 안쪽 일반석에 배치합니다. 좌석을 한 번 누르면 선택 강조와 참가자 정보가 표시되고, 다시 누르면 수정창이 열립니다.</p>
   <div id="seatSelectionInfo" class="seat-selection-info"><strong>좌석을 선택하세요</strong><span>선택하면 이름 · 기관 · 도착상태를 크게 표시합니다.</span><button type="button" id="editSelectedSeat" disabled>좌석 변경</button></div><div class="seat-map-wrap"><div id="seatGrid" class="seat-map"></div></div>
 </article>
 </section>
@@ -342,4 +342,4 @@ RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.9.22"></script></body></html>
+<script src="/app.js?v=0.9.24"></script></body></html>

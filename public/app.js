@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.22';
+const FRONTEND_VERSION='0.9.24';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.22';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.24';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -217,9 +217,8 @@ async function loadGroups(){
     $('#companionGroups').innerHTML=comps.map(groupCardHtml).join('')||'<p class="muted">기관으로 묶이지 않은 동반 그룹이 없습니다.</p>';
     const excludedRows=[
       ...(excluded.organizations||[]).map(value=>({type:'organization',value,label:`기관 · ${value}`})),
-      ...(excluded.companions||[]).map(value=>({type:'companion',value,label:`동반 · ${value}`}))
     ];
-    $('#excludedGroupsList').innerHTML=excludedRows.map(x=>`<div class="backup-row"><span>${esc(x.label)}</span><button data-restoreexcluded="${esc(x.type)}" data-value="${esc(x.value)}">복원</button></div>`).join('')||'<p class="muted">직접 제외한 자동그룹이 없습니다.</p>';
+    $('#excludedGroupsList').innerHTML=excludedRows.map(x=>`<div class="backup-row"><span>${esc(x.label)}</span><button data-restoreexcluded="${esc(x.type)}" data-value="${esc(x.value)}">복원</button></div>`).join('')||'<p class="muted">직접 제외한 자동 기관그룹이 없습니다.</p>';
   }catch(e){toast(e.message)}
 }
 function groupCardHtml(g){
@@ -228,16 +227,18 @@ function groupCardHtml(g){
     <div class="top"><div><strong>${esc(g.name||'동반')}</strong><span class="group-badge">${typeText}</span>
       <small>등록 ${g.total}명 · 도착 ${g.arrived}명${g.type==='companion'?' · 어느 참가자 QR이든 그룹접수 가능':` · 대표 ${esc(g.representative?.name||'-')}`}</small></div>
     <div class="actions">${
-      g.auto
-        ? `<button data-editgroup="${esc(g.id)}" class="primary">자동묶음 수정</button><button data-delgroup="${esc(g.id)}">자동묶음 제외</button>`
-        : `<button data-editgroup="${esc(g.id)}">${g.manualOverride?'수정 고정 편집':'수정'}</button>${g.manualOverride?`<button data-resetauto="${esc(g.id)}">자동으로 되돌리기</button>`:''}<button data-delgroup="${esc(g.id)}">그룹 해제</button>`
+      g.type==='companion'
+        ? `<button data-editgroup="${esc(g.id)}" class="primary">동반그룹 수정</button>${g.manualOverride?`<button data-resetauto="${esc(g.id)}">자동으로 되돌리기</button>`:''}`
+        : (g.auto
+            ? `<button data-editgroup="${esc(g.id)}" class="primary">자동묶음 수정</button><button data-delgroup="${esc(g.id)}">자동묶음 제외</button>`
+            : `<button data-editgroup="${esc(g.id)}">${g.manualOverride?'수정 고정 편집':'수정'}</button>${g.manualOverride?`<button data-resetauto="${esc(g.id)}">자동으로 되돌리기</button>`:''}<button data-delgroup="${esc(g.id)}">그룹 해제</button>`)
     }</div></div>
     <div class="member-list">${g.members.map(m=>`<span class="member-chip ${m.id===g.representativeId&&g.type!=='companion'?'rep':''}">${m.arrived?'✓':'○'} ${esc(m.name)}${m.id===g.representativeId&&g.type!=='companion'?' · 대표':''}</span>`).join('')}</div>
   </div>`;
 }
 $('#saveGroupExclusions')?.addEventListener('click',async()=>{
   const keywords=$('#groupExclusionKeywords').value.split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean);
-  if(!confirm('제외어를 저장하고 자동 기관/동반 그룹을 다시 구성할까요?'))return;
+  if(!confirm('기관 자동묶음 제외어를 저장하고 자동그룹을 다시 구성할까요?'))return;
   try{
     const d=await api('/api/groups/exclusions',{method:'POST',body:JSON.stringify({keywords})});
     toast(`제외어 저장 완료 · 기관그룹 ${d.result.organizationGroups}개 · 동반 ${d.result.companionGroups}개`,6500);
@@ -362,7 +363,7 @@ async function loadSeats(){
     }).join('');
     const head=`<div class="rear-number-header rear-number-header-26"><span></span>${Array.from({length:26},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
     const rear=rearRows.map(row=>{const rs=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(rs.map(s=>[Number(s.number),s]));return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twentysix">${Array.from({length:26},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div></div>`}).join('');
-    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>400석 배치 적용을 눌러주세요. A~L과 기존 M~T 배정좌석은 그대로 유지하고 21~26번 좌석만 추가합니다.</span></div>`:'';
+    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>저장된 좌석 데이터는 이전 구조입니다. 21~26번은 지금도 직접 지정할 수 있으며, 400석 배치 적용을 누르면 최종 좌석틀을 서버 상태에도 저장합니다.</span></div>`:'';
     $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~L 좌측 8석</span><span>런웨이</span><span>A~L 우측 8석</span></div>${front}<div class="runway-end-cap">A~L 기존 좌석 그대로 · 192석 / M~T 26석 × 8줄 · 208석 / 총 400석</div><div class="rear-layout">${head}${rear}</div>`;
     updateSeatSelection();const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
   }catch(e){toast(e.message)}
@@ -1034,7 +1035,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.22',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.24',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 
