@@ -495,3 +495,7 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 
 /* v0.9.13 seat policy */
 .preassign-note{padding:10px 12px;border-radius:12px;background:#f7f2fb;color:#5e338c;font-size:12px}
+\n/* v0.9.16 · G~T 장애인석 양끝 강조 */
+.rear-layout .seat-cell.wheelchair{border:3px solid #2f66d0!important;background:#eef5ff!important}
+.rear-layout .seat-cell.wheelchair strong{color:#123d8b!important}
+.rear-layout .rear-seat-row .seat-cell:nth-child(1),.rear-layout .rear-seat-row .seat-cell:nth-child(2){box-shadow:inset 0 0 0 1px rgba(47,102,208,.08)}

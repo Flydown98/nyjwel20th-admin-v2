@@ -1,7 +1,13 @@
 'use strict';
-const FRONTEND_VERSION='0.9.14';
+const FRONTEND_VERSION='0.9.16';
 
-function displaySeat(code){const raw=String(code||'').toUpperCase();let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;m=raw.match(/^([A-Y])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+10}`;const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;}
+function displaySeat(code){
+  const raw=String(code||'').toUpperCase();
+  let m=raw.match(/^([A-F])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;
+  m=raw.match(/^([G-T])B-(\d{1,2})$/);if(m)return `${m[1]}${Number(m[2])}`;
+  m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return `${m[1]}${m[2]==='L'?Number(m[3]):Number(m[3])+8}`;
+  const n=raw.match(/^([A-Y])(\d{1,2})$/);return n?`${n[1]}${Number(n[2])}`:raw;
+}
 
 const STATION_KEY='nyj20_station_name';
 
@@ -33,7 +39,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.14';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.16';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -315,10 +321,10 @@ $('#representativeGroups').onclick=groupContainerClick;$('#companionGroups').onc
 
 let seatCache=[];
 function seatZoneClass(s){
-  const m=String(s.code||'').toUpperCase().match(/^([A-Y])([LR])-(\d{2})$/);if(!m)return '';
-  const row=m[1],side=m[2],n=Number(m[3]);
-  if(['A','B','C'].includes(row)){if(side==='L')return n<=5?'wheelchair':'vip';return n<=5?'vip':'wheelchair'}
-  if(['D','E','F'].includes(row))return 'guest';return '';
+  const row=String(s.row||'').toUpperCase(),n=Number(s.displayNumber||s.number||0);
+  if(row>='A'&&row<='F')return 'guest';
+  if(row>='G'&&row<='T'&&(n<=2||n>=19))return 'wheelchair';
+  return '';
 }
 let selectedSeatCode='';
 function seatCellHtml(s,displayNo){if(!s)return '<div class="seat-cell disabled"><strong>-</strong></div>';const z=seatZoneClass(s),selected=String(s.code).toUpperCase()===String(selectedSeatCode).toUpperCase();const cls=['seat-cell',z,!s.enabled?'disabled':'',s.arrived?'arrived':(s.occupied?'assigned':''),selected?'selected':''].filter(Boolean).join(' ');const name=s.participant?.name||'';return `<div class="${cls}" data-seat="${esc(s.code)}" title="${esc(displaySeat(s.code))}${name?' · '+esc(name):''}"><strong>${displayNo}</strong>${name?`<span class="seat-name">${esc(name)}</span>`:''}</div>`;}
@@ -327,47 +333,17 @@ async function loadSeats(){
   try{
     const d=await api('/api/seats');seatCache=d.rows;
     $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석 · 자동좌석 ${d.autoSeatAssignOnCheckin?'ON':'OFF'}`;
-    const frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split('');
-    const byRow=new Map();
-    d.rows.forEach(s=>{
-      const row=String(s.row||'').toUpperCase();
-      if(!byRow.has(row))byRow.set(row,[]);
-      byRow.get(row).push(s);
-    });
-
-    const front=frontRows.map((row,ri)=>{
-      const rowSeats=byRow.get(row)||[];
-      const leftMap=new Map(rowSeats.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s]));
-      const rightMap=new Map(rowSeats.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));
-      const left=Array.from({length:8},(_,i)=>seatCellHtml(leftMap.get(i+1),i+1)).join('');
-      const right=Array.from({length:8},(_,i)=>seatCellHtml(rightMap.get(i+1),i+9)).join('');
-      return `<div class="front-seat-row${ri===6?' section-gap':''}">
-        <div class="seat-row-label">${row}</div>
-        <div class="seat-block eight">${left}</div>
-        <div class="runway-long">RUNWAY</div>
-        <div class="seat-block eight">${right}</div>
-      </div>`;
+    const frontRows='ABCDEF'.split(''),mainRows='GHIJKLMNOPQRST'.split(''),byRow=new Map();
+    d.rows.forEach(s=>{const row=String(s.row||'').toUpperCase();if(!byRow.has(row))byRow.set(row,[]);byRow.get(row).push(s)});
+    const front=frontRows.map(row=>{
+      const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s])),rm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));
+      return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`;
     }).join('');
-
-    const rearHeader=`<div class="rear-number-header"><span></span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
-    const rear=rearRows.map(row=>{
-      const rowSeats=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B').sort((x,y)=>Number(x.number)-Number(y.number));
-      const seatByNo=new Map(rowSeats.map(s=>[Number(s.number),s]));
-      const seats=Array.from({length:20},(_,i)=>seatCellHtml(seatByNo.get(i+1),i+1)).join('');
-      return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twenty">${seats}</div></div>`;
-    }).join('');
-
-    const repairNotice=d.layoutNeedsRepair
-      ? `<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>아래 '352석 최신 배치 적용'을 한 번 누르면 M~T가 1~20번 × 8줄로 정리됩니다. 호환 가능한 기존 좌석은 최대한 유지합니다.</span></div>`
-      : '';
-
-    $('#seatGrid').innerHTML=`${repairNotice}<div class="seat-stage-label">무대 / 스테이지</div>
-      <div class="front-layout-label"><span>왼쪽 8×6 블록</span><span>런웨이</span><span>오른쪽 8×6 블록</span></div>
-      ${front}
-      <div class="runway-end-cap">런웨이 끝 · 뒤쪽 일반석 20석 × 8줄</div>
-      <div class="rear-layout">${rearHeader}${rear}</div>`;
-    updateSeatSelection();
-    const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
+    const head=`<div class="rear-number-header"><span></span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
+    const main=mainRows.map(row=>{const rs=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(rs.map(s=>[Number(s.number),s]));return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twenty">${Array.from({length:20},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div></div>`}).join('');
+    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>376석 최신 배치 적용을 한 번 눌러주세요. 기존 호환 좌석은 최대한 유지됩니다.</span></div>`:'';
+    $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~F 내빈석</span><span>런웨이</span><span>A~F 내빈석</span></div>${front}<div class="runway-end-cap">G~T · 20석 × 14줄 · 양끝 1·2 / 19·20 장애인석</div><div class="rear-layout">${head}${main}</div>`;
+    updateSeatSelection();const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
   }catch(e){toast(e.message)}
 }
 async function openSeatManager(code){
@@ -416,13 +392,8 @@ async function openSeatManager(code){
 }
 $('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
 $('#apply400Layout')?.addEventListener('click',async()=>{
-  if(!confirm('352석 최신 좌석배치를 적용할까요?\n\n앞쪽 A~L: 좌 8석 + 런웨이 + 우 8석\n뒤쪽 M~T: 왼쪽부터 1~20번 × 정확히 8줄\n\n현재 배정좌석은 새 구조와 호환되면 최대한 유지합니다. 적용 전/후 자동 백업도 생성됩니다.'))return;
-  try{
-    const d=await api('/api/seats/apply-event-400',{method:'POST',body:JSON.stringify({preserveAssignments:true})});
-    selectedSeatCode='';
-    toast(`최신 352석 배치 완료 · 유지 ${d.preserved}명 · 변환 ${d.moved}명 · 해제 ${d.cleared}명 · 자동좌석 ON`,9000);
-    loadSeats();refreshDashboard();
-  }catch(e){toast(e.message,9000)}
+  if(!confirm('376석 최신 좌석배치를 적용할까요?\n\nA~F: 기존 런웨이 구조 16석, 전부 내빈석\nG~T: 20석 × 14줄\nG~T의 1·2번 / 19·20번 = 장애인·휠체어 우선석\n\n기존 호환 좌석은 최대한 유지합니다.'))return;
+  try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:JSON.stringify({preserveAssignments:true})});selectedSeatCode='';toast(`376석 배치 완료 · 유지 ${d.preserved}명 · 변환 ${d.moved}명 · 해제 ${d.cleared}명`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
 });
 $('#reloadSeats').onclick=loadSeats;
 $('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자의 현재 좌석을 모두 해제할까요? 도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
@@ -437,11 +408,15 @@ $('#resetGeneralSeats')?.addEventListener('click',async()=>{
   if(!confirm('G~Y 일반석만 초기화할까요?\nA~F 특수구역과 "좌석 고정" 참가자는 유지됩니다.'))return;
   try{const d=await api('/api/seats/reset-general',{method:'POST',body:'{}'});toast(`일반좌석 ${d.released}석 초기화 완료`,6500);loadSeats();refreshDashboard()}catch(e){toast(e.message,7000)}
 });
+$('#reassignWheelchair')?.addEventListener('click',async()=>{
+  if(!confirm('휠체어 신청자 그룹만 좌석을 다시 배치할까요?\n\n휠체어 신청자 1명 + 보호자 1명은 양끝 장애인석에, 나머지 동반자는 같은 줄 안쪽 일반석에 우선 배치합니다.\n다른 참가자의 좌석은 건드리지 않습니다.'))return;
+  try{const d=await api('/api/seats/reassign-wheelchair',{method:'POST',body:'{}'});toast(`휠체어 재배치 완료 · 그룹 ${d.parties} · 휠체어 ${d.wheelchair} · 보호자 ${d.guardians} · 동반자 ${d.companions}`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
+});
 $('#finalAutoAssign')?.addEventListener('click',async()=>{
   if(!confirm('내빈과 휠체어 이용자만 사전 좌석배치할까요?\n\n일반 참가자는 미리 배치하지 않고 행사 당일 접수 시 자동배정됩니다.\n관리자가 직접 지정한 확정좌석은 그대로 유지됩니다.'))return;
   try{
     const d=await api('/api/seats/final-auto-assign',{method:'POST',body:'{}'});
-    toast(`사전배치 완료 · 내빈 ${d.vip+d.guest}명 · 휠체어 ${d.wheelchair}명 · 수동확정 ${d.manualLocked}명 · 일반 미배정 ${d.unassignedGeneral}명`,9000);
+    toast(`사전배치 완료 · 내빈 ${d.vip+d.guest}명 · 휠체어 ${d.wheelchair}명 · 보호자 ${d.guardians||0}명 · 동반 일반석 ${d.companions||0}명 · 수동확정 ${d.manualLocked}명`,9000);
     loadSeats();refreshDashboard();
   }catch(e){toast(e.message,9000)}
 });
