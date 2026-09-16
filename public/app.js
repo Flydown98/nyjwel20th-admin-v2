@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.20';
+const FRONTEND_VERSION='0.9.22';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -23,7 +23,7 @@ window.addEventListener('unhandledrejection',e=>{
   }catch(_){}
 });
 
-const TOKEN_KEY='nyj20_v2_token',ROLE_KEY='nyj20_v2_role';let stationName=localStorage.getItem(STATION_KEY)||'미설정';let token=localStorage.getItem(TOKEN_KEY)||'',currentRole=localStorage.getItem(ROLE_KEY)||'admin',appSettings={},scanner=null,scannerOn=false,scanBusy=false;
+const TOKEN_KEY='nyj20_v2_token',ROLE_KEY='nyj20_v2_role',CHECKIN_TEST_KEY='nyj20_checkin_test_mode';let stationName=localStorage.getItem(STATION_KEY)||'미설정';let token=localStorage.getItem(TOKEN_KEY)||'',currentRole=localStorage.getItem(ROLE_KEY)||'admin',appSettings={},scanner=null,scannerOn=false,scanBusy=false,checkinTestMode=localStorage.getItem(CHECKIN_TEST_KEY)==='1';
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.tm);toast.tm=setTimeout(()=>t.classList.add('hidden'),ms)}
 async function api(p,o={}){const h={...(o.headers||{})};if(o.body&&!(o.body instanceof FormData)&&!h['Content-Type'])h['Content-Type']='application/json';if(token)h.Authorization=`Bearer ${token}`;const r=await fetch(p,{...o,headers:h});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||`HTTP ${r.status}`);Object.assign(e,d);throw e}return d}
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.19';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.22';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -73,6 +73,17 @@ function applyRoleUI(){
 function view(n){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${n}`));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===n));if(n==='participants')loadParticipants();if(n==='groups')loadGroups();if(n==='seats')loadSeats();if(n==='raffle')loadRaffle();if(n==='sms')loadSms();if(n==='logs')loadLogs();if(n==='settings')loadSettings();if(n==='backup'){loadBackupStatus();loadLocalBackups()}}
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>view(b.dataset.view));
 
+function renderCheckinTestMode(){
+  const btn=$('#toggleCheckinTestMode'),banner=$('#checkinTestBanner');
+  if(btn){btn.textContent=checkinTestMode?'테스트 모드 끄기':'테스트 모드 켜기';btn.classList.toggle('danger',checkinTestMode);btn.classList.toggle('primary',!checkinTestMode)}
+  banner?.classList.toggle('hidden',!checkinTestMode);
+}
+$('#toggleCheckinTestMode')?.addEventListener('click',()=>{
+  checkinTestMode=!checkinTestMode;localStorage.setItem(CHECKIN_TEST_KEY,checkinTestMode?'1':'0');renderCheckinTestMode();
+  toast(checkinTestMode?'QR 테스트 모드 ON · 문자/실제 접수 처리 없음':'QR 테스트 모드 OFF · 실제 접수 모드',5000);
+});
+renderCheckinTestMode();
+
 async function processCode(code){
   if(scanBusy)return;scanBusy=true;
   try{
@@ -83,18 +94,29 @@ async function processCode(code){
   finally{scanBusy=false}
 }
 function showIndividualCheckin(p){
-  modal(`<p class="eyebrow">개인 QR 접수</p><h2>${esc(p.name)}</h2><p>${esc(p.organization||'소속 없음')} · ${esc(p.phone||'연락처 없음')}</p><div class="notice">좌석 ${esc(p.seat||'자동배정 예정')} · 기념품 지급완료 처리</div><p class="muted">개인 접수는 잠시 후 자동으로 진행됩니다. 아래 버튼을 누르면 즉시 처리합니다.</p><div class="actions"><button data-now class="primary">바로 접수</button><button data-close>닫기</button></div><div id="modalProgress" class="muted">자동 접수 준비 중...</div>`);
+  const testLabel=checkinTestMode?'<div class="warning"><strong>🧪 테스트 접수</strong><br>문자 발송 · 도착처리 · 기념품처리 · 좌석변경 없이 실제 QR 연결만 검증합니다.</div>':'';
+  modal(`${testLabel}<p class="eyebrow">${checkinTestMode?'TEST QR CHECK-IN':'개인 QR 접수'}</p><h2>${esc(p.name)}</h2><p>${esc(p.organization||'소속 없음')} · ${esc(p.phone||'연락처 없음')}</p><div class="notice">좌석 ${esc(p.seat||'자동배정 예정')} · ${checkinTestMode?'실제 데이터 변경 없음':'기념품 지급완료 처리'}</div><p class="muted">${checkinTestMode?'아래 버튼을 누르면 서버의 테스트 접수 검증을 실행합니다.':'개인 접수는 잠시 후 자동으로 진행됩니다. 아래 버튼을 누르면 즉시 처리합니다.'}</p><div class="actions"><button data-now class="primary">${checkinTestMode?'테스트 접수 실행':'바로 접수'}</button><button data-close>닫기</button></div><div id="modalProgress" class="muted">${checkinTestMode?'테스트 준비 중...':'자동 접수 준비 중...'}</div>`);
   let done=false;
-  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{const r=await api('/api/checkin/individual',{method:'POST',body:JSON.stringify({code:p.id,station:stationName})});$('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,Number(appSettings.checkinPopupCloseMs||850))}catch(e){$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
-  $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;window.__autoCheckinTimer=setTimeout(run,Number(appSettings.individualAutoCheckinDelayMs||1400));
+  const run=async()=>{if(done)return;done=true;clearTimeout(window.__autoCheckinTimer);try{
+    const endpoint=checkinTestMode?'/api/checkin/test-individual':'/api/checkin/individual';
+    const r=await api(endpoint,{method:'POST',body:JSON.stringify({code:p.id,station:stationName})});
+    if(checkinTestMode){
+      $('#modalProgress').innerHTML=`<div class="successbox"><strong>테스트 성공 · ${esc(r.participant.name)}</strong><br>QR 인식 정상 · 참가자 조회 정상 · 좌석 ${esc(r.participant.seat||'미배정')}<br><b>문자 발송 없음 · 실제 접수 상태 변경 없음</b></div>`;
+      $('#recentResult').textContent=`[테스트 성공] ${r.participant.name} · ${r.participant.seat||'미배정'} · 실제접수 미처리`;
+      done=false;return;
+    }
+    $('#modalProgress').innerHTML=`<div class="successbox"><strong>${esc(r.participant.name)} ${r.already?'이미 접수됨':'접수 완료'}</strong><br>좌석 ${esc(r.participant.seat||'스탠딩')} · ${r.already?'최초 접수 상태 유지':'기념품 지급완료 · 좌석안내 문자 발송요청'}</div>`;$('#recentResult').textContent=`${r.participant.name} · ${r.participant.seat||'스탠딩'} · ${r.already?'이미 접수됨':'접수완료'}`;refreshDashboard();setTimeout(closeModal,Number(appSettings.checkinPopupCloseMs||850))
+  }catch(e){done=false;$('#modalProgress').innerHTML=`<div class="warning">${esc(e.message)}</div>`}};
+  $('[data-now]').onclick=run;$('[data-close]').onclick=closeModal;
+  if(!checkinTestMode)window.__autoCheckinTimer=setTimeout(run,Number(appSettings.individualAutoCheckinDelayMs||1400));
 }
 function showGroupCheckin(p,g){
   const remaining=g.members.filter(x=>!x.arrived).length,registered=g.total,already=g.arrived;
   let n=Math.max(1,remaining);
   const render=()=>{const seats=Math.min(n,remaining),extra=Math.max(0,n-remaining);$('#stepN').textContent=n;$('#stepInfo').innerHTML=`이번 좌석 배정 <strong>${seats}석</strong>${extra?` · 추가 ${extra}명은 <strong>스탠딩</strong>`:''}`};
-  modal(`<p class="eyebrow">그룹 QR 접수 · ${esc(p.name)} QR</p><h2>${esc(g.name||g.organization||'동반')}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>기본값은 남은 등록인원 전체입니다. 먼저 온 사람이 전체를 접수하려면 그대로 진행하고, 일부만 접수할 때만 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">이 인원으로 접수</button><button id="cancelGroup">취소</button></div>`);
+  modal(`${checkinTestMode?'<div class="warning"><strong>🧪 테스트 접수</strong><br>문자·도착·기념품·좌석 데이터는 변경하지 않습니다.</div>':''}<p class="eyebrow">${checkinTestMode?'TEST GROUP CHECK-IN':'그룹 QR 접수'} · ${esc(p.name)} QR</p><h2>${esc(g.name||g.organization||'동반')}</h2><div class="notice">사전등록 ${registered}명 · 이미도착 ${already}명 · 남은등록 ${remaining}명</div><p>기본값은 남은 등록인원 전체입니다. 먼저 온 사람이 전체를 접수하려면 그대로 진행하고, 일부만 접수할 때만 − / + 로 조절하세요.</p><div class="stepper"><button id="minus">−</button><strong id="stepN">${n}</strong><button id="plus">＋</button></div><div id="stepInfo" class="result"></div><div class="actions" style="margin-top:16px"><button id="confirmGroup" class="primary">${checkinTestMode?'이 인원으로 테스트 접수':'이 인원으로 접수'}</button><button id="cancelGroup">취소</button></div>`);
   $('#minus').onclick=()=>{n=Math.max(1,n-1);render()};$('#plus').onclick=()=>{n=Math.min(99,n+1);render()};$('#cancelGroup').onclick=closeModal;
-  $('#confirmGroup').onclick=async()=>{try{const r=await api('/api/checkin/group',{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:stationName,scannedParticipantId:p.id})});$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
+  $('#confirmGroup').onclick=async()=>{try{const endpoint=checkinTestMode?'/api/checkin/test-group':'/api/checkin/group';const r=await api(endpoint,{method:'POST',body:JSON.stringify({groupId:g.id,actualCount:n,station:stationName,scannedParticipantId:p.id})});if(checkinTestMode){$('#modal').innerHTML=`<div class="warning"><strong>🧪 단체 QR 테스트 성공</strong></div><h2>${esc(g.name||g.organization||'동반')}</h2><div class="successbox">QR·그룹 조회 정상<br>테스트 인원 ${r.actualCount}명 · 등록대상 ${r.checkedInNow}명<br><b>문자 발송 없음 · 실제 접수/기념품/좌석 변경 없음</b></div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;$('#recentResult').textContent=`[테스트 성공] ${g.name||g.organization||'그룹'} · ${r.actualCount}명`;return;}$('#modal').innerHTML=`<h2>단체 접수 완료</h2><div class="successbox">실제 도착 ${r.actualCount}명<br>등록 참가자 접수 ${r.checkedInNow}명<br>좌석 ${r.seats.length}석${r.extraStanding?`<br>추가 ${r.extraStanding}명 스탠딩 안내`:''}<br>기념품 ${r.actualCount}명 지급완료</div><button id="doneGroup" class="primary wide">확인</button>`;$('#doneGroup').onclick=closeModal;refreshDashboard();setTimeout(closeModal,1600)}catch(e){toast(e.message,6000)}};
   render();
 }
 $('#manualQrForm').onsubmit=e=>{e.preventDefault();processCode($('#manualQr').value.trim());$('#manualQr').select()};
@@ -322,7 +344,7 @@ let seatCache=[];
 function seatZoneClass(s){
   const row=String(s.row||'').toUpperCase(),n=Number(s.displayNumber||s.number||0);
   if(row>='A'&&row<='F')return 'guest';
-  if(row>='G'&&row<='T'&&(n<=2||n>=19))return 'wheelchair';
+  if(row>='M'&&row<='T'&&(n<=2||n>=25))return 'wheelchair';
   return '';
 }
 let selectedSeatCode='';
@@ -1012,7 +1034,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.19',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.22',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 

@@ -505,3 +505,5 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 .rear-number-header-26{display:grid;grid-template-columns:28px repeat(26,minmax(32px,1fr))!important;gap:4px;min-width:980px}
 .rear-number-header-26 b{text-align:center}
 .rear-layout .rear-seat-row{min-width:980px}
+/* v0.9.22 · QR dry-run test mode */
+.checkin-test-banner{border:2px solid #f59e0b;background:#fff7ed;margin-bottom:14px}.checkin-test-banner strong{display:block;color:#9a3412;font-size:18px}.checkin-test-banner span{display:block;color:#7c2d12;margin-top:5px}.checkin-test-banner.hidden{display:none!important}
