@@ -1,0 +1,1826 @@
+{
+  "version": "HALL400-N-NUMBERED-V2",
+  "generatedFrom": "participants (2)(2).csv + ★개관 20주년 기념행사 명단 정리본.xlsx",
+  "participantAssignments": [
+    {
+      "id": "SEAT-B5DA22BBA6",
+      "name": "김경문 총장",
+      "oldSeat": "AL-01",
+      "newSeat": "A1",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0182-720151D4845048B884E8",
+      "name": "박종필",
+      "oldSeat": "AL-02",
+      "newSeat": "A2",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0345-72E4169C250D45CFB43A",
+      "name": "김선주 지사장",
+      "oldSeat": "AL-03",
+      "newSeat": "A3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0293-3ABF8D12C4524242837D",
+      "name": "김현주",
+      "oldSeat": "AL-04",
+      "newSeat": "A4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0024-BC06E375C43F40DBAFBF",
+      "name": "김민영",
+      "oldSeat": "AL-05",
+      "newSeat": "A5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-DF4FF32B01",
+      "name": "조석영 회장",
+      "oldSeat": "AL-06",
+      "newSeat": "A6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-A0D5ED7A8E",
+      "name": "김소영 관장",
+      "oldSeat": "AL-07",
+      "newSeat": "A7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-9A50FD7923",
+      "name": "김장환 주교",
+      "oldSeat": "AL-08",
+      "newSeat": "A8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-0099E6925E",
+      "name": "강태일 복지국장",
+      "oldSeat": "AR-01",
+      "newSeat": "A9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-726051D891",
+      "name": "김진희 의원",
+      "oldSeat": "AR-02",
+      "newSeat": "A10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-53110C4F09",
+      "name": "유병수 의원",
+      "oldSeat": "AR-03",
+      "newSeat": "A11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-A31D7E2EFF",
+      "name": "백선아 의원",
+      "oldSeat": "AR-05",
+      "newSeat": "A13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-3D09C1F380",
+      "name": "손정자 의원",
+      "oldSeat": "AR-06",
+      "newSeat": "A14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-A68B410C11",
+      "name": "임영신 의원",
+      "oldSeat": "AR-07",
+      "newSeat": "A15",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-7AD8356A53",
+      "name": "정미정 의원",
+      "oldSeat": "AR-08",
+      "newSeat": "A16",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-2E1B13ED5E",
+      "name": "교무국장 신부",
+      "oldSeat": "BL-01",
+      "newSeat": "B1",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0013-2B31917F04104495BEB9",
+      "name": "왕진철",
+      "oldSeat": "BL-02",
+      "newSeat": "B2",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-0FD6D8A275",
+      "name": "성오현 경영부총장",
+      "oldSeat": "BL-03",
+      "newSeat": "B3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-9847943773",
+      "name": "박일호 부총장",
+      "oldSeat": "BL-04",
+      "newSeat": "B4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0324-8652C7F6FD124BF492E3",
+      "name": "김영수",
+      "oldSeat": "BL-05",
+      "newSeat": "B5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-D583792501",
+      "name": "최민상 지역본부장",
+      "oldSeat": "BL-06",
+      "newSeat": "B6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-FFF501778E",
+      "name": "김우겸 조합장",
+      "oldSeat": "BL-07",
+      "newSeat": "B7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-7A39E22940",
+      "name": "이채영 총장",
+      "oldSeat": "BL-08",
+      "newSeat": "B8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0181-E9D1C9DD346F435ABB86",
+      "name": "이정호",
+      "oldSeat": "BR-01",
+      "newSeat": "B9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-D727F67E5E",
+      "name": "김도묵 공동위원장",
+      "oldSeat": "BR-02",
+      "newSeat": "B10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0233-82D5FFAE975E4B809102",
+      "name": "김양원",
+      "oldSeat": "BR-03",
+      "newSeat": "B11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0236-EC8C9789AA054A7AB81E",
+      "name": "김학영",
+      "oldSeat": "BR-04",
+      "newSeat": "B12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0199-800B7994CD0D410B8ACF",
+      "name": "정현철",
+      "oldSeat": "BR-05",
+      "newSeat": "B13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0186-30AB185BD0F3419CB904",
+      "name": "지민규",
+      "oldSeat": "BR-06",
+      "newSeat": "B14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0215-14C1C7E9C45C4BCD9865",
+      "name": "이상운 센터장",
+      "oldSeat": "BR-07",
+      "newSeat": "B15",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0084-5EC720DC1F914D4D88DE",
+      "name": "신현주",
+      "oldSeat": "BR-08",
+      "newSeat": "B16",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0010-F2D41DC9217E403C82CA",
+      "name": "조승현",
+      "oldSeat": "CL-01",
+      "newSeat": "C1",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0014-C8C3D9CCA96141719810",
+      "name": "이종희",
+      "oldSeat": "CL-02",
+      "newSeat": "C2",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0044-30FC146E516246C6921E",
+      "name": "이영",
+      "oldSeat": "CL-03",
+      "newSeat": "C3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0320-7585D37FC6C74864A5A5",
+      "name": "이선덕",
+      "oldSeat": "CL-04",
+      "newSeat": "C4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-E2C36B1742",
+      "name": "최종환 관장",
+      "oldSeat": "CL-05",
+      "newSeat": "C5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-EC873311A0",
+      "name": "김선정 관장",
+      "oldSeat": "CL-06",
+      "newSeat": "C6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0047-7F275C1027464063B9D4",
+      "name": "김남국",
+      "oldSeat": "CL-07",
+      "newSeat": "C7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0415-31EBF2576ED042308E14",
+      "name": "김명주",
+      "oldSeat": "CL-08",
+      "newSeat": "C8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0212-2BCE60305E624B5E9AEC",
+      "name": "정진춘",
+      "oldSeat": "CR-01",
+      "newSeat": "C9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0262-34131D69D4D747DC897A",
+      "name": "임재남",
+      "oldSeat": "CR-02",
+      "newSeat": "C10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0263-EAB69C5533AD49B9BDE2",
+      "name": "이선아",
+      "oldSeat": "CR-03",
+      "newSeat": "C11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0034-5AF1932C12934C6EA6B1",
+      "name": "최성균",
+      "oldSeat": "CR-04",
+      "newSeat": "C12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0017-369DC50564A7422BB319",
+      "name": "유경희",
+      "oldSeat": "CR-05",
+      "newSeat": "C13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0018-50CB5CF593C744B6A946",
+      "name": "김희중",
+      "oldSeat": "CR-06",
+      "newSeat": "C14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0206-88372A6C3CB344FB8ED8",
+      "name": "조태인",
+      "oldSeat": "CR-07",
+      "newSeat": "C15",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0021-17821A289C2B4A949ECD",
+      "name": "전명희",
+      "oldSeat": "CR-08",
+      "newSeat": "C16",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0195-8AD9F97D4FB84B8D8CC8",
+      "name": "박미선",
+      "oldSeat": "DL-01",
+      "newSeat": "D1",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0373-99B55440BAE148E0989A",
+      "name": "김요섭",
+      "oldSeat": "DL-02",
+      "newSeat": "D2",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0194-9E633DA717AA431495F1",
+      "name": "권성실",
+      "oldSeat": "DL-03",
+      "newSeat": "D3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0228-0C00E6D5028442409EB0",
+      "name": "배애련",
+      "oldSeat": "DL-04",
+      "newSeat": "D4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0028-17B01C52175C429099FC",
+      "name": "박승일",
+      "oldSeat": "DL-05",
+      "newSeat": "D5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0007-665FC513613445A780CC",
+      "name": "전정수",
+      "oldSeat": "DL-06",
+      "newSeat": "D6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0004-8D6841985CC34801B773",
+      "name": "최정선",
+      "oldSeat": "DL-07",
+      "newSeat": "D7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0039-45C736A636314D579B8A",
+      "name": "신영미",
+      "oldSeat": "DL-08",
+      "newSeat": "D8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-3A685A6E55",
+      "name": "김기매 교장",
+      "oldSeat": "DR-01",
+      "newSeat": "D9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0042-085ED3804AB440AAB712",
+      "name": "이성규",
+      "oldSeat": "DR-02",
+      "newSeat": "D10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0242-80ADD3436DFE40B79D9D",
+      "name": "장선영",
+      "oldSeat": "DR-03",
+      "newSeat": "D11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0241-C418A38F77C345D79A71",
+      "name": "박양숙",
+      "oldSeat": "DR-04",
+      "newSeat": "D12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0003-8D678FF70E1B49F8B1D1",
+      "name": "이전",
+      "oldSeat": "DR-05",
+      "newSeat": "D13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0214-0D0C3CB978614271B1F3",
+      "name": "이주연",
+      "oldSeat": "DR-06",
+      "newSeat": "D14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-CC47A6DCB2",
+      "name": "서범석 관장",
+      "oldSeat": "DR-07",
+      "newSeat": "D15",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0296-36D7A98B31F343338048",
+      "name": "임은희",
+      "oldSeat": "DR-08",
+      "newSeat": "D16",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0323-881E25EF065F488A8A62",
+      "name": "한갑수",
+      "oldSeat": "EL-02",
+      "newSeat": "E2",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0322-AE6E036B2CFA48CAB3C0",
+      "name": "최기성",
+      "oldSeat": "EL-03",
+      "newSeat": "E3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0329-4EE71D3EE1144695B68E",
+      "name": "주재철",
+      "oldSeat": "EL-04",
+      "newSeat": "E4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0327-8AE33BBB5CD648CA9164",
+      "name": "박규해",
+      "oldSeat": "EL-05",
+      "newSeat": "E5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0328-A9FE5F329B8141B4AD95",
+      "name": "김진광",
+      "oldSeat": "EL-06",
+      "newSeat": "E6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0325-5FDA18CF53B843B890A6",
+      "name": "김영민",
+      "oldSeat": "EL-07",
+      "newSeat": "E7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0321-B8774B12F701415EAC11",
+      "name": "이영주",
+      "oldSeat": "EL-08",
+      "newSeat": "E8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0032-147DEC64B3EE4B229B07",
+      "name": "윤인규",
+      "oldSeat": "ER-01",
+      "newSeat": "E9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0170-2A52215576D14F5B8320",
+      "name": "박진명",
+      "oldSeat": "ER-02",
+      "newSeat": "E10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-220A3C0928",
+      "name": "박정은장학사",
+      "oldSeat": "ER-03",
+      "newSeat": "E11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0362-D966BFF4ACE5431290EC",
+      "name": "류연규",
+      "oldSeat": "ER-04",
+      "newSeat": "E12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0386-A341BE7CCB3349798164",
+      "name": "임화란",
+      "oldSeat": "ER-05",
+      "newSeat": "E13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0400-BD5E514D2B484EF69A19",
+      "name": "송준",
+      "oldSeat": "ER-06",
+      "newSeat": "E14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0045-E8D493EDA9ED44E8B33E",
+      "name": "김성화",
+      "oldSeat": "FL-01",
+      "newSeat": "F1",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0365-0445AE506C0E43CB9DDF",
+      "name": "강봉숙",
+      "oldSeat": "FL-02",
+      "newSeat": "F2",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0366-8B9C5C16766242CD9B2F",
+      "name": "이민애",
+      "oldSeat": "FL-03",
+      "newSeat": "F3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0367-59133CA17FB54F75BFF7",
+      "name": "이종희",
+      "oldSeat": "FL-04",
+      "newSeat": "F4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0368-66251D494C4E440E8EF7",
+      "name": "문미희",
+      "oldSeat": "FL-05",
+      "newSeat": "F5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0369-FCAE2ED33E124BA09D0E",
+      "name": "장정식",
+      "oldSeat": "FL-06",
+      "newSeat": "F6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0370-6FD4D9031A084A3FB393",
+      "name": "유은숙",
+      "oldSeat": "FL-07",
+      "newSeat": "F7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0372-968F554A6E3845FFBEB8",
+      "name": "이인숙",
+      "oldSeat": "FL-08",
+      "newSeat": "F8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-DD8CF6608B",
+      "name": "김기원 교무처장",
+      "oldSeat": "FR-01",
+      "newSeat": "F9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-A7C98817E9",
+      "name": "김찬영 교무산학처장",
+      "oldSeat": "FR-02",
+      "newSeat": "F10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-01EDBF31AC",
+      "name": "유태영 교수",
+      "oldSeat": "FR-03",
+      "newSeat": "F11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-C4A120B41F",
+      "name": "송유나 교수",
+      "oldSeat": "FR-04",
+      "newSeat": "F12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0191-ED28B29FD884419C904E",
+      "name": "이정복",
+      "oldSeat": "OB-01",
+      "newSeat": "G1",
+      "reason": "스마트팀 이용인 묶음 배치 · 휠체어 이용 정보가 있어 끝자리 G1 우선"
+    },
+    {
+      "id": "20TH-0189-8480D60D409448389D11",
+      "name": "유명숙",
+      "oldSeat": "OB-03",
+      "newSeat": "G3",
+      "reason": "스마트팀 이용인 묶음 배치"
+    },
+    {
+      "id": "20TH-0235-FD894E9FA52F47D8A541",
+      "name": "윤홍자",
+      "oldSeat": "OB-04",
+      "newSeat": "G4",
+      "reason": "스마트팀 이용인 묶음 배치"
+    },
+    {
+      "id": "20TH-0174-5168C40C12614BBCB744",
+      "name": "안해일",
+      "oldSeat": "OB-05",
+      "newSeat": "G5",
+      "reason": "스마트팀 이용인 묶음 배치"
+    },
+    {
+      "id": "20TH-0095-E52F75C718664DCE8F9C",
+      "name": "강석원",
+      "oldSeat": "GL-03",
+      "newSeat": "G8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0096-4F8E7F6386D74AA784E7",
+      "name": "이은영",
+      "oldSeat": "GL-04",
+      "newSeat": "G9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0094-52A61687433544EFAE07",
+      "name": "박인숙",
+      "oldSeat": "GL-05",
+      "newSeat": "G10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0183-DE55F18901844ABE9D24",
+      "name": "이석희",
+      "oldSeat": "GL-06",
+      "newSeat": "G11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0182-53D5ECE1834848FB8100",
+      "name": "강준희",
+      "oldSeat": "GL-07",
+      "newSeat": "G12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0175-2ABFFE42DE3F480A9170",
+      "name": "전신영",
+      "oldSeat": "GL-08",
+      "newSeat": "G13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0247-4025864767ED4BB3BF81",
+      "name": "서금석",
+      "oldSeat": "OB-06",
+      "newSeat": "G14",
+      "reason": "스마트팀 이용인 묶음 배치"
+    },
+    {
+      "id": "20TH-0192-A4E2CA92F41943E09580",
+      "name": "김병철",
+      "oldSeat": "OB-07",
+      "newSeat": "G15",
+      "reason": "스마트팀 이용인 묶음 배치"
+    },
+    {
+      "id": "20TH-0333-6D26A44077F8414D8BFE",
+      "name": "방상문",
+      "oldSeat": "OB-11",
+      "newSeat": "G16",
+      "reason": "보호작업장 동반그룹 2명을 연속 배치"
+    },
+    {
+      "id": "20TH-0339-ACC082ADA5B04362AD8D",
+      "name": "최도현",
+      "oldSeat": "OB-12",
+      "newSeat": "G17",
+      "reason": "보호작업장 동반그룹 2명을 연속 배치"
+    },
+    {
+      "id": "20TH-0309-BD6B58F01B34480EA9D4",
+      "name": "김동욱",
+      "oldSeat": "PB-04",
+      "newSeat": "G18",
+      "reason": "성인고용지원팀 동반그룹 2명을 연속 배치"
+    },
+    {
+      "id": "20TH-0310-D992E1876B774AF58C57",
+      "name": "박종도",
+      "oldSeat": "PB-05",
+      "newSeat": "G19",
+      "reason": "성인고용지원팀 동반그룹 2명을 연속 배치"
+    },
+    {
+      "id": "20TH-0410-24B013FE2AD7492EA8FC",
+      "name": "이지선",
+      "oldSeat": "GR-01",
+      "newSeat": "G21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0411-79C2EE1BF2694D9A8484",
+      "name": "박선우",
+      "oldSeat": "GR-02",
+      "newSeat": "G22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0011-660C9A54FB524CC3B671",
+      "name": "김혜영",
+      "oldSeat": "GR-03",
+      "newSeat": "G23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0012-CAC306C204854883843B",
+      "name": "최승희",
+      "oldSeat": "GR-04",
+      "newSeat": "G24",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0015-B015B48F4C9F4C80AC59",
+      "name": "노영은",
+      "oldSeat": "GR-05",
+      "newSeat": "G25",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0183-898A911B510E41328D77",
+      "name": "신현숙",
+      "oldSeat": "GR-06",
+      "newSeat": "G26",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-F75A025E3B",
+      "name": "진충호 사무국장",
+      "oldSeat": "GR-07",
+      "newSeat": "G27",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0374-5E8CE94E2E86428B9585",
+      "name": "이연수",
+      "oldSeat": "GR-08",
+      "newSeat": "G28",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0387-6B26C3C65B394B82BC2F",
+      "name": "안경훈(종사자)",
+      "oldSeat": "OB-13",
+      "newSeat": "H3",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0391-6ED688F66D90474D9264",
+      "name": "이현경(이용자)",
+      "oldSeat": "OB-14",
+      "newSeat": "H4",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0392-F0F9D72B153743719415",
+      "name": "김철희(이용자)",
+      "oldSeat": "OB-15",
+      "newSeat": "H5",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0198-0459A534639449629F8C",
+      "name": "김태현",
+      "oldSeat": "HL-03",
+      "newSeat": "H8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0172-A789CE58184E433CA079",
+      "name": "박복희",
+      "oldSeat": "HL-04",
+      "newSeat": "H9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0022-1863A4B294634B4ABF2B",
+      "name": "김맹숙",
+      "oldSeat": "HL-05",
+      "newSeat": "H10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0021-0CC4F0C7E0964FE59F94",
+      "name": "김미영",
+      "oldSeat": "HL-06",
+      "newSeat": "H11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0031-C0BAD0FF0F4343E4A647",
+      "name": "권화순",
+      "oldSeat": "HL-07",
+      "newSeat": "H12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0030-9D348A771B3B46349DEF",
+      "name": "이희자",
+      "oldSeat": "HL-08",
+      "newSeat": "H13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0393-A326BFB2D232435880BE",
+      "name": "김종원(이용자)",
+      "oldSeat": "OB-16",
+      "newSeat": "H14",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0394-C0807554EDED41EF9C05",
+      "name": "정규호(이용자)",
+      "oldSeat": "OB-17",
+      "newSeat": "H15",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0395-140E29F83C71436E8689",
+      "name": "조형주(이용자)",
+      "oldSeat": "OB-18",
+      "newSeat": "H16",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0396-B4E68350B8FD40138F74",
+      "name": "배민영(이용자)",
+      "oldSeat": "OB-19",
+      "newSeat": "H17",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0389-B6B81C83F85040F9B726",
+      "name": "서성빈(종사자)",
+      "oldSeat": "OB-20",
+      "newSeat": "H18",
+      "reason": "하늘아래장애인사회문화연구소 8명을 H열 날개석에 인접 배치"
+    },
+    {
+      "id": "20TH-0092-98EE210F053A4BEC8004",
+      "name": "정수림",
+      "oldSeat": "HR-01",
+      "newSeat": "H21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0097-74AB976F50414CD7A01F",
+      "name": "정영미",
+      "oldSeat": "HR-02",
+      "newSeat": "H22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0043-4B7A2FC2967C4A438E67",
+      "name": "함은정",
+      "oldSeat": "HR-03",
+      "newSeat": "H23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0041-1AB60DDC1F9549B2A95E",
+      "name": "주민성",
+      "oldSeat": "HR-04",
+      "newSeat": "H24",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-1582C1823F",
+      "name": "심진경 팀장",
+      "oldSeat": "HR-05",
+      "newSeat": "H25",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-DB6737C4C6",
+      "name": "김지희 담당",
+      "oldSeat": "HR-06",
+      "newSeat": "H26",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0319-FE41142CAD46456E9C85",
+      "name": "최영진",
+      "oldSeat": "HR-07",
+      "newSeat": "H27",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0348-3AC622B1688B459E8905",
+      "name": "김보경",
+      "oldSeat": "HR-08",
+      "newSeat": "H28",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0057-453BCAD2A8784B798471",
+      "name": "강혁찬",
+      "oldSeat": "PB-12",
+      "newSeat": "I3",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0060-33679EDD70214290ACEA",
+      "name": "김민수",
+      "oldSeat": "QB-13",
+      "newSeat": "I4",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0058-5DA05BA363044F17B717",
+      "name": "심해인",
+      "oldSeat": "QB-14",
+      "newSeat": "I5",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0087-2C0CDF6F2F5C4F8BB30D",
+      "name": "강병찬",
+      "oldSeat": "IL-03",
+      "newSeat": "I8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0116-5F6986342673470EA57A",
+      "name": "최미현",
+      "oldSeat": "IL-04",
+      "newSeat": "I9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0187-458AB6E28F3E44FCA9DA",
+      "name": "남여진",
+      "oldSeat": "IL-05",
+      "newSeat": "I10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0090-559C266E8BBB48CD8190",
+      "name": "도금숙",
+      "oldSeat": "IL-06",
+      "newSeat": "I11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0100-105C851BB9A940E4872A",
+      "name": "박준용",
+      "oldSeat": "IL-07",
+      "newSeat": "I12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0356-F821D6F195C5447C99C0",
+      "name": "박혜정",
+      "oldSeat": "IL-08",
+      "newSeat": "I13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0061-61E428D2135A42AF91B0",
+      "name": "김연아",
+      "oldSeat": "QB-15",
+      "newSeat": "I14",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0062-0C163EF45F8D4BC1B1AB",
+      "name": "김태양",
+      "oldSeat": "QB-16",
+      "newSeat": "I15",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0063-872C048002D84EE18BDC",
+      "name": "김하준",
+      "oldSeat": "QB-17",
+      "newSeat": "I16",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0064-31B123EA26484FB08087",
+      "name": "박재인",
+      "oldSeat": "QB-18",
+      "newSeat": "I17",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0059-3DC4695502B4418EB921",
+      "name": "구자영",
+      "oldSeat": "RB-11",
+      "newSeat": "I18",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0065-0A2AB7366C674065AFE8",
+      "name": "서윤호",
+      "oldSeat": "RB-12",
+      "newSeat": "I19",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0066-A73B35095E4D4AE5BF13",
+      "name": "이래온",
+      "oldSeat": "RB-13",
+      "newSeat": "I20",
+      "reason": "수동중학교 동반그룹 10명 전체를 I열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0243-CA55C89B190B4BF3BEF1",
+      "name": "박효정",
+      "oldSeat": "IR-01",
+      "newSeat": "I21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0244-4568B33D8E48461196F0",
+      "name": "윤의정",
+      "oldSeat": "IR-02",
+      "newSeat": "I22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0238-2BB92162C321406DA2FC",
+      "name": "이영은",
+      "oldSeat": "IR-03",
+      "newSeat": "I23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0239-0918F4CDF92E4046B277",
+      "name": "변규식",
+      "oldSeat": "IR-04",
+      "newSeat": "I24",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0240-43B56F10DD8F49B59BCA",
+      "name": "박인덕",
+      "oldSeat": "IR-05",
+      "newSeat": "I25",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0385-569E423218374990A8F3",
+      "name": "서정희",
+      "oldSeat": "IR-06",
+      "newSeat": "I26",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0249-61538D02369B4B8EBA81",
+      "name": "최민호",
+      "oldSeat": "IR-07",
+      "newSeat": "I27",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0229-B1AE33AA2B1B420F9422",
+      "name": "조미선",
+      "oldSeat": "IR-08",
+      "newSeat": "I28",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0025-A85F1597B87549118157",
+      "name": "이지영",
+      "oldSeat": "PB-11",
+      "newSeat": "J3",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0282-C05B27A1ACFB4663A093",
+      "name": "전윤호",
+      "oldSeat": "PB-13",
+      "newSeat": "J4",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0283-F73B33F69CF1445CA2F2",
+      "name": "정유진",
+      "oldSeat": "PB-14",
+      "newSeat": "J5",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0191-BF2BE9918F1849038084",
+      "name": "홍영철",
+      "oldSeat": "JL-03",
+      "newSeat": "J8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0192-3612B0CFD4D34613B045",
+      "name": "정애경",
+      "oldSeat": "JL-04",
+      "newSeat": "J9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0237-46C4404350C3473A90D5",
+      "name": "김진태",
+      "oldSeat": "JL-05",
+      "newSeat": "J10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0357-AA38DBAE60C64E848019",
+      "name": "주현립",
+      "oldSeat": "JL-06",
+      "newSeat": "J11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0075-C72604F39DC442D2B867",
+      "name": "백소율",
+      "oldSeat": "JL-07",
+      "newSeat": "J12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0073-E91E16FE09234B9C9D10",
+      "name": "박순영",
+      "oldSeat": "JL-08",
+      "newSeat": "J13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0284-DBCC02D330F54444AF0B",
+      "name": "조은성",
+      "oldSeat": "PB-15",
+      "newSeat": "J14",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0285-E6E655FF659B45079492",
+      "name": "황한나",
+      "oldSeat": "PB-16",
+      "newSeat": "J15",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0286-A83CD1302DFF4FC59ABD",
+      "name": "이은아",
+      "oldSeat": "PB-17",
+      "newSeat": "J16",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0287-786F5F5E074D4762A3F3",
+      "name": "김현민",
+      "oldSeat": "PB-18",
+      "newSeat": "J17",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0288-EB1ADDD8E35C40E7AB27",
+      "name": "박은지",
+      "oldSeat": "PB-19",
+      "newSeat": "J18",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0280-6C3DBF01E81440379646",
+      "name": "이세영",
+      "oldSeat": "QB-11",
+      "newSeat": "J19",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0281-8F8C4C7FB5304C8E9163",
+      "name": "이윤주",
+      "oldSeat": "QB-12",
+      "newSeat": "J20",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0216-B8349B88557542648172",
+      "name": "김병국 사무국장",
+      "oldSeat": "JR-01",
+      "newSeat": "J21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0217-5ADB3F6478474A858793",
+      "name": "신영재 팀장",
+      "oldSeat": "JR-02",
+      "newSeat": "J22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0218-E416F2DAA4994077859D",
+      "name": "김윤회 팀장",
+      "oldSeat": "JR-03",
+      "newSeat": "J23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0219-E9C64E208CFF434BB5BB",
+      "name": "정희선 주임",
+      "oldSeat": "JR-04",
+      "newSeat": "J24",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0008-A8C02249D95C45D6AE43",
+      "name": "김선미",
+      "oldSeat": "JR-05",
+      "newSeat": "J25",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0380-D41E4226BF2846FC873B",
+      "name": "백미라",
+      "oldSeat": "JR-06",
+      "newSeat": "J26",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0381-5228B0C2FF424A788EB0",
+      "name": "전성인",
+      "oldSeat": "JR-07",
+      "newSeat": "J27",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0382-E0F60360CC2543FABEC9",
+      "name": "이지수",
+      "oldSeat": "JR-08",
+      "newSeat": "J28",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0267-222E56E3F0D44D76B562",
+      "name": "이은주",
+      "oldSeat": "RB-14",
+      "newSeat": "K3",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0268-7E65FFF95C184765A9E6",
+      "name": "이하온",
+      "oldSeat": "RB-15",
+      "newSeat": "K4",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0269-211B9F95FAD94322A4F5",
+      "name": "전은설",
+      "oldSeat": "RB-16",
+      "newSeat": "K5",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0038-4A02D11EFA64460B8691",
+      "name": "이석만",
+      "oldSeat": "KL-03",
+      "newSeat": "K8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0037-5F49B6419A0B4CFB8C34",
+      "name": "김지영",
+      "oldSeat": "KL-04",
+      "newSeat": "K9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0036-644386B8431E43588F08",
+      "name": "임재덕",
+      "oldSeat": "KL-05",
+      "newSeat": "K10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0035-0EE1FFDB078D424B964B",
+      "name": "최미아",
+      "oldSeat": "KL-06",
+      "newSeat": "K11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0222-16E19C2ACE25492D88B2",
+      "name": "이하진",
+      "oldSeat": "KL-07",
+      "newSeat": "K12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0220-553FB25718A4434886FB",
+      "name": "노맹호",
+      "oldSeat": "KL-08",
+      "newSeat": "K13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0270-28B38EC1339649C78FC4",
+      "name": "조한빛",
+      "oldSeat": "RB-17",
+      "newSeat": "K14",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0271-4155AB415AF14B24A9B9",
+      "name": "홍유진",
+      "oldSeat": "RB-18",
+      "newSeat": "K15",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0272-2FB26A1575964AC28680",
+      "name": "홍율리",
+      "oldSeat": "SB-11",
+      "newSeat": "K16",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0273-246479880DD24F8EBE81",
+      "name": "김근호",
+      "oldSeat": "SB-12",
+      "newSeat": "K17",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0274-708470019FC74F64ABF3",
+      "name": "김소율",
+      "oldSeat": "SB-13",
+      "newSeat": "K18",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0275-73D0416A3F6048FCBA7D",
+      "name": "김슬우",
+      "oldSeat": "SB-14",
+      "newSeat": "K19",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0276-04A58588EB0449658BF9",
+      "name": "남이안",
+      "oldSeat": "SB-15",
+      "newSeat": "K20",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0048-504F1293E0F24A8A9D98",
+      "name": "김성일",
+      "oldSeat": "KR-01",
+      "newSeat": "K21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0046-B4FFC3FDE0A041F39939",
+      "name": "최유경",
+      "oldSeat": "KR-02",
+      "newSeat": "K22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0049-82CFBEA588064CA8B3FE",
+      "name": "유현택",
+      "oldSeat": "KR-03",
+      "newSeat": "K23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0230-85D9F225F3674C939C99",
+      "name": "하재영 사무국장",
+      "oldSeat": "KR-04",
+      "newSeat": "K24",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0231-5CE0609DB78F4A65ABEC",
+      "name": "정동화 팀장",
+      "oldSeat": "KR-05",
+      "newSeat": "K25",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0342-0E87982B90E44151AEFC",
+      "name": "김용안 상임팀장",
+      "oldSeat": "KR-06",
+      "newSeat": "K26",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0213-8A13848F3E1848D5A509",
+      "name": "경기도지체장애인협회 남양주시지회 직원",
+      "oldSeat": "KR-07",
+      "newSeat": "K27",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "SEAT-AE357A2B67",
+      "name": "경기도지체장애인협회 남양주시지회 직원2",
+      "oldSeat": "KR-08",
+      "newSeat": "K28",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0277-DE404EB2A7A8475C8177",
+      "name": "송연우",
+      "oldSeat": "SB-16",
+      "newSeat": "L3",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0278-D6CC368D664643AEAD1F",
+      "name": "신정수",
+      "oldSeat": "SB-17",
+      "newSeat": "L4",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0279-F4967C2AA05C40FEAB5A",
+      "name": "이다영",
+      "oldSeat": "SB-18",
+      "newSeat": "L5",
+      "reason": "수동중학교 동일기관 인원을 J~L열 날개석에 연속 배치"
+    },
+    {
+      "id": "20TH-0185-81FA028124234324A690",
+      "name": "최승현",
+      "oldSeat": "LL-03",
+      "newSeat": "L8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0202-E8D8E036D49045CDAA28",
+      "name": "고경순",
+      "oldSeat": "LL-04",
+      "newSeat": "L9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0186-7CA25CAEADC343FD9303",
+      "name": "최요원",
+      "oldSeat": "LL-05",
+      "newSeat": "L10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0185-C6958BF119354EBE9ADA",
+      "name": "이정숙",
+      "oldSeat": "LL-06",
+      "newSeat": "L11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0174-07BC8E7387FC4DF78CAF",
+      "name": "이수빈",
+      "oldSeat": "LL-07",
+      "newSeat": "L12",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0086-310C5E4FD0F04321A99C",
+      "name": "김서순",
+      "oldSeat": "LL-08",
+      "newSeat": "L13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0081-17CFB1517AB64889A071",
+      "name": "김유리",
+      "oldSeat": "LR-01",
+      "newSeat": "L21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0082-622FCB11C53F4026B3CE",
+      "name": "반애련",
+      "oldSeat": "LR-02",
+      "newSeat": "L22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0083-D3EC7E19333C4E1C8A0C",
+      "name": "박찬미",
+      "oldSeat": "LR-03",
+      "newSeat": "L23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0346-F3BD97E49ACB489CA848",
+      "name": "수행직원",
+      "oldSeat": "LR-04",
+      "newSeat": "L24",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0019-F5563A8D7C2D4731BDED",
+      "name": "원정호",
+      "oldSeat": "LR-05",
+      "newSeat": "L25",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0200-AEDE9A7E21074E64A0D1",
+      "name": "조하영",
+      "oldSeat": "LR-06",
+      "newSeat": "L26",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0331-DA664CB74F0A4C28A5B4",
+      "name": "허희영",
+      "oldSeat": "LR-07",
+      "newSeat": "L27",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0332-74C17972395E49B1B86F",
+      "name": "안상원",
+      "oldSeat": "LR-08",
+      "newSeat": "L28",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0107-03D0D58E72E343289990",
+      "name": "김선영",
+      "oldSeat": "MB-01",
+      "newSeat": "M3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0070-AAD5BFB15F8447799F94",
+      "name": "김옥영",
+      "oldSeat": "MB-02",
+      "newSeat": "M4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0223-EAA060A0303142C0B19C",
+      "name": "이예성",
+      "oldSeat": "MB-05",
+      "newSeat": "M7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0221-8A5F60F58D9F42508A05",
+      "name": "김향숙",
+      "oldSeat": "MB-06",
+      "newSeat": "M8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0314-5CDCAB1F5CC34253BCEF",
+      "name": "김예순",
+      "oldSeat": "MB-07",
+      "newSeat": "M9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0172-FFCD64D40DF543F0AF98",
+      "name": "김화순",
+      "oldSeat": "MB-08",
+      "newSeat": "M10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0173-DEBF7067F4564E28904A",
+      "name": "유소연",
+      "oldSeat": "MB-09",
+      "newSeat": "M11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0358-ABFBECC22CF144F3BBD3",
+      "name": "이정연",
+      "oldSeat": "MB-11",
+      "newSeat": "M13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0359-BF661AC0747048049B26",
+      "name": "박경선",
+      "oldSeat": "MB-12",
+      "newSeat": "M14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0360-A554A00374194AFD918C",
+      "name": "김해니",
+      "oldSeat": "MB-13",
+      "newSeat": "M15",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0361-82911FF99AC845E58835",
+      "name": "윤설아",
+      "oldSeat": "MB-14",
+      "newSeat": "M16",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0375-68FFEFA606B24569B3A2",
+      "name": "고은별",
+      "oldSeat": "MB-15",
+      "newSeat": "M17",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0376-703F85700D0E41ECA879",
+      "name": "최원주",
+      "oldSeat": "MB-16",
+      "newSeat": "M18",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0377-E052DEAEE1A94D54BC5A",
+      "name": "모진호",
+      "oldSeat": "MB-17",
+      "newSeat": "M19",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0378-528DA5EBF3C2462AB741",
+      "name": "부성혜",
+      "oldSeat": "MB-18",
+      "newSeat": "M20",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0379-84BB72686DAE4880BDFF",
+      "name": "양은숙",
+      "oldSeat": "MB-19",
+      "newSeat": "M21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0093-20D501AC81014372B166",
+      "name": "홍성길",
+      "oldSeat": "MB-20",
+      "newSeat": "M22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0190-50FCD67DFC834AAE96ED",
+      "name": "박태산",
+      "oldSeat": "NB-01",
+      "newSeat": "N3",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0188-909F371E43854BB58983",
+      "name": "연규발",
+      "oldSeat": "NB-02",
+      "newSeat": "N4",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0347-3DD2660CEE974EF1A015",
+      "name": "김정열",
+      "oldSeat": "NB-03",
+      "newSeat": "N5",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0173-0AA12212FDBD4C5C8BEE",
+      "name": "김종열",
+      "oldSeat": "NB-04",
+      "newSeat": "N6",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0056-C62D78886F7B49D8AB90",
+      "name": "최양규",
+      "oldSeat": "NB-05",
+      "newSeat": "N7",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0054-86E7BC7D6C0C44A7AE6D",
+      "name": "정길수",
+      "oldSeat": "NB-06",
+      "newSeat": "N8",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0052-B03EEC58D4404C27A693",
+      "name": "박영수",
+      "oldSeat": "NB-07",
+      "newSeat": "N9",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0053-E41862FAF4A946EC973C",
+      "name": "김영학",
+      "oldSeat": "NB-08",
+      "newSeat": "N10",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0234-BDD11818FD5F4BC4BF0B",
+      "name": "이규임",
+      "oldSeat": "NB-09",
+      "newSeat": "N11",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0040-EB8F744B2AD34FCDB3C2",
+      "name": "이청자",
+      "oldSeat": "NB-11",
+      "newSeat": "N13",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0341-D2F444B94FFE4C05B8E7",
+      "name": "조현정",
+      "oldSeat": "NB-12",
+      "newSeat": "N14",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0340-92AF707D431E464BAA8F",
+      "name": "서경주",
+      "oldSeat": "NB-13",
+      "newSeat": "N15",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0334-585BA6F385B147F18D89",
+      "name": "정혜록",
+      "oldSeat": "NB-14",
+      "newSeat": "N16",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0335-A76A6FDD220B4667B4DA",
+      "name": "한수정",
+      "oldSeat": "NB-15",
+      "newSeat": "N17",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0336-B3331A73C5E94962BBDB",
+      "name": "신재동",
+      "oldSeat": "NB-16",
+      "newSeat": "N18",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0337-25DA4A6257BE4F83BCCD",
+      "name": "안재호",
+      "oldSeat": "NB-17",
+      "newSeat": "N19",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0338-C173927B52A3467D9835",
+      "name": "최현호",
+      "oldSeat": "NB-18",
+      "newSeat": "N20",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0388-A745305A7BB249869C23",
+      "name": "배   훈(종사자)",
+      "oldSeat": "NB-19",
+      "newSeat": "N21",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0390-A62D3EA284F34AD8BED9",
+      "name": "백민규(이용자)",
+      "oldSeat": "NB-20",
+      "newSeat": "N22",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    },
+    {
+      "id": "20TH-0354-CEB85FC472254C959B15",
+      "name": "황인찬",
+      "oldSeat": "NB-21",
+      "newSeat": "N23",
+      "reason": "기존 좌석의 상대 위치와 인접관계를 유지"
+    }
+  ]
+}
