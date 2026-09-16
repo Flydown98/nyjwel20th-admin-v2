@@ -13,3 +13,6 @@ header{text-align:center}.brand{color:var(--p);font-size:12px;font-weight:900;le
 .twentysix{width:100%!important;grid-template-columns:repeat(26,minmax(0,1fr))!important}
 .number-head-26{width:100%!important;grid-template-columns:12px repeat(26,minmax(0,1fr))!important}
 @media(max-width:390px){.number-head-26{grid-template-columns:10px repeat(26,minmax(0,1fr))!important}.twentysix{grid-template-columns:repeat(26,minmax(0,1fr))!important}}
+
+/* v0.9.26 · 단체/동반 이름별 좌석 표시 */
+.hidden{display:none!important}.group-seat-list{width:min(500px,96%);margin:0 auto 14px;padding:13px 14px;border-radius:18px;background:#fff;border:1px solid #e4d9eb;box-shadow:0 10px 28px #5e338c10}.group-seat-title{font-size:11px;font-weight:950;color:var(--p);letter-spacing:.08em;margin-bottom:8px}.group-seat-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.group-seat-chips span{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 9px;border-radius:10px;background:#f6f1fa;border:1px solid #eadff1;font-size:11px}.group-seat-chips b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.group-seat-chips em{font-style:normal;font-weight:950;color:#5e338c;white-space:nowrap}@media(max-width:390px){.group-seat-chips{grid-template-columns:1fr}}

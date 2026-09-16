@@ -1,0 +1,8 @@
+v0.9.26 QA
+- Node syntax check: server.js / public/app.js / public/seat-guide.js PASS
+- Existing companionGroup values are rebuilt before organization auto-groups.
+- Companion group QR: any member -> all remaining members checked in.
+- Companion test mode mirrors full-group behavior without state/SMS mutation.
+- Seat guide returns all assigned companion seats with participant names.
+- Public seat guide renders name -> seat list and highlights all returned seats.
+- Auto organization groups keep existing adjustable actual-count flow.

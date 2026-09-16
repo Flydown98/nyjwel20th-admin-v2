@@ -507,3 +507,6 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 .rear-layout .rear-seat-row{min-width:980px}
 /* v0.9.23 · QR dry-run test mode */
 .checkin-test-banner{border:2px solid #f59e0b;background:#fff7ed;margin-bottom:14px}.checkin-test-banner strong{display:block;color:#9a3412;font-size:18px}.checkin-test-banner span{display:block;color:#7c2d12;margin-top:5px}.checkin-test-banner.hidden{display:none!important}
+
+/* v0.9.26 · 동반그룹 접수 구성원 미리보기 */
+.group-member-preview{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.group-member-chip{padding:7px 9px;border-radius:10px;background:#f4eff8;border:1px solid #dfd0e9;font-size:12px}.group-member-chip.arrived{opacity:.6;text-decoration:line-through}
