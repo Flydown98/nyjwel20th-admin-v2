@@ -9,11 +9,17 @@ function parseSeat(raw){
 }
 function dot(row,n,mine,exists=true){return `<i class="seat${exists?'':' gap'}${mine?.row===row&&mine?.n===n?' mine':''}" title="${row}${n}"></i>`}
 function render(mySeat,layout){
-  const mine=parseSeat(mySeat),byRow=new Map();(layout||[]).forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});
+  const mineRaw=String(mySeat||'').toUpperCase(),mine=parseSeat(mySeat),byRow=new Map();
+  (layout||[]).forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});
   const front='ABCDEF'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="front-row"><b class="row-label">${row}</b><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+1,mine,nums.has(i+1))).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dot(row,i+9,mine,nums.has(i+9))).join('')}</div></div>`}).join('');
-  const head=`<div class="number-head"><span></span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
-  const main='GHIJKLMNOPQRST'.split('').map(row=>{const nums=new Set((byRow.get(row)||[]).map(s=>Number(s.displayNumber||s.number)));return `<div class="rear-row"><b class="row-label">${row}</b><div class="twenty">${Array.from({length:20},(_,i)=>dot(row,i+1,mine,nums.has(i+1))).join('')}</div></div>`}).join('');
-  $('#seatMap').innerHTML=front+`<div class="rear-start">G~T · 20석 × 14줄 · 양끝 장애인석</div>`+head+main;
+  const extDot=(seat,label)=>seat?`<i class="seat ext-seat${String(seat.code).toUpperCase()===mineRaw?' mine':''}" title="${seat.label||label}"><small>${label}</small></i>`:'<i class="seat gap"></i>';
+  const main='GHIJKLMNOPQRST'.split('').map(row=>{
+    const all=byRow.get(row)||[],core=new Map(all.filter(s=>String(s.side).toUpperCase()==='B').map(s=>[Number(s.number),s]));
+    const left=all.filter(s=>String(s.side).toUpperCase()==='XL'),right=all.filter(s=>String(s.side).toUpperCase()==='XR');
+    const l2=left.find(s=>Number(s.number)===2),l1=left.find(s=>Number(s.number)===1),r1=right.find(s=>Number(s.number)===1),r2=right.find(s=>Number(s.number)===2);
+    return `<div class="rear-row rear-24"><b class="row-label">${row}</b><div class="rear-seat-strip">${extDot(l2,'L2')}${extDot(l1,'L1')}${Array.from({length:20},(_,i)=>dot(row,i+1,mine,core.has(i+1))).join('')}${extDot(r1,'R1')}${extDot(r2,'R2')}</div></div>`;
+  }).join('');
+  $('#seatMap').innerHTML=front+`<div class="rear-start">A~L 기존 좌석 · M~T 양쪽 확장 · 총 400석</div>`+main;
 }
 async function load(){
   try{

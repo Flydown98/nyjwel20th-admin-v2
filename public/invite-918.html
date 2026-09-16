@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2d163e">
+<title>개관 20주년 초대장 · 남양주시장애인복지관</title>
+<link rel="stylesheet" href="/invite-918.css?v=0.9.18">
+</head>
+<body>
+<div class="ambient a1"></div><div class="ambient a2"></div>
+<main class="page">
+  <section class="hero">
+    <div class="mark">20</div>
+    <p class="eyebrow">NAMYANGJU DISABLED WELFARE CENTER · 20TH ANNIVERSARY</p>
+    <h1>스무번의 계절,<br><span>스물한 번째 약속</span></h1>
+    <p class="lead">남양주시장애인복지관 개관 20주년 기념행사에 귀하를 초대합니다.</p>
+    <div class="event-meta"><span>2026. 9. 17. THU · 13:30</span><span>남양주금곡실내체육관</span></div>
+  </section>
+
+  <section id="lookupPanel" class="lookup-card">
+    <p class="section-kicker">MY INVITATION</p>
+    <h2>나의 초대장 확인</h2>
+    <p class="desc">초청 명단에 등록된 성함과 휴대전화번호를 입력해 주세요.</p>
+    <form id="lookupForm">
+      <label><span>성함</span><input id="inviteName" name="name" autocomplete="name" placeholder="성함 입력" required></label>
+      <label><span>휴대전화번호</span><input id="invitePhone" name="phone" inputmode="tel" autocomplete="tel" placeholder="010-0000-0000" required></label>
+      <button id="lookupButton" type="submit">초대장 확인하기</button>
+    </form>
+    <p id="lookupMessage" class="lookup-message" aria-live="polite"></p>
+  </section>
+
+  <section id="inviteResult" class="invitation hidden" aria-live="polite">
+    <div class="ticket-top">
+      <div><p class="section-kicker light">OFFICIAL INVITATION</p><h2>개관 20주년<br>기념 초대장</h2></div>
+      <div class="mini-20">20</div>
+    </div>
+    <div class="ticket-body">
+      <p class="welcome">귀한 걸음으로 스무 해의 시간을 함께 빛내주시길 바랍니다.</p>
+      <div class="guest"><small>INVITED GUEST</small><strong id="guestName">-</strong><span id="guestOrg"></span></div>
+      <div class="seat-box"><small>YOUR SEAT</small><strong id="guestSeat">-</strong></div>
+      <div class="details">
+        <div><small>DATE & TIME</small><b>2026. 9. 17.(목) 13:30</b></div>
+        <div><small>VENUE</small><b>남양주금곡실내체육관</b></div>
+      </div>
+      <div id="qrArea" class="qr-area hidden"><img id="guestQr" alt="개인 입장 QR코드"><p>현장 접수 시 QR을 보여주세요.</p></div>
+      <div class="ticket-actions">
+        <a id="seatGuideLink" class="secondary hidden" href="#">좌석 위치 확인</a>
+        <button id="lookupAgain" type="button" class="ghost">다른 초대장 조회</button>
+      </div>
+    </div>
+    <div class="ticket-foot"><span>남양주시장애인복지관</span><span>20TH ANNIVERSARY</span></div>
+  </section>
+
+  <footer>본 페이지는 초청 대상자 확인을 위한 전용 초대장 페이지입니다.</footer>
+</main>
+<script src="/invite-918.js?v=0.9.18"></script>
+</body>
+</html>

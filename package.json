@@ -1,6 +1,6 @@
 {
   "name": "nyjwel20th-admin-v2",
-  "version": "0.9.16",
+  "version": "0.9.18",
   "private": true,
   "description": "남양주시장애인복지관 개관 20주년 현장 관리자 v2",
   "main": "server.js",
@@ -12,7 +12,8 @@
     "multer": "^2.0.2",
     "xlsx": "^0.18.5",
     "iconv-lite": "^0.6.3",
-    "html5-qrcode": "^2.3.8"
+    "html5-qrcode": "^2.3.8",
+    "qrcode": "^1.5.4"
   },
   "engines": {
     "node": ">=20"

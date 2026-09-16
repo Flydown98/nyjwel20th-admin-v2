@@ -499,3 +499,10 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 .rear-layout .seat-cell.wheelchair{border:3px solid #2f66d0!important;background:#eef5ff!important}
 .rear-layout .seat-cell.wheelchair strong{color:#123d8b!important}
 .rear-layout .rear-seat-row .seat-cell:nth-child(1),.rear-layout .rear-seat-row .seat-cell:nth-child(2){box-shadow:inset 0 0 0 1px rgba(47,102,208,.08)}
+
+/* EVENT400-V6 rear extension */
+.rear-seat-row.extended .rear-24{display:grid;grid-template-columns:repeat(24,minmax(42px,1fr));gap:4px}
+.rear-seat-row.extended .extension-gap{visibility:hidden;pointer-events:none}
+.rear-number-header{grid-template-columns:32px 84px repeat(20,minmax(42px,1fr)) 84px!important}
+.rear-number-header .ext-head{font-size:9px;color:#7c6b88;text-align:center;align-self:end}
+@media(max-width:720px){.seat-map{min-width:1280px!important}.rear-seat-row.extended .rear-24{grid-template-columns:repeat(24,44px)!important}.rear-number-header{grid-template-columns:32px 88px repeat(20,44px) 88px!important}}

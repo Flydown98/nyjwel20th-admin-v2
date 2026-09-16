@@ -55,7 +55,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.16',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.18',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -84,7 +84,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.16'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.18'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -134,6 +134,7 @@ function seedDemoState(){
   fs.writeFileSync(STATE_FILE,JSON.stringify(state,null,2),'utf8');
 }
 if(SYSTEM_DEMO_MODE && (!state.participants?.length || process.env.DEMO_RESET_ON_START==='true'))seedDemoState();
+if(!SYSTEM_DEMO_MODE){const seatExpansion=ensureEvent400Expansion();if(seatExpansion.added>0){fs.writeFileSync(STATE_FILE,JSON.stringify(state,null,2),'utf8');console.log(`[SEAT] EVENT400-V6 확장좌석 ${seatExpansion.added}석 추가 · 총 ${seatExpansion.total}석`);}}
 
 
 const sseClients=new Set();
@@ -280,6 +281,43 @@ function buildEvent376Seats(){
   return out;
 }
 
+// EVENT400-V6: 기존 376석은 그대로 두고 L열 뒤(M~T)에 바깥쪽 좌석 24석만 추가한다.
+// M~P: 좌 2 + 우 2 (각 24석), Q~T: 좌 1 + 우 1 (각 22석) => 총 400석.
+function event400ExtensionSeats(){
+  const out=[];
+  const rows='MNOPQRST'.split('');
+  let sort=10000;
+  rows.forEach(row=>{
+    const perSide='MNOP'.includes(row)?2:1;
+    for(let n=perSide;n>=1;n--){
+      out.push({code:`${row}XL-${String(n).padStart(2,'0')}`,label:`${row} 좌측추가 ${n}`,row,side:'XL',number:n,displayNumber:`L${n}`,section:'rear-extension',block:'REAR-EXT-L',zone:'일반석',enabled:true,autoAssignable:true,wheelchairAssignable:false,wheelchairOnly:false,extension:true,sortOrder:sort++});
+    }
+    for(let n=1;n<=perSide;n++){
+      out.push({code:`${row}XR-${String(n).padStart(2,'0')}`,label:`${row} 우측추가 ${n}`,row,side:'XR',number:n,displayNumber:`R${n}`,section:'rear-extension',block:'REAR-EXT-R',zone:'일반석',enabled:true,autoAssignable:true,wheelchairAssignable:false,wheelchairOnly:false,extension:true,sortOrder:sort++});
+    }
+  });
+  return out;
+}
+function expectedEvent400Codes(){
+  return new Set([...buildEvent376Seats(),...event400ExtensionSeats()].map(x=>x.code));
+}
+function ensureEvent400Expansion(){
+  if(!Array.isArray(state.seats))state.seats=[];
+  // 완전 신규 서버라 좌석 데이터가 하나도 없을 때만 기본 376석을 생성한다.
+  // 기존 운영 데이터가 있으면 어떤 기존 좌석도 교체/삭제하지 않는다.
+  if(state.seats.length===0)state.seats=buildEvent376Seats();
+  const existing=new Set(state.seats.map(x=>str(x.code).toUpperCase()));
+  const extras=event400ExtensionSeats();
+  let added=0;
+  extras.forEach(seat=>{if(!existing.has(seat.code)){state.seats.push(seat);existing.add(seat.code);added++;}});
+  if(!state.meta)state.meta={};
+  if(added||state.seats.length===400){
+    state.meta.seatLayout='EVENT400-V6';
+    state.meta.seatLayoutAppliedAt=state.meta.seatLayoutAppliedAt||nowIso();
+  }
+  return {added,total:state.seats.length};
+}
+
 
 function phoneLast4(v){
   const d=digits(v);
@@ -416,7 +454,8 @@ function lockCurrentAssignedSeats(){
 
 function seatCodeCategory(code){
   const seat=seatByCode(code);if(!seat)return 'general';
-  const row=str(seat.row).toUpperCase(),n=num(seat.displayNumber||seat.number);
+  const row=str(seat.row).toUpperCase(),n=num(seat.number);
+  if(seat.extension===true||['XL','XR'].includes(str(seat.side).toUpperCase()))return 'general';
   if(['A','B','C'].includes(row))return 'vip';
   if(['D','E','F'].includes(row))return 'guest';
   if(row>='G'&&row<='T'&&(n<=2||n>=19))return 'wheelchair';
@@ -797,7 +836,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.16',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.18',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -819,6 +858,32 @@ app.get('/api/public/seat-layout',(req,res)=>{
   const rows=state.seats.filter(x=>x.enabled!==false).map(x=>({code:x.code,label:displaySeatCode(x.code),row:x.row,side:x.side,number:x.number,displayNumber:x.displayNumber||x.number,section:x.section||'',block:x.block||'',zone:x.zone||''}));
   res.setHeader('Cache-Control','no-store');
   res.json({ok:true,rows});
+});
+
+['/9.18','/9.18/','/918','/918/','/invite','/invite/'].forEach(route=>{
+  app.get(route,(req,res)=>res.sendFile(path.join(ROOT,'public','invite-918.html')));
+});
+
+const inviteLookupRate=new Map();
+function inviteRateAllowed(req){
+  const key=str(req.ip||req.socket?.remoteAddress||'unknown');
+  const now=Date.now(),windowMs=10*60*1000,limit=30;
+  const recent=(inviteLookupRate.get(key)||[]).filter(t=>now-t<windowMs);
+  if(recent.length>=limit){inviteLookupRate.set(key,recent);return false;}
+  recent.push(now);inviteLookupRate.set(key,recent);return true;
+}
+app.post('/api/public/invite-lookup',async(req,res)=>{
+  if(!inviteRateAllowed(req))return res.status(429).json({ok:false,error:'조회 요청이 많습니다. 잠시 후 다시 시도해 주세요.'});
+  const name=str(req.body?.name).replace(/\s+/g,'');
+  const phoneNo=digits(req.body?.phone);
+  if(name.length<2||phoneNo.length<9)return res.status(400).json({ok:false,error:'성함과 휴대전화번호를 정확히 입력해 주세요.'});
+  const matches=state.participants.filter(p=>participantActive(p)&&str(p.name).replace(/\s+/g,'')===name&&digits(p.phone)===phoneNo);
+  if(!matches.length)return res.status(404).json({ok:false,error:'입력하신 정보와 일치하는 초대장을 찾을 수 없습니다.'});
+  const p=matches[0];
+  let qr='';
+  try{const QRCode=require('qrcode');qr=await QRCode.toDataURL(str(p.id),{margin:1,width:360,errorCorrectionLevel:'M'});}catch(_){qr='';}
+  res.setHeader('Cache-Control','no-store');
+  res.json({ok:true,invite:{name:str(p.name),organization:str(p.organization),seat:participantSeatLabel(p),hasAssignedSeat:Boolean(p.seat),ticketCode:str(p.id),qr,eventName:state.settings.eventName||'남양주시장애인복지관 개관 20주년 기념행사',eventDate:'2026. 9. 17.(목) 13:30',venue:'남양주금곡실내체육관',subtitle:'스무번의 계절, 스물한 번째 약속',seatGuideUrl:p.seat?`/s/${seatGuideKeyForParticipant(p)}`:''}});
 });
 
 
@@ -886,7 +951,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.16',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.18',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1272,8 +1337,10 @@ app.post('/api/groups/:id/representative',auth,(req,res)=>{
 });
 
 
-function migrateSeatCodeTo376(code){
+function migrateSeatCodeTo400(code){
   const raw=str(code).toUpperCase();if(!raw)return '';
+  // 새 확장 좌석은 그대로 유지
+  if(/^([M-T])X[LR]-(\d{2})$/.test(raw))return raw;
   let m=raw.match(/^([A-F])([LR])-(\d{1,2})$/);
   if(m&&num(m[3])>=1&&num(m[3])<=8)return `${m[1]}${m[2]}-${String(num(m[3])).padStart(2,'0')}`;
   m=raw.match(/^([G-L])([LR])-(\d{1,2})$/);
@@ -1282,28 +1349,16 @@ function migrateSeatCodeTo376(code){
   m=raw.match(/^([A-T])(\d{1,2})$/);if(m){const row=m[1],n=num(m[2]);if(row<='F'){if(n>=1&&n<=8)return `${row}L-${String(n).padStart(2,'0')}`;if(n>=9&&n<=16)return `${row}R-${String(n-8).padStart(2,'0')}`;}else if(n>=1&&n<=20)return `${row}B-${String(n).padStart(2,'0')}`;}
   return '';
 }
-function applyCanonical376Layout({preserveAssignments=true}={}){
-  const canonical=buildEvent376Seats(),valid=new Set(canonical.map(x=>x.code));
-  let preserved=0,cleared=0,moved=0;
-  state.participants.forEach(p=>{
-    if(!p.seat)return;
-    if(!preserveAssignments){p.seat='';p.modifiedAt=nowIso();cleared++;return}
-    const mapped=migrateSeatCodeTo376(p.seat);
-    if(mapped&&valid.has(mapped)){if(mapped!==p.seat)moved++;p.seat=mapped;p.modifiedAt=nowIso();preserved++;}
-    else{p.seat='';p.seatLocked=false;p.modifiedAt=nowIso();cleared++;}
-  });
-  const used=new Set();
-  state.participants.filter(participantActive).sort((x,y)=>num(x.receptionNo)-num(y.receptionNo)).forEach(p=>{if(!p.seat)return;if(used.has(p.seat)){p.seat='';p.seatLocked=false;p.modifiedAt=nowIso();cleared++;preserved=Math.max(0,preserved-1)}else used.add(p.seat)});
-  state.seats=canonical;state.settings.autoSeatAssignOnCheckin=true;state.meta.seatLayout='EVENT376-V5';state.meta.seatLayoutAppliedAt=nowIso();
-  return {preserved,cleared,moved,seats:canonical.length};
-}
 
+// 기존 좌석/배정은 전혀 재생성하지 않고, 뒤쪽 확장좌석 24석만 추가한다.
 app.post('/api/seats/apply-event-400',auth,(req,res)=>{
-  const before=backupNow('before-376-seat-layout-v5');
-  const result=applyCanonical376Layout({preserveAssignments:req.body?.preserveAssignments!==false});
-  adminAudit('376석최신배치적용',{id:'EVENT376-V5',name:'376석 내빈·장애인 좌석배치'},null,result);
-  saveState();const after=backupNow('after-376-seat-layout-v5');
-  res.json({ok:true,...result,beforeBackup:before,afterBackup:after,autoSeatAssignOnCheckin:true});
+  const before=backupNow('before-400-seat-extension-v6');
+  const beforeTotal=state.seats.length;
+  const result=ensureEvent400Expansion();
+  state.settings.autoSeatAssignOnCheckin=true;
+  adminAudit('400석후면확장적용',{id:'EVENT400-V6',name:'400석 후면 확장 · 기존좌석 보존'},null,{...result,beforeTotal});
+  saveState();const after=backupNow('after-400-seat-extension-v6');
+  res.json({ok:true,...result,beforeTotal,preservedAssignments:state.participants.filter(p=>p.seat).length,beforeBackup:before,afterBackup:after,autoSeatAssignOnCheckin:true});
 });
 
 app.post('/api/seats/lock-current',auth,(req,res)=>{
@@ -1333,9 +1388,11 @@ app.get('/api/seats',auth,(req,res)=>{
     assigned:rows.filter(x=>x.occupied).length,
     arrivedAssigned:rows.filter(x=>x.arrived).length,
     layoutVersion:state.meta.seatLayout||'',
-    layoutNeedsRepair:state.meta.seatLayout!=='EVENT376-V5' || rows.length!==376 ||
+    layoutNeedsRepair:rows.length!==400 ||
       'ABCDEF'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==16) ||
-      'GHIJKLMNOPQRST'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==20),
+      'GHIJKL'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==20) ||
+      'MNOP'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==24) ||
+      'QRST'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==22),
     autoSeatAssignOnCheckin:state.settings.autoSeatAssignOnCheckin!==false,
     rows
   });

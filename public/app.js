@@ -321,7 +321,8 @@ $('#representativeGroups').onclick=groupContainerClick;$('#companionGroups').onc
 
 let seatCache=[];
 function seatZoneClass(s){
-  const row=String(s.row||'').toUpperCase(),n=Number(s.displayNumber||s.number||0);
+  if(s.extension===true||['XL','XR'].includes(String(s.side||'').toUpperCase()))return '';
+  const row=String(s.row||'').toUpperCase(),n=Number(s.number||0);
   if(row>='A'&&row<='F')return 'guest';
   if(row>='G'&&row<='T'&&(n<=2||n>=19))return 'wheelchair';
   return '';
@@ -339,10 +340,19 @@ async function loadSeats(){
       const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s])),rm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));
       return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`;
     }).join('');
-    const head=`<div class="rear-number-header"><span></span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
-    const main=mainRows.map(row=>{const rs=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(rs.map(s=>[Number(s.number),s]));return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twenty">${Array.from({length:20},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div></div>`}).join('');
-    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>376석 최신 배치 적용을 한 번 눌러주세요. 기존 호환 좌석은 최대한 유지됩니다.</span></div>`:'';
-    $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~F 내빈석</span><span>런웨이</span><span>A~F 내빈석</span></div>${front}<div class="runway-end-cap">G~T · 20석 × 14줄 · 양끝 1·2 / 19·20 장애인석</div><div class="rear-layout">${head}${main}</div>`;
+    const head=`<div class="rear-number-header"><span></span><span class="ext-head">추가</span>${Array.from({length:20},(_,i)=>`<b>${i+1}</b>`).join('')}<span class="ext-head">추가</span></div>`;
+    const main=mainRows.map(row=>{
+      const all=byRow.get(row)||[];
+      const core=all.filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(core.map(s=>[Number(s.number),s]));
+      const left=all.filter(s=>String(s.side).toUpperCase()==='XL').sort((a,b)=>Number(b.number)-Number(a.number));
+      const right=all.filter(s=>String(s.side).toUpperCase()==='XR').sort((a,b)=>Number(a.number)-Number(b.number));
+      const extCell=(seat,label)=>seat?seatCellHtml(seat,label):'<div class="seat-cell extension-gap"></div>';
+      const leftSlots=row>='M'?['MNOP'.includes(row)?left.find(x=>Number(x.number)===2):null,left.find(x=>Number(x.number)===1)]:[null,null];
+      const rightSlots=row>='M'?[right.find(x=>Number(x.number)===1),'MNOP'.includes(row)?right.find(x=>Number(x.number)===2):null]:[null,null];
+      return `<div class="rear-seat-row extended"><div class="seat-row-label">${row}</div><div class="seat-block rear-24">${extCell(leftSlots[0],'L2')}${extCell(leftSlots[1],'L1')}${Array.from({length:20},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}${extCell(rightSlots[0],'R1')}${extCell(rightSlots[1],'R2')}</div></div>`
+    }).join('');
+    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>400석 후면 확장이 아직 적용되지 않았습니다.</strong><span>버튼을 누르면 기존 좌석과 배정은 그대로 두고 M~T 바깥쪽에 24석만 추가합니다.</span></div>`:'';
+    $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~F 내빈석</span><span>런웨이</span><span>A~F 내빈석</span></div>${front}<div class="runway-end-cap">A~L 기존 좌석 유지 · M~P 좌우 각 2석 추가 · Q~T 좌우 각 1석 추가 · 총 400석</div><div class="rear-layout">${head}${main}</div>`;
     updateSeatSelection();const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
   }catch(e){toast(e.message)}
 }
@@ -392,8 +402,8 @@ async function openSeatManager(code){
 }
 $('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
 $('#apply400Layout')?.addEventListener('click',async()=>{
-  if(!confirm('376석 최신 좌석배치를 적용할까요?\n\nA~F: 기존 런웨이 구조 16석, 전부 내빈석\nG~T: 20석 × 14줄\nG~T의 1·2번 / 19·20번 = 장애인·휠체어 우선석\n\n기존 호환 좌석은 최대한 유지합니다.'))return;
-  try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:JSON.stringify({preserveAssignments:true})});selectedSeatCode='';toast(`376석 배치 완료 · 유지 ${d.preserved}명 · 변환 ${d.moved}명 · 해제 ${d.cleared}명`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
+  if(!confirm('400석 후면 확장을 적용할까요?\n\nA~L 기존 좌석과 현재 배정은 변경하지 않습니다.\nM~P: 좌측 2석 + 우측 2석 추가\nQ~T: 좌측 1석 + 우측 1석 추가\n총 24석만 새로 추가됩니다.'))return;
+  try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:'{}'});selectedSeatCode='';toast(`400석 확장 완료 · 새 좌석 ${d.added}석 추가 · 기존 배정 ${d.preservedAssignments}명 유지`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
 });
 $('#reloadSeats').onclick=loadSeats;
 $('#releasePendingSeats').onclick=async()=>{if(!confirm('미도착 참가자의 현재 좌석을 모두 해제할까요? 도착자 좌석은 유지됩니다.'))return;try{const d=await api('/api/seats/release-pending',{method:'POST',body:'{}'});toast(`${d.released}석 해제 완료`,5000);loadSeats();refreshDashboard()}catch(e){toast(e.message)}};
