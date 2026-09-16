@@ -1,7 +1,7 @@
 {
   "name": "남양주시장애인복지관 20주년 현장 관리자",
   "short_name": "20주년 관리자",
-  "start_url": "/admin",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5f7fb",

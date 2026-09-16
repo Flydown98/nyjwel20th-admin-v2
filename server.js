@@ -28,7 +28,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.19';
+const FRONTEND_VERSION = '0.9.20';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -56,7 +56,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.19',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.20',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -85,7 +85,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.19'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.20'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -794,8 +794,8 @@ app.use(express.json({limit:'3mb'}));
 app.use(express.static(path.join(ROOT,'public'),{maxAge:0,etag:false,index:false,setHeaders(res){res.setHeader('Cache-Control','no-store, max-age=0');}}));
 
 // 공개 초대장과 관리자 화면을 분리합니다.
-app.get(['/', '/invite', '/invite/'],(req,res)=>res.sendFile(path.join(ROOT,'public','invite.html')));
-app.get(['/admin', '/admin/'],(req,res)=>res.sendFile(path.join(ROOT,'public','index.html')));
+app.get(['/', '/admin', '/admin/'],(req,res)=>res.sendFile(path.join(ROOT,'public','index.html')));
+app.get(['/9-17', '/9-17/', '/invite', '/invite/'],(req,res)=>res.sendFile(path.join(ROOT,'public','invite.html')));
 app.get('/vendor/html5-qrcode.min.js',(req,res)=>{
   res.sendFile(path.join(ROOT,'node_modules','html5-qrcode','html5-qrcode.min.js'));
 });
@@ -862,7 +862,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.19',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.20',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -951,7 +951,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.19',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.20',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1871,7 +1871,7 @@ app.post('/api/sms/pre-event',auth,(req,res)=>{
   people.forEach(p=>{
     const g=state.groups.find(g=>g.representativeId===p.id);
     const countText=g?`\n사전 등록 인원: ${g.memberIds.length}명`:'';
-    const msg=`[남양주시장애인복지관]\n${p.name}님, 내일 개관 20주년 기념행사가 진행됩니다.\n일시: 2026. 9. 17.(목) 13:30\n장소: 남양주금곡실내체육관${countText}\n\n사전 신청 인원에 변동이 있거나 참석이 어려운 분이 있을 경우 복지관으로 연락 부탁드립니다.\n추가 인원은 현장 참여가 가능하나 좌석은 배정받지 못할 수 있습니다.\n행사 당일 QR 입장권을 준비해 주세요. 감사합니다.`;
+    const msg=`[남양주시장애인복지관]\n${p.name}님, 내일 개관 20주년 기념행사가 진행됩니다.\n일시: 2026. 9. 17.(목) 13:30\n장소: 남양주금곡실내체육관${countText}\n\n사전 신청 인원에 변동이 있거나 참석이 어려운 분이 있을 경우 복지관으로 연락 부탁드립니다.\n추가 인원은 현장 참여가 가능하나 좌석은 배정받지 못할 수 있습니다.\n초대장 조회: ${PUBLIC_BASE_URL}/9-17\n행사 당일 QR 입장권을 준비해 주세요. 감사합니다.`;
     if(queueSms(p.phone,msg,'pre-event',p.id))queued++;
   });
   saveState();res.json({ok:true,queued});
@@ -2089,6 +2089,103 @@ app.post('/api/external-backup/restore',auth,async(req,res)=>{
 
 app.post('/api/backup',auth,(req,res)=>res.json({ok:true,filename:backupNow('manual')}));
 app.get('/api/backup/download',auth,(req,res)=>{backupNow('download');res.download(STATE_FILE,`nyjwel20th-backup-${new Date().toISOString().slice(0,10)}.json`)});
+
+function decodeCsvBuffer(buffer){
+  let text=iconv.decode(buffer,'utf8');
+  if(text.includes('\uFFFD'))text=iconv.decode(buffer,'cp949');
+  return text.replace(/^\uFEFF/,'');
+}
+function parseCsvText(text){
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(quoted){
+      if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}
+      else if(ch==='"')quoted=false;
+      else cell+=ch;
+    }else{
+      if(ch==='"')quoted=true;
+      else if(ch===','){row.push(cell);cell='';}
+      else if(ch==='\n'){row.push(cell);rows.push(row);row=[];cell='';}
+      else if(ch!=='\r')cell+=ch;
+    }
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row)}
+  const clean=rows.filter(r=>r.some(v=>str(v)!==''));
+  if(!clean.length)return [];
+  const headers=clean[0].map(str);
+  return clean.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,str(r[i]??'')])));
+}
+function yn(v){return ['y','yes','1','true','예','o','○'].includes(str(v).toLowerCase())}
+function makeImportedQr(receptionNo){
+  return `20TH-${String(receptionNo).padStart(4,'0')}-${crypto.randomBytes(10).toString('hex').toUpperCase()}`;
+}
+function previewParticipantCsv(buffer,name='participants.csv'){
+  const rows=parseCsvText(decodeCsvBuffer(buffer));
+  const required=['이름','연락처'];
+  if(!rows.length)throw new Error('CSV에 참가자 데이터가 없습니다.');
+  const headers=Object.keys(rows[0]||{});
+  for(const h of required)if(!headers.includes(h))throw new Error(`CSV 필수 열이 없습니다: ${h}`);
+  const byId=new Map(state.participants.map(p=>[str(p.id),p]));
+  const existingNos=new Set(state.participants.map(p=>num(p.receptionNo,0)).filter(Boolean));
+  let nextNo=Math.max(0,...existingNos)+1;
+  const seatCodes=new Set(state.seats.map(s=>str(s.code)));
+  const planned=[];const warnings=[];let add=0,update=0;
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i];
+    const csvId=str(r['QR고유코드']);
+    const found=csvId?byId.get(csvId):null;
+    let receptionNo=num(r['접수번호'],0);
+    if(found){receptionNo=num(found.receptionNo,receptionNo||nextNo);update++;}
+    else{
+      if(!receptionNo||existingNos.has(receptionNo))receptionNo=nextNo;
+      while(existingNos.has(receptionNo))receptionNo++;
+      existingNos.add(receptionNo);nextNo=Math.max(nextNo,receptionNo+1);add++;
+    }
+    const seat=str(r['좌석']).toUpperCase();
+    if(seat&&!seatCodes.has(seat))warnings.push(`${i+2}행 ${str(r['이름'])}: 현재 좌석표에 없는 좌석 ${seat}`);
+    planned.push({
+      mode:found?'update':'add',existingId:found?.id||'',
+      receptionNo,id:found?.id||(csvId||makeImportedQr(receptionNo)),
+      name:str(r['이름']),phone:phone(r['연락처']),organization:str(r['소속기관']),seat,
+      arrived:yn(r['도착여부']),arrivedAt:str(r['도착시각'])||null,giftReceived:yn(r['기념품']),onsite:yn(r['현장접수'])
+    });
+  }
+  return {name,planned,summary:{rows:planned.length,add,update,warnings:warnings.length},warnings:warnings.slice(0,50)};
+}
+app.post('/api/import/participants-csv/preview',auth,upload.single('file'),(req,res)=>{
+  try{
+    if(!req.file)return res.status(400).json({ok:false,error:'CSV 파일을 선택해 주세요.'});
+    const parsed=previewParticipantCsv(req.file.buffer,req.file.originalname);
+    const importId=uuid('csvmerge');previews.set(importId,{createdAt:Date.now(),csvMerge:parsed});
+    res.json({ok:true,importId,fileName:parsed.name,summary:parsed.summary,warnings:parsed.warnings,sample:parsed.planned.slice(0,15)});
+  }catch(e){res.status(400).json({ok:false,error:e.message})}
+});
+app.post('/api/import/participants-csv/confirm',auth,(req,res)=>{
+  const h=previews.get(str(req.body?.importId));
+  if(!h?.csvMerge)return res.status(400).json({ok:false,error:'CSV 미리보기 정보가 만료되었습니다. 다시 선택해 주세요.'});
+  const before=backupNow('before-csv-merge');
+  const byId=new Map(state.participants.map(p=>[str(p.id),p]));
+  let added=0,updated=0;
+  for(const x of h.csvMerge.planned){
+    const existing=byId.get(x.existingId||x.id);
+    if(existing){
+      existing.receptionNo=x.receptionNo;existing.name=x.name;existing.phone=x.phone;existing.organization=x.organization;existing.seat=x.seat;
+      existing.arrived=x.arrived;existing.arrivedAt=x.arrivedAt;existing.giftReceived=x.giftReceived;existing.onsite=x.onsite;existing.modifiedAt=nowIso();updated++;
+    }else{
+      const p={id:x.id,receptionNo:x.receptionNo,name:x.name,phone:x.phone,organization:x.organization,seat:x.seat,
+        applicationType:'개인신청',note:'CSV 병합 추가',arrived:x.arrived,arrivedAt:x.arrivedAt,registeredAt:nowIso(),modifiedAt:nowIso(),
+        active:true,requestedCount:1,wheelchairUser:false,wheelchairCount:0,usesCenter:false,disabledPerson:false,companionGroup:'',participationStatus:'참여',seatCategory:'auto',seatLocked:Boolean(x.seat),giftReceived:x.giftReceived,onsite:x.onsite};
+      state.participants.push(p);byId.set(p.id,p);added++;
+    }
+  }
+  state.meta.importedAt=nowIso();state.meta.importSource=h.csvMerge.name;
+  rebuildAutomaticGroups({persist:false});
+  adminAudit('CSV참가자병합',{id:'csv',name:h.csvMerge.name},null,{added,updated,total:state.participants.length});
+  saveState();const after=backupNow('after-csv-merge');previews.delete(str(req.body?.importId));
+  res.json({ok:true,added,updated,total:state.participants.length,beforeBackup:before,afterBackup:after});
+});
+
 app.get('/api/export/participants.csv',auth,(req,res)=>{
   const headers=['접수번호','QR고유코드','이름','연락처','소속기관','좌석','도착여부','도착시각','기념품','현장접수'];
   const rows=state.participants.map(p=>[p.receptionNo,p.id,p.name,p.phone,p.organization,p.seat,p.arrived?'Y':'N',p.arrivedAt||'',p.giftReceived?'Y':'N',p.onsite?'Y':'N']);

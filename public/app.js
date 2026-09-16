@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.19';
+const FRONTEND_VERSION='0.9.20';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -846,6 +846,31 @@ $('#backupNow').onclick=async()=>{try{const d=await api('/api/backup',{method:'P
 async function downloadAuth(url,name){const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error('다운로드 실패');const blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
 $('#downloadBackup').onclick=()=>downloadAuth('/api/backup/download',`nyjwel20th-backup-${new Date().toISOString().slice(0,10)}.json`).catch(e=>toast(e.message));
 $('#downloadCsv').onclick=()=>downloadAuth('/api/export/participants.csv','participants.csv').catch(e=>toast(e.message));
+
+let currentCsvMergeId='';
+$('#csvMergePreview')?.addEventListener('click',async()=>{
+  const file=$('#csvMergeFile')?.files?.[0];if(!file)return toast('병합할 참가자 CSV를 선택해 주세요.');
+  const btn=$('#csvMergePreview');btn.disabled=true;$('#csvMergeStatus').textContent='CSV 확인 중...';
+  try{
+    const fd=new FormData();fd.append('file',file);
+    const d=await api('/api/import/participants-csv/preview',{method:'POST',body:fd});
+    currentCsvMergeId=d.importId;$('#csvMergeConfirm').disabled=false;
+    const warn=(d.warnings||[]).length?` · 경고 ${d.summary.warnings}건`:'';
+    $('#csvMergeStatus').textContent=`${d.fileName} · 총 ${d.summary.rows}행 · 기존 갱신 ${d.summary.update}명 · 신규 추가 ${d.summary.add}명${warn}`;
+    toast(`CSV 확인 완료 · 신규 ${d.summary.add}명 / 기존 ${d.summary.update}명`,7000);
+  }catch(e){currentCsvMergeId='';$('#csvMergeConfirm').disabled=true;$('#csvMergeStatus').textContent=`오류: ${e.message}`;toast(e.message,8000)}
+  finally{btn.disabled=false}
+});
+$('#csvMergeConfirm')?.addEventListener('click',async()=>{
+  if(!currentCsvMergeId)return toast('먼저 CSV 확인을 실행해 주세요.');
+  if(!confirm('CSV를 현재 명단에 병합할까요?\n기존 명단은 삭제하지 않으며, 반영 전에 자동 JSON 백업을 생성합니다.'))return;
+  const btn=$('#csvMergeConfirm');btn.disabled=true;
+  try{
+    const d=await api('/api/import/participants-csv/confirm',{method:'POST',body:JSON.stringify({importId:currentCsvMergeId})});
+    currentCsvMergeId='';$('#csvMergeStatus').textContent=`병합 완료 · 신규 ${d.added}명 · 기존 갱신 ${d.updated}명 · 전체 ${d.total}명`;
+    toast(`CSV 병합 완료 · 신규 ${d.added}명 · 전체 ${d.total}명`,8000);await refreshDashboard();
+  }catch(e){btn.disabled=false;toast(e.message,8000)}
+});
 
 
 $('#restoreBackup')?.addEventListener('click',async()=>{
