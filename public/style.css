@@ -510,3 +510,12 @@ kbd{display:inline-block;border:1px solid #94a3b8;border-bottom-width:3px;border
 
 /* v0.9.26 · 동반그룹 접수 구성원 미리보기 */
 .group-member-preview{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.group-member-chip{padding:7px 9px;border-radius:10px;background:#f4eff8;border:1px solid #dfd0e9;font-size:12px}.group-member-chip.arrived{opacity:.6;text-decoration:line-through}
+
+/* v0.9.28 current hall layout */
+.seat-block.fifteen{display:grid;grid-template-columns:repeat(15,minmax(38px,1fr));gap:5px;min-width:650px}
+.wide-wing-row{min-width:1460px}
+.staff-free-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}
+.staff-free-block{padding:14px;border:1px dashed #8b8b8b;border-radius:14px;background:#f5f5f5}
+.staff-free-block>strong{display:block;margin-bottom:10px;text-align:center}
+.staff-seat-grid{display:grid;grid-template-columns:repeat(8,minmax(34px,1fr));gap:5px}
+.seat-cell.staff-seat{opacity:.55;cursor:not-allowed;background:#ececec}

@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.26';
+const FRONTEND_VERSION='0.9.28';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.26';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.28';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -157,7 +157,7 @@ async function loadParticipants(){
       <td class="p-name"><strong>${esc(p.name)}</strong><small>${p.wheelchairUser?'♿ ':''}${p.usesCenter?'복지관 이용':''}</small></td>
       <td class="p-org">${esc(p.organization||'-')}</td>
       <td class="p-phone">${esc(p.phone||'-')}</td>
-      <td class="p-seat"><strong>${esc(displaySeat(p.seat)||'스탠딩석')}</strong></td>
+      <td class="p-seat"><strong>${esc(displaySeat(p.seat)||(p.seatCategory==='standing'?'스탠딩석':'미배정'))}</strong></td>
       <td class="p-status">${p.arrived?'<b class="yes">도착</b>':(p.participationStatus==='미참여'||p.active===false?'<span class="no">미참여</span>':'미도착')}</td>
       <td class="p-actions"><button data-edit="${esc(p.id)}">수정</button><button data-check="${esc(p.id)}">접수</button>${p.arrived?`<button data-undo="${esc(p.id)}">취소</button>`:''}<button data-sms-history="${esc(p.id)}">문자</button><button data-delete="${esc(p.id)}" class="danger">삭제</button></td>
     </tr>`).join('')||'<tr><td colspan="7">없음</td></tr>';
@@ -172,12 +172,12 @@ async function openParticipantEdit(id){
         <label>연락처<input name="phone" value="${esc(p.phone||'')}"></label>
         <label>소속기관<input name="organization" value="${esc(p.organization||'')}"></label>
         <label>참여상태<select name="participationStatus"><option ${p.participationStatus==='참여'?'selected':''}>참여</option><option ${p.participationStatus==='미참여'?'selected':''}>미참여</option><option ${p.participationStatus==='취소'?'selected':''}>취소</option><option ${p.participationStatus==='비활성'?'selected':''}>비활성</option></select></label>
-        <label>좌석<input value="${esc(displaySeat(p.seat)||'스탠딩석')}" disabled></label>
+        <label>좌석<input value="${esc(displaySeat(p.seat)||(p.seatCategory==='standing'?'스탠딩석':'미배정'))}" disabled></label>
         <label>도착상태<select name="arrived"><option value="true" ${p.arrived?'selected':''}>도착</option><option value="false" ${!p.arrived?'selected':''}>미도착</option></select></label>
         <label class="check"><input type="checkbox" name="wheelchairUser" ${p.wheelchairUser?'checked':''}> 휠체어 이용</label>
         <label class="check"><input type="checkbox" name="disabledPerson" ${p.disabledPerson?'checked':''}> 장애인 당사자</label>
         <label class="check"><input type="checkbox" name="usesCenter" ${p.usesCenter?'checked':''}> 복지관 이용</label>
-        <label>좌석 분류<select name="seatCategory"><option value="auto" ${(p.seatCategory||'auto')==='auto'?'selected':''}>자동/일반</option><option value="vip" ${p.seatCategory==='vip'?'selected':''}>VIP</option><option value="guest" ${p.seatCategory==='guest'?'selected':''}>내빈</option><option value="wheelchair" ${p.seatCategory==='wheelchair'?'selected':''}>휠체어 우선</option></select></label>
+        <label>좌석 분류<select name="seatCategory"><option value="auto" ${(p.seatCategory||'auto')==='auto'?'selected':''}>자동/일반</option><option value="standing" ${p.seatCategory==='standing'?'selected':''}>스탠딩</option><option value="vip" ${p.seatCategory==='vip'?'selected':''}>VIP</option><option value="guest" ${p.seatCategory==='guest'?'selected':''}>내빈</option><option value="wheelchair" ${p.seatCategory==='wheelchair'?'selected':''}>휠체어 우선</option></select></label>
         <label class="check"><input type="checkbox" name="seatLocked" ${p.seatLocked?'checked':''}> 현재 좌석 고정(일괄배치 보호)</label>
         <label class="check"><input type="checkbox" name="active" ${p.active!==false?'checked':''}> 활성</label>
         <label class="wide-field">메모<textarea name="note" rows="3">${esc(p.note||'')}</textarea></label>
@@ -268,7 +268,7 @@ async function openGroupEditor(groupId=''){
   const selected=new Set(group?.memberIds||[]);
   const searchAndRender=async()=>{
     const q=$('#groupMemberSearch').value.trim(),d=await api(`/api/participants/search?q=${encodeURIComponent(q)}`);
-    $('#groupMemberList').innerHTML=d.rows.map(p=>`<label class="participant-pick"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${esc(p.phone||'')} · ${esc(displaySeat(p.seat)||'스탠딩석')}</small></span></label>`).join('');
+    $('#groupMemberList').innerHTML=d.rows.map(p=>`<label class="participant-pick"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · ${esc(p.phone||'')} · ${esc(displaySeat(p.seat)||(p.seatCategory==='standing'?'스탠딩석':'미배정'))}</small></span></label>`).join('');
     $('#groupMemberList').querySelectorAll('input').forEach(ch=>ch.onchange=()=>{ch.checked?selected.add(ch.value):selected.delete(ch.value);renderRep()});
   };
   const renderRep=()=>{
@@ -365,17 +365,23 @@ async function loadSeats(){
   try{
     const d=await api('/api/seats');seatCache=d.rows;
     $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석 · 자동좌석 ${d.autoSeatAssignOnCheckin?'ON':'OFF'}`;
-    const frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split(''),byRow=new Map();
-    d.rows.forEach(s=>{const row=String(s.row||'').toUpperCase();if(!byRow.has(row))byRow.set(row,[]);byRow.get(row).push(s)});
-    const front=frontRows.map(row=>{
-      const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s])),rm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));
-      return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`;
-    }).join('');
-    const head=`<div class="rear-number-header rear-number-header-26"><span></span>${Array.from({length:26},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
-    const rear=rearRows.map(row=>{const rs=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(rs.map(s=>[Number(s.number),s]));return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twentysix">${Array.from({length:26},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div></div>`}).join('');
-    const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>저장된 좌석 데이터는 이전 구조입니다. 21~26번은 지금도 직접 지정할 수 있으며, 400석 배치 적용을 누르면 최종 좌석틀을 서버 상태에도 저장합니다.</span></div>`:'';
-    $('#seatGrid').innerHTML=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~L 좌측 8석</span><span>런웨이</span><span>A~L 우측 8석</span></div>${front}<div class="runway-end-cap">A~L 기존 좌석 그대로 · 192석 / M~T 26석 × 8줄 · 208석 / 총 400석</div><div class="rear-layout">${head}${rear}</div>`;
-    updateSeatSelection();const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
+    const byRow=new Map();d.rows.forEach(s=>{const row=String(s.row||'').toUpperCase();if(!byRow.has(row))byRow.set(row,[]);byRow.get(row).push(s)});
+    let html='';
+    if(d.layoutVersion==='HALL400-N-WING-V1'){
+      const af='ABCDEF'.split('').map(row=>{const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>s.side==='L').map(s=>[+s.number,s])),rm=new Map(rs.filter(s=>s.side==='R').map(s=>[+s.number,s]));return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`}).join('');
+      const gl='GHIJKL'.split('').map(row=>{const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>s.side==='L').map(s=>[+s.number,s])),rm=new Map(rs.filter(s=>s.side==='R').map(s=>[+s.number,s]));return `<div class="front-seat-row wide-wing-row"><div class="seat-row-label">${row}</div><div class="seat-block fifteen">${Array.from({length:15},(_,i)=>seatCellHtml(lm.get(i+1),i<8?i+1:`W${i-7}`)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block fifteen">${Array.from({length:15},(_,i)=>seatCellHtml(rm.get(i+1),i<8?i+9:`W${i-7}`)).join('')}</div></div>`}).join('');
+      const mn='MN'.split('').map(row=>{const rs=(byRow.get(row)||[]).filter(s=>s.side==='B'),map=new Map(rs.map(s=>[+s.number,s]));return `<div class="front-seat-row wide-wing-row"><div class="seat-row-label">${row}</div><div class="seat-block fifteen">${Array.from({length:15},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block fifteen">${Array.from({length:15},(_,i)=>seatCellHtml(map.get(i+16),i+16)).join('')}</div></div>`}).join('');
+      const staff=(side)=>{const rs=(byRow.get('STAFF')||[]).filter(s=>s.side===side),m=new Map(rs.map(s=>[+s.number,s]));return `<div class="staff-free-block"><strong>스태프 자유석 ${side==='L'?'좌':'우'} 32석</strong><div class="staff-seat-grid">${Array.from({length:32},(_,i)=>{const s=m.get(i+1);return `<div class="seat-cell disabled staff-seat" title="스태프 자유석"><strong>S${i+1}</strong></div>`}).join('')}</div></div>`};
+      html=`${d.layoutNeedsRepair?'<div class="seat-layout-warning"><strong>현장 좌석틀 저장 확인 필요</strong><span>현장 배치 적용 버튼으로 서버 상태에 저장할 수 있습니다.</span></div>':''}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>좌측</span><span>런웨이</span><span>우측</span></div>${af}<div class="runway-end-cap">A~F 기존 96석 유지</div>${gl}${mn}<div class="runway-end-cap">G~N 참가자석 240석 · 참가자 실제 좌석 총 336석</div><div class="staff-free-wrap">${staff('L')}${staff('R')}</div><div class="runway-end-cap">스태프 자유석 64석 · 참가자 배정/접수 제외 · 전체 물리 좌석 400석</div>`;
+    }else{
+      const frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split('');
+      const front=frontRows.map(row=>{const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s])),rm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`}).join('');
+      const head=`<div class="rear-number-header rear-number-header-26"><span></span>${Array.from({length:26},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;
+      const rear=rearRows.map(row=>{const rs=(byRow.get(row)||[]).filter(s=>String(s.side).toUpperCase()==='B'),map=new Map(rs.map(s=>[Number(s.number),s]));return `<div class="rear-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block twentysix">${Array.from({length:26},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div></div>`}).join('');
+      const repair=d.layoutNeedsRepair?`<div class="seat-layout-warning"><strong>좌석 데이터가 이전 구조입니다.</strong><span>저장된 좌석 데이터는 이전 구조입니다.</span></div>`:'';
+      html=`${repair}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>A~L 좌측 8석</span><span>런웨이</span><span>A~L 우측 8석</span></div>${front}<div class="runway-end-cap">구 배치 · A~L 192석 / M~T 208석</div><div class="rear-layout">${head}${rear}</div>`;
+    }
+    $('#seatGrid').innerHTML=html;updateSeatSelection();const wrap=document.querySelector('.seat-map-wrap');if(wrap)wrap.scrollLeft=0;
   }catch(e){toast(e.message)}
 }
 async function openSeatManager(code){
@@ -398,7 +404,7 @@ async function openSeatManager(code){
   $('#closeSeatManager').onclick=closeModal;
   const render=async()=>{
     const d=await api(`/api/participants/search?q=${encodeURIComponent($('#seatParticipantSearch').value.trim())}`);
-    $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(displaySeat(p.seat)||'스탠딩석')}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
+    $('#seatParticipantList').innerHTML=d.rows.slice(0,60).map(p=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(p.name)}</strong><small>${esc(p.organization||'')} · 현재 ${esc(displaySeat(p.seat)||(p.seatCategory==='standing'?'스탠딩석':'미배정'))}</small></span><button data-seatassign="${esc(p.id)}">이 좌석 지정</button></div>`).join('');
   };
   $('#seatParticipantSearch').oninput=()=>{clearTimeout(render.tm);render.tm=setTimeout(render,200)};await render();
   if($('#seatQuickAddForm'))$('#seatQuickAddForm').onsubmit=async e=>{
@@ -423,6 +429,22 @@ async function openSeatManager(code){
   if($('#releaseSeat'))$('#releaseSeat').onclick=async()=>{if(!confirm(`${s.participant.name}님의 ${code} 좌석을 해제할까요?`))return;try{await api(`/api/seats/${encodeURIComponent(code)}/release`,{method:'POST',body:'{}'});closeModal();loadSeats();refreshDashboard()}catch(x){toast(x.message)}};
 }
 $('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
+
+$('#applyCurrentHallLayout')?.addEventListener('click',async()=>{
+  if(!confirm('현재 현장배치로 전환할까요?\n\n- A~F 기존좌석 그대로\n- G~N 참가자석 240석\n- 참가자 실제 배정석 총 336석\n- 별도 스태프 자유석 64석 (참가자 배정 제외)\n- O~T 기존 배정자는 새 외곽 날개석으로 순서대로 분산\n\n적용 직전 좌석상태는 자동으로 기억되어 언제든 복원할 수 있습니다.'))return;
+  try{const d=await api('/api/seats/apply-current-hall',{method:'POST',body:'{}'});toast(`현장배치 적용 · 기존유지 ${d.preserved}명 · O~T 이동 ${d.moved}명 · 해제 ${d.cleared}명 · 자동기억 저장`,10000);selectedSeatCode='';loadSeats();refreshDashboard()}catch(e){toast(e.message,10000)}
+});
+$('#saveSeatMemory')?.addEventListener('click',async()=>{
+  const label=prompt('이 좌석상태의 기억 이름을 입력하세요.','현장 좌석 수동기억');if(label===null)return;
+  try{const d=await api('/api/seats/memories',{method:'POST',body:JSON.stringify({label})});toast(`좌석 기억 저장: ${d.memory.label}`,6000)}catch(e){toast(e.message,7000)}
+});
+$('#restoreSeatMemory')?.addEventListener('click',async()=>{
+  try{
+    const d=await api('/api/seats/memories');if(!d.rows.length)return toast('저장된 좌석 기억이 없습니다.',6000);
+    modal(`<p class="eyebrow">SEAT MEMORY</p><h2>이전 좌석 기억 복원</h2><div class="notice">복원 직전 현재 상태도 자동으로 다시 기억합니다.</div><div class="participant-pick-list">${d.rows.map(x=>`<div class="participant-pick"><span style="flex:1"><strong>${esc(x.label)}</strong><small>${esc(new Date(x.createdAt).toLocaleString('ko-KR'))} · ${esc(x.layoutVersion||'구배치')} · ${x.seats}석</small></span><button data-restore-memory="${esc(x.id)}">복원</button></div>`).join('')}</div><button id="closeMemory" class="wide">닫기</button>`);
+    $('#closeMemory').onclick=closeModal;document.querySelector('.modal')?.addEventListener('click',async e=>{const b=e.target.closest('[data-restore-memory]');if(!b)return;if(!confirm('선택한 좌석 기억으로 돌아갈까요? 현재 상태는 복원 직전 자동기억으로 남습니다.'))return;try{const r=await api(`/api/seats/memories/${encodeURIComponent(b.dataset.restoreMemory)}/restore`,{method:'POST',body:'{}'});toast(`좌석 기억 복원 완료 · ${r.participantsRestored}명`,8000);closeModal();loadSeats();refreshDashboard()}catch(x){toast(x.message,8000)}});
+  }catch(e){toast(e.message,7000)}
+});
 $('#apply400Layout')?.addEventListener('click',async()=>{
   if(!confirm('400석 좌석배치를 적용할까요?\n\nA~L: 현재 좌석번호와 배정자를 그대로 유지 (16석 × 12줄 = 192석)\nM~T: 기존 1~20번을 그대로 유지하고 21~26번을 추가 (26석 × 8줄 = 208석)\n총 400석\n\n현재 배정된 좌석은 변경하지 않습니다.'))return;
   try{const d=await api('/api/seats/apply-event-400',{method:'POST',body:JSON.stringify({preserveAssignments:true})});selectedSeatCode='';toast(`400석 배치 완료 · 기존좌석 유지 ${d.preserved}명 · 변환 ${d.moved}명 · 해제 ${d.cleared}명`,9000);loadSeats();refreshDashboard()}catch(e){toast(e.message,9000)}
@@ -947,7 +969,7 @@ function renderXlsxPreview(d){
   if(s.duplicateQr)warnings.push(`중복 QR ${s.duplicateQr}건`);
   if(s.blankPhones)warnings.push(`연락처 공란 ${s.blankPhones}명`);
   $('#xlsxPreviewWarnings').innerHTML=warnings.length?`<div class="warning"><strong>확인 필요</strong><br>${warnings.map(esc).join(' · ')}</div>`:'<div class="successbox">기본 형식 검사에서 큰 문제를 찾지 못했습니다.</div>';
-  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(displaySeat(p.seat)||'스탠딩석')}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
+  $('#xlsxPreviewParticipants').innerHTML=d.sampleParticipants.map(p=>`<tr><td>${esc(p.receptionNo)}</td><td>${esc(p.name)}</td><td>${esc(p.phone||'-')}</td><td>${esc(p.organization||'-')}</td><td>${esc(displaySeat(p.seat)||(p.seatCategory==='standing'?'스탠딩석':'미배정'))}</td><td>${esc(p.participationStatus||'참여')}</td></tr>`).join('');
   $('#xlsxPreviewSeats').innerHTML=d.sampleSeats.map(s=>`<tr><td>${esc(s.code)}</td><td>${esc(s.zone||'-')}</td><td>${s.autoAssignable?'예':'아니오'}</td><td>${s.wheelchairAssignable?'예':'아니오'}</td><td>${s.enabled?'예':'아니오'}</td></tr>`).join('');
 }
 $('#xlsxPreviewBtn')?.addEventListener('click',async()=>{
@@ -1045,7 +1067,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.26',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.28',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 
