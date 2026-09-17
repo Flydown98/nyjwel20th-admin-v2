@@ -28,7 +28,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.30';
+const FRONTEND_VERSION = '0.9.31';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -45,7 +45,7 @@ const HALL_SEAT_PLAN_FILE = path.join(ROOT, 'config', 'hall-seat-plan-v0930.json
 let HALL_SEAT_PLAN = {participantAssignments:[]};
 try{HALL_SEAT_PLAN=JSON.parse(fs.readFileSync(HALL_SEAT_PLAN_FILE,'utf8'));}
 catch(error){console.warn('[WARN] hall seat plan load failed:',error.message);}
-function isCurrentHallLayout(){return /^HALL400-N-/.test(str(state?.meta?.seatLayout));}
+function isCurrentHallLayout(){return /^(HALL400-N-|ASYM402-)/.test(str(state?.meta?.seatLayout));}
 
 fs.mkdirSync(BACKUP_DIR, {recursive:true});
 const nowIso = () => new Date().toISOString();
@@ -61,7 +61,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.30',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.31',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -89,7 +89,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.30'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.31'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -306,105 +306,85 @@ function buildEvent400Seats(){
 
 function buildHall400Seats(){
   const out=[];let sort=1;
-  // v0.9.30 현장 좌석명은 모두 숫자형으로 통일한다.
-  // A~F는 물리 위치 그대로 16석, G~N은 좌15 + 런웨이 + 우15 = 30석.
   for(const row of 'ABCDEF'.split('')){
     for(let n=1;n<=16;n++){
       const side=n<=8?'L':'R';
-      const priorityEdge=['A','B','C'].includes(row)&&(n<=4||n>=13);
       out.push({code:`${row}${n}`,label:`${row}${n}`,row,side,number:n,displayNumber:n,
         section:'front',block:`FRONT-${side}`,zone:['A','B','C'].includes(row)?'우선석':'내빈석',enabled:true,
-        autoAssignable:false,wheelchairAssignable:priorityEdge,wheelchairOnly:priorityEdge,sortOrder:sort++});
+        autoAssignable:false,wheelchairAssignable:false,wheelchairOnly:false,sortOrder:sort++});
     }
   }
   for(const row of 'GHIJKLMN'.split('')){
-    for(let n=1;n<=30;n++){
-      const side=n<=15?'L':'R';
-      // G~L: 기존 8석은 6~13 / 21~28에 들어가며 나머지는 새 날개석.
-      // M~N: 기존 26석은 3~28에 들어가며 1~2 / 29~30은 새 끝자리.
-      const isLegacyCore='GHIJKL'.includes(row)?((n>=6&&n<=13)||(n>=21&&n<=28)):(n>=3&&n<=28);
-      const priorityEdge=n<=2||n>=29;
-      out.push({code:`${row}${n}`,label:`${row}${n}`,row,side,number:n,displayNumber:n,
-        section:'middle',block:`HALL-${side}`,zone:priorityEdge?'휠체어우선':(isLegacyCore?'일반석':'날개석'),enabled:true,
-        autoAssignable:true,wheelchairAssignable:priorityEdge,wheelchairOnly:priorityEdge,isWing:!isLegacyCore,sortOrder:sort++});
+    for(let n=1;n<=18;n++){
+      out.push({code:`${row}${n}`,label:`${row}${n}`,row,side:'L',number:n,displayNumber:n,
+        section:'leftRear',block:'LEFT-18',zone:'일반석',enabled:true,autoAssignable:true,
+        wheelchairAssignable:false,wheelchairOnly:false,sortOrder:sort++});
     }
   }
-  // 별도 64석은 참가자 접수/자동배정에서 제외되는 스태프 자유석.
-  for(const side of ['L','R'])for(let n=1;n<=32;n++){
-    out.push({code:`ST${side}-${String(n).padStart(2,'0')}`,label:`STAFF ${side}${n}`,row:'STAFF',side,number:n,displayNumber:n,
-      section:'staff',block:`STAFF-${side}`,zone:'스태프 자유석',enabled:true,autoAssignable:false,wheelchairAssignable:false,
-      wheelchairOnly:false,staffOnly:true,sortOrder:sort++});
+  for(const row of 'OPQRSTUVW'.split('')){
+    for(let n=1;n<=18;n++){
+      out.push({code:`${row}${n}`,label:`${row}${n}`,row,side:'R',number:n,displayNumber:n,
+        section:'rightRear',block:'RIGHT-18',zone:'일반석',enabled:true,autoAssignable:true,
+        wheelchairAssignable:false,wheelchairOnly:false,sortOrder:sort++});
+    }
   }
   return out;
 }
 
-function createSeatLayoutMemory(label='좌석배치 기억'){
-  const memory={
-    id:`seatmem_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
-    label:str(label)||'좌석배치 기억',createdAt:nowIso(),layoutVersion:str(state.meta?.seatLayout),
-    seats:JSON.parse(JSON.stringify(state.seats||[])),
-    participantSeats:(state.participants||[]).map(p=>({id:p.id,seat:str(p.seat),seatLocked:Boolean(p.seatLocked),modifiedAt:p.modifiedAt||null})),
-    autoSeatAssignOnCheckin:state.settings.autoSeatAssignOnCheckin!==false
-  };
-  state.seatLayoutMemories=[memory,...(state.seatLayoutMemories||[])].slice(0,10);
-  return memory;
-}
-function restoreSeatLayoutMemory(memory){
-  if(!memory)throw new Error('복원할 좌석기억이 없습니다.');
-  const byId=new Map((memory.participantSeats||[]).map(x=>[x.id,x]));
-  state.participants.forEach(p=>{
-    const x=byId.get(p.id); if(!x)return;
-    p.seat=str(x.seat);p.seatLocked=Boolean(x.seatLocked);p.modifiedAt=nowIso();
-  });
-  state.seats=JSON.parse(JSON.stringify(memory.seats||[]));
-  state.settings.autoSeatAssignOnCheckin=memory.autoSeatAssignOnCheckin!==false;
-  state.meta.seatLayout=memory.layoutVersion||'RESTORED';state.meta.seatLayoutAppliedAt=nowIso();
-  return {participantsRestored:byId.size,seats:(state.seats||[]).length,layoutVersion:state.meta.seatLayout};
-}
-function legacySeatToCurrentHall(code){
+function remapToAsym402Seat(code){
   const raw=str(code).toUpperCase();if(!raw)return '';
-  let m=raw.match(/^([A-F])([LR])-(\d{1,2})$/);
+  let m=raw.match(/^([A-F])(\d{1,2})$/);
+  if(m){const n=num(m[2]);if(n>=1&&n<=16)return `${m[1]}${n}`;}
+  m=raw.match(/^([A-F])([LR])-(\d{1,2})$/);
   if(m){const n=num(m[3]);if(n>=1&&n<=8)return `${m[1]}${m[2]==='L'?n:n+8}`;}
+  m=raw.match(/^([G-N])(\d{1,2})$/);
+  if(m){const row=m[1],n=num(m[2]);
+    if(n>=1&&n<=15)return `${row}${n}`;
+    if(n>=16&&n<=30){const map={G:'O',H:'P',I:'Q',J:'R',K:'S',L:'T',M:'U',N:'V'};return `${map[row]}${n-15}`;}
+  }
   m=raw.match(/^([G-L])([LR])-(\d{1,2})$/);
-  if(m){const n=num(m[3]);if(n>=1&&n<=8)return `${m[1]}${m[2]==='L'?n+5:n+20}`;}
+  if(m){const n=num(m[3]);if(n<1||n>8)return '';
+    if(m[2]==='L')return `${m[1]}${n}`;
+    const map={G:'O',H:'P',I:'Q',J:'R',K:'S',L:'T'};return `${map[m[1]]}${n}`;
+  }
   m=raw.match(/^([MN])B-(\d{1,2})$/);
-  if(m){const n=num(m[2]);if(n>=1&&n<=26)return `${m[1]}${n+2}`;}
-  m=raw.match(/^([A-N])(\d{1,2})$/);
-  if(m){const n=num(m[2]),max='ABCDEF'.includes(m[1])?16:30;if(n>=1&&n<=max)return `${m[1]}${n}`;}
+  if(m){const n=num(m[2]);const map={M:'U',N:'V'};
+    if(n>=1&&n<=15)return `${m[1]}${n}`;
+    if(n>=16&&n<=30)return `${map[m[1]]}${n-15}`;
+  }
+  m=raw.match(/^([O-W])(\d{1,2})$/);
+  if(m){const n=num(m[2]);if(n>=1&&n<=18)return `${m[1]}${n}`;}
   return '';
 }
+
 function applyCurrentHallLayout(){
   const canonical=buildHall400Seats();
-  const valid=new Set(canonical.filter(s=>!s.staffOnly).map(s=>str(s.code).toUpperCase()));
-  const planById=new Map((HALL_SEAT_PLAN.participantAssignments||[]).map(x=>[str(x.id),x]));
+  const valid=new Set(canonical.map(s=>str(s.code).toUpperCase()));
   const occupied=new Set();
-  let preserved=0,moved=0,cleared=0,plannedMoved=0,fallbackMoved=0;
+  let preserved=0,moved=0,cleared=0,fallbackMoved=0;
   const unresolved=[];
   state.participants.filter(participantActive).sort((a,b)=>num(a.receptionNo)-num(b.receptionNo)).forEach(p=>{
     const oldSeat=str(p.seat).toUpperCase();if(!oldSeat)return;
-    if(valid.has(oldSeat)&&!occupied.has(oldSeat)){occupied.add(oldSeat);p.seatLocked=true;preserved++;return;}
-    const planned=planById.get(str(p.id));
-    let target='';
-    if(planned&&str(planned.oldSeat).toUpperCase()===oldSeat)target=str(planned.newSeat).toUpperCase();
-    if(!target)target=legacySeatToCurrentHall(oldSeat);
+    const target=remapToAsym402Seat(oldSeat);
     if(target&&valid.has(target)&&!occupied.has(target)){
-      p.seat=target;p.seatLocked=true;p.modifiedAt=nowIso();occupied.add(target);moved++;
-      if(planned&&str(planned.newSeat).toUpperCase()===target)plannedMoved++;else fallbackMoved++;
-    }else unresolved.push({p,oldSeat,planned});
+      if(target===oldSeat)preserved++;else moved++;
+      p.seat=target;p.seatLocked=true;p.modifiedAt=nowIso();occupied.add(target);return;
+    }
+    if(valid.has(oldSeat)&&!occupied.has(oldSeat)){
+      preserved++;p.seat=oldSeat;p.seatLocked=true;p.modifiedAt=nowIso();occupied.add(oldSeat);return;
+    }
+    unresolved.push(p);
   });
-  // O~T 등 계획표 밖의 예외만 남았을 경우 빈 날개 일반석으로 안전하게 이동한다.
-  const wingPool=canonical.filter(s=>s.isWing&&!s.staffOnly&&!s.wheelchairOnly&&!occupied.has(str(s.code).toUpperCase()))
-    .sort((a,b)=>num(b.row.charCodeAt(0))-num(a.row.charCodeAt(0))||num(a.sortOrder)-num(b.sortOrder));
-  unresolved.forEach(({p})=>{
-    const seat=wingPool.shift();
+  const pool=canonical.filter(s=>!occupied.has(str(s.code).toUpperCase())).sort((a,b)=>num(a.sortOrder)-num(b.sortOrder));
+  unresolved.forEach(p=>{
+    const seat=pool.shift();
     if(seat){p.seat=seat.code;p.seatLocked=true;p.modifiedAt=nowIso();occupied.add(seat.code);moved++;fallbackMoved++;}
     else{p.seat='';p.seatLocked=false;p.modifiedAt=nowIso();cleared++;}
   });
   state.seats=canonical;state.settings.autoSeatAssignOnCheckin=true;
-  state.meta.seatLayout='HALL400-N-NUMBERED-V3';state.meta.seatLayoutAppliedAt=nowIso();
-  state.meta.seatPlanVersion='v0.9.30-wheelchair-edge';
-  return {preserved,moved,cleared,plannedMoved,fallbackMoved,seats:canonical.length,
-    participantSeats:canonical.filter(s=>!s.staffOnly).length,staffSeats:canonical.filter(s=>s.staffOnly).length};
+  state.meta.seatLayout='ASYM402-V1';state.meta.seatLayoutAppliedAt=nowIso();
+  state.meta.seatPlanVersion='v0.9.31-asymmetric-402';
+  return {preserved,moved,cleared,fallbackMoved,seats:canonical.length,participantSeats:canonical.length,staffSeats:0};
 }
 
 function phoneLast4(v){
@@ -430,7 +410,7 @@ function displaySeatCode(code){
   const seat=seatByCode(raw);if(seat?.label)return str(seat.label);
   let m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m){const n=num(m[3]);return `${m[1]}${m[2]==='L'?n:n+8}`;}
   m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return `${m[1]}${num(m[2])}`;
-  const n=raw.match(/^([A-T])(\d{1,2})$/);return n?`${n[1]}${num(n[2])}`:raw;
+  const n=raw.match(/^([A-W])(\d{1,2})$/);return n?`${n[1]}${num(n[2])}`:raw;
 }
 
 function assignableSeats(wheelchair=false, excludeIds=[]){
@@ -1021,7 +1001,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.30',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.31',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1132,7 +1112,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.30',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.31',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1598,10 +1578,10 @@ app.post('/api/seats/memories/:id/restore',auth,(req,res)=>{
   res.json({ok:true,...result,safetyMemoryId:safety.id});
 });
 app.post('/api/seats/apply-current-hall',auth,(req,res)=>{
-  const memory=createSeatLayoutMemory('현장 336+스태프64 적용 전 자동기억');
+  const memory=createSeatLayoutMemory('현장 비대칭 402석 적용 전 자동기억');
   const before=backupNow('before-current-hall-layout');
   const result=applyCurrentHallLayout();saveState();const after=backupNow('after-current-hall-layout');
-  adminAudit('현장좌석배치적용',{id:'HALL400-N-NUMBERED-V3',name:'A~F 16석 · G~N 30석 숫자형 · 휠체어 양끝 보정 · 그룹기반 날개 재배치 · 스태프 자유석 64석'},null,result);
+  adminAudit('현장좌석배치적용',{id:'ASYM402-V1',name:'A~F 16석 유지 · 왼쪽 8줄×18석 · 오른쪽 9줄×18석 · 기타 구역 스탠딩'},null,result);
   res.json({ok:true,...result,memoryId:memory.id,beforeBackup:before,afterBackup:after});
 });
 
@@ -2480,4 +2460,4 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.30 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.31 · :${PORT}`));

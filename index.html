@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>20주년 현장 관리자 v2</title>
+<link rel="stylesheet" href="/style.css?v=0.9.31">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#172554">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="20주년 관리자">
+<script src="/vendor/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.31</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<div id="systemModeBanner" class="system-mode-banner hidden"></div>
+<nav id="tabs">
+<button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
+</nav>
+<main>
+<section id="view-dashboard" class="view active">
+<div class="ops-health" id="opsHealth">
+  <span id="healthBrowser">브라우저 확인중</span>
+  <span id="healthServer">서버 확인중</span>
+  <span id="healthSms">문자 확인중</span>
+  <span id="healthBackup">백업 확인중</span>
+</div>
+<div class="stats ops-stats">
+  <div class="stat green focus"><span>실제 입장</span><strong id="sActualAttendance">0</strong><small>등록 도착 + 단체 초과</small></div>
+  <div class="stat"><span>등록자 도착</span><strong id="sArrived">0</strong></div>
+  <div class="stat"><span>최근 10분</span><strong id="sRecent10">0</strong></div>
+  <div class="stat"><span>미도착</span><strong id="sPending">0</strong></div>
+  <div class="stat"><span>단체 초과입장</span><strong id="sExtraStanding">0</strong></div>
+  <div class="stat"><span>VIP/내빈 미도착</span><strong id="sVipPending">0</strong></div>
+  <div class="stat"><span>이동지원 미도착</span><strong id="sMobilityPending">0</strong></div>
+  <div class="stat"><span>좌석 미배정</span><strong id="sUnassigned">0</strong></div>
+  <div class="stat"><span>문자 실패</span><strong id="sSmsFailed">0</strong></div>
+  <div class="stat"><span>남은 좌석</span><strong id="sFreeSeats">0</strong></div>
+  <div class="stat"><span>전체 참가자</span><strong id="sParticipants">0</strong></div>
+  <div class="stat"><span>기념품 지급</span><strong id="sGifts">0</strong></div>
+</div>
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">FIELD CONTROL</p><h2>현장 운영 제어</h2></div><button type="button" id="toggleOperationMode" class="danger">행사 운영 잠금</button></div>
+  <p class="muted">운영 잠금을 켜면 접수·문자·추첨 같은 현장 기능은 유지하면서 XLSX 반영, 백업 복원, 대규모 좌석 초기화 등 위험 작업을 잠급니다. 단체는 먼저 도착한 사람이 남은 그룹원 전체를 한 번에 접수하는 운영을 기본으로 합니다.</p>
+  <div class="actions">
+    <button type="button" id="openRaffleStage">무대 추첨 화면 열기</button>
+  </div>
+</article>
+</section>
+
+<section id="view-checkin" class="view">
+  <article id="checkinTestBanner" class="card checkin-test-banner hidden">
+    <strong>🧪 QR 테스트 접수 모드 ON</strong>
+    <span>실제 QR을 스캔해 참가자·그룹 조회와 접수 절차를 검증합니다. 문자 발송 · 도착처리 · 기념품처리 · 좌석변경은 하지 않습니다.</span>
+  </article>
+  <div class="two"><article class="card"><div class="card-head"><div><p class="eyebrow">QR CHECK-IN</p><h2>QR 스캔</h2></div><div class="actions"><button id="toggleCheckinTestMode" type="button">테스트 모드 켜기</button><button id="toggleScanner" class="primary">카메라 시작</button></div></div><div id="reader" class="reader">카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.</div></article>
+<article class="card"><h2>수동 QR / 검색코드</h2><form id="manualQrForm" class="stack"><input id="manualQr" placeholder="QR고유코드 또는 접수번호" required><button class="primary">접수 확인</button></form><div id="recentResult" class="result muted">아직 접수하지 않았습니다.</div></article></div></section>
+
+<section id="view-participants" class="view">
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">PARTICIPANTS</p><h2>참가자 관리</h2><p id="participantCount" class="muted"></p></div><button type="button" id="reloadParticipants" class="primary">갱신</button></div>
+  <div class="filters"><input id="participantSearch" placeholder="이름 · 연락처 · 기관 · QR · 좌석 · 그룹"><select id="participantStatus"><option value="all">전체</option><option value="pending">미도착</option><option value="arrived">도착</option><option value="inactive">미참여/비활성</option></select></div>
+  <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>기관</th><th>연락처</th><th>좌석</th><th>상태</th><th>관리</th></tr></thead><tbody id="participantRows"></tbody></table></div>
+</article>
+</section>
+
+<section id="view-onsite" class="view"><article class="card narrow"><p class="eyebrow">ON-SITE</p><h2>QR 없이 온 참가자 등록</h2><div class="notice">현장 추가 참가자는 자동 좌석을 배정하지 않습니다. 등록 즉시 <strong>스탠딩 안내</strong> 및 기념품 지급완료로 처리합니다.</div><form id="onsiteForm" class="form-grid"><label>이름<input name="name" required></label><label>연락처<input name="phone" placeholder="선택"></label><label>소속기관<input name="organization"></label><label>접수대<input name="station" value="현장접수"></label><label class="check"><input name="wheelchairUser" type="checkbox"> 휠체어 이용</label><label class="check"><input name="disabledPerson" type="checkbox"> 장애인 당사자</label><label class="wide-field">메모<textarea name="note" rows="3"></textarea></label><button class="primary wide-field">현장 등록</button></form></article></section>
+
+<section id="view-groups" class="view">
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">GROUPS</p><h2>그룹관리</h2><p class="muted">동반신청은 우선 하나의 그룹으로 묶고, 그 외 같은 외부기관 참가자는 자동으로 한 그룹으로 묶습니다. <strong>자동묶음도 직접 수정할 수 있으며</strong>, 저장한 수정사항은 자동 재구성 후에도 유지됩니다. 그룹의 어느 참가자 QR을 찍어도 그룹 접수가 열립니다.</p></div><button type="button" id="reloadGroups" class="primary">갱신</button></div>
+  <div class="group-policy-box">
+    <strong>자동 기관묶음 기준</strong>
+    <p class="muted">동반신청은 우선 묶고, 그 외 같은 기관명은 자동 단체로 묶습니다. 단, 복지관 본체 표기(띄어쓰기·약칭 포함), 사회서비스 계열, 스마트팀은 자동 단체에서 제외합니다. <strong>낮활동·성인고용 등 실제 프로그램 단위는 제외하지 않습니다.</strong> '남양주시'라는 단어만으로는 제외하지 않습니다.</p>
+    <div class="actions"><button type="button" id="rebuildAutoGroups" class="primary">자동그룹 다시 만들기</button></div>
+  </div>
+  <details class="management-card" style="margin-top:10px">
+    <summary><strong>자동그룹에서 직접 제외한 기관 보기 · 복원</strong></summary>
+    <div id="excludedGroupsList" style="margin-top:10px"></div>
+  </details>
+  <div class="group-tabs"><button data-grouptab="auto" class="active">자동 기관그룹</button><button data-grouptab="representative">대표자 그룹</button><button data-grouptab="companion">동반</button><button id="createManualGroup" class="primary">대표자 그룹 만들기</button></div>
+  <div id="groupTabAuto" class="group-pane"><div id="groupSuggestions"></div></div>
+  <div id="groupTabRepresentative" class="group-pane hidden"><div id="representativeGroups"></div></div>
+  <div id="groupTabCompanion" class="group-pane hidden"><div id="companionGroups"></div></div>
+</article>
+</section>
+
+<section id="view-seats" class="view">
+<article class="card">
+  <div class="card-head">
+    <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p><p class="seat-format-note">현장 구조 · 앞 6줄 96석 + 왼쪽 144석 + 오른쪽 162석 = 총 402석</p></div>
+    <div class="actions"><button type="button" id="applyCurrentHallLayout" class="primary">현장 비대칭 402석 적용</button><button type="button" id="saveSeatMemory">현재 좌석 기억 저장</button><button type="button" id="restoreSeatMemory">이전 좌석 기억 복원</button><button type="button" id="apply400Layout" class="danger">구 좌석 배치 적용</button><button type="button" id="lockCurrentSeats" class="primary">수동 지정좌석 확정</button><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="finalAutoAssign" class="primary">내빈·휠체어 사전배치</button><button type="button" id="reassignWheelchair" class="primary">휠체어 신청자만 재배치</button><button type="button" id="resetGeneralSeats">후면 일반좌석 초기화</button><button type="button" id="autoAssignAll">현재 도착자 자동배치</button><button type="button" id="releasePendingSeats" class="danger">미도착 임시좌석 해제</button><button type="button" id="reloadSeats">갱신</button></div>
+  </div>
+  <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
+  <p class="muted">현장배치 적용 시 앞 6줄 A~F 96석은 그대로 유지하고, 왼쪽 추가석 G~N 144석과 오른쪽 추가석 O~W 162석을 사용하여 총 402석 구조로 표시합니다. 그 외 구역은 스탠딩으로 운영합니다. 현재 좌석을 한 번 누르면 선택 강조와 참가자 정보가 표시되고, 다시 누르면 수정창이 열립니다.</p>
+  <div id="seatSelectionInfo" class="seat-selection-info"><strong>좌석을 선택하세요</strong><span>선택하면 이름 · 기관 · 도착상태를 크게 표시합니다.</span><button type="button" id="editSelectedSeat" disabled>좌석 변경</button></div><div class="seat-map-wrap"><div id="seatGrid" class="seat-map"></div></div>
+</article>
+</section>
+
+<section id="view-raffle" class="view">
+<article class="card raffle-remote-card">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">MOBILE STAGE REMOTE</p>
+      <h2>무대 원격제어</h2>
+      <p class="muted">컴퓨터에는 무대 화면만 띄워두고, 휴대폰 관리자 페이지에서 추첨과 화면전환을 조작합니다.</p>
+    </div>
+    <span id="raffleScreenStatus" class="badge">화면 확인 중</span>
+  </div>
+
+  <div class="remote-screen-actions">
+    <button type="button" id="remoteOpenStage" class="primary">컴퓨터 무대화면 열기</button>
+    <button type="button" id="remoteCopyStage">무대 링크 복사</button>
+    <button type="button" data-stage-mode="title">타이틀 화면</button>
+    <button type="button" data-stage-mode="idle">대기 화면</button>
+    <button type="button" data-stage-mode="black">검은 화면</button>
+  </div>
+
+  <div class="remote-control-grid">
+    <label>상품<select id="remoteRaffleProduct"></select></label>
+    <label>대상<select id="remoteRaffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
+    <label>당첨 인원<input id="remoteRaffleCount" type="number" min="1" max="5" value="1"></label>
+  </div>
+
+  <div id="remoteRaffleState" class="remote-state">원격 추첨 대기 중</div>
+  <div class="remote-main-buttons">
+    <button type="button" id="remoteRaffleStart" class="primary">▶ 추첨 시작</button>
+    <button type="button" id="remoteRaffleStop" class="danger" disabled>■ 슬롯 멈춤 · 당첨자 공개</button>
+    <button type="button" id="remoteRaffleReset">화면 초기화</button>
+  </div>
+</article>
+
+<div class="two">
+  <article class="card">
+    <p class="eyebrow">LUCKY DRAW · PREMIUM STAGE</p>
+    <h2>복지관 이용인 슬롯 추첨</h2>
+    <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 한 번에 1~5명을 선택할 수 있습니다. 여러 명을 선택하면 1~5개의 슬롯이 동시에 돌아가고 순서대로 빠르게 멈춘 뒤 전체 당첨자가 한 화면에 표시됩니다.</p>
+    <form id="raffleForm" class="stack">
+      <label>상품<select id="raffleProduct"></select></label>
+      <label>대상<select id="raffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
+      <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="5" value="1"><small class="muted">상품 잔여수량에 맞춰 최대 5명까지 자동 추천됩니다.</small></label>
+      <button class="primary big-action">행운권 추첨 시작</button>
+    </form>
+    <details class="raffle-product-manager" open>
+      <summary><strong>행운권 상품 · 수량 관리</strong></summary>
+      <form id="raffleProductAddForm" class="inline-form">
+        <input id="raffleProductName" placeholder="예: 텀블러 / 상품권 / 선풍기" required>
+        <input id="raffleProductQuantity" type="number" min="1" max="9999" value="1" required>
+        <button class="primary">상품 추가</button>
+      </form>
+      <div id="raffleProductList"></div>
+    </details>
+    <div class="raffle-help">
+      <strong>진행</strong> · 1~5명 선택 → 슬롯 동시 회전 → 멈춤 → 슬롯들이 빠르게 순서대로 정지 → 전체 당첨자 공개
+    </div>
+    <div id="raffleWinners"></div>
+  </article>
+  <article class="card"><div class="card-head"><h2>최근 당첨</h2><button type="button" id="reloadRaffleHistory">갱신</button></div><div id="raffleHistory"></div></article>
+</div>
+</section>
+
+<section id="view-sms" class="view">
+<div class="two">
+  <article class="card">
+    <p class="eyebrow">SMS DIRECT</p><h2>문자나라 직접발송</h2>
+    <div id="smsStatusBox" class="notice">상태 확인 중...</div>
+    <div class="actions">
+      <button type="button" id="smsTestBtn" class="primary">테스트 문자 발송</button>
+      <button type="button" id="reloadSms">발송이력 갱신</button>
+    </div>
+    <hr style="margin:18px 0;border:0;border-top:1px solid #e2e8f0">
+    <h3>개별 문자 발송</h3>
+    <form id="manualSmsForm" class="stack">
+      <input name="phone" placeholder="01012345678" required>
+      <textarea name="message" rows="5" placeholder="보낼 문자 내용" required></textarea>
+      <button class="primary">이 번호로 발송</button>
+    </form>
+    <p class="muted">행사 전날 안내문자는 일괄 자동발송하지 않고 필요한 대상에게 개별 발송하는 방향으로 운영합니다.</p>
+    <hr style="margin:18px 0;border:0;border-top:1px solid #e2e8f0">
+    <h3>그룹 문자 발송</h3>
+    <form id="groupSmsForm" class="stack">
+      <select id="groupSmsSelect" required><option value="">그룹 선택</option></select>
+      <select id="groupSmsMode"><option value="representative">대표/연락 가능한 1명에게</option><option value="all">그룹 전체 연락처에</option></select>
+      <textarea id="groupSmsMessage" rows="5" placeholder="그룹에 보낼 문자 내용" required></textarea>
+      <button class="primary">그룹 문자 발송</button>
+    </form>
+  </article>
+  <article class="card"><h2>최근 문자 발송이력</h2><div id="smsList"></div></article>
+</div>
+</section>
+
+
+
+<section id="view-logs" class="view">
+<article class="card">
+  <div class="card-head"><div><p class="eyebrow">AUDIT LOG</p><h2>관리자 작업 로그</h2><p id="logCount" class="muted"></p></div><button type="button" id="reloadLogs" class="primary">갱신</button></div>
+  <div class="filters"><input id="logSearch" placeholder="작업유형 · 참가자 · 그룹 · 비고 검색"><select id="logLimit"><option value="200">최근 200건</option><option value="500">최근 500건</option><option value="1000">최근 1000건</option></select></div>
+  <div class="table-wrap"><table><thead><tr><th>시간</th><th>작업</th><th>대상</th><th>내용</th></tr></thead><tbody id="logRows"></tbody></table></div>
+</article>
+</section>
+
+
+<section id="view-settings" class="view">
+<div class="two">
+  <article class="card">
+    <p class="eyebrow">SYSTEM SETTINGS</p><h2>행사 · 현장 설정</h2>
+    <form id="settingsForm" class="form-grid">
+      <label>행사명<input name="eventName"></label>
+      <label>행사일시<input name="eventDate"></label>
+      <label>행사장소<input name="eventVenue"></label>
+      <label>주최<input name="eventHost"></label>
+      <label>신청 정원<input name="applicationCapacity" type="number" min="1"></label>
+      <label>개인 자동접수 대기(ms)<input name="individualAutoCheckinDelayMs" type="number" min="300"></label>
+      <label>접수완료 팝업 닫힘(ms)<input name="checkinPopupCloseMs" type="number" min="300"></label>
+      <label>외부백업 주기(초)<input name="externalBackupIntervalSec" type="number" min="30"></label>
+      <label>외부 시점백업 주기(분)<input name="externalSnapshotIntervalMin" type="number" min="1"></label>
+      <label class="check"><input type="checkbox" name="checkinSmsEnabled"> QR 접수 문자 자동발송</label>
+      <label class="check"><input type="checkbox" name="autoSeatAssignOnCheckin"> QR 접수 즉시 좌석 자동배정</label>
+      <label class="check"><input type="checkbox" name="externalBackupEnabled"> Google Drive 외부백업 사용</label>
+      <label class="check"><input type="checkbox" name="autoRestoreExternalIfEmpty"> 서버 데이터가 비면 Drive 최신백업 자동복원</label>
+      <div class="notice wide-field"><strong>행사 운영 잠금</strong>은 메인 현황에서 관리자 비밀번호를 다시 입력해 ON/OFF 합니다.</div>
+      <button class="primary wide-field">설정 저장</button>
+    </form>
+  </article>
+  <article class="card">
+    <p class="eyebrow">ROLE ACCESS</p><h2>역할별 관리자</h2>
+    <p class="muted">Cloudtype 환경변수에 역할별 비밀번호를 넣으면 같은 주소에서 역할별 화면을 제한할 수 있습니다.</p>
+    <div id="rolePasswordStatus"></div>
+    <pre>RECEPTION_PASSWORD=접수담당 비밀번호
+SEAT_PASSWORD=좌석담당 비밀번호
+RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
+    <p class="muted">환경변수를 넣지 않으면 기존 ADMIN_PASSWORD만 사용됩니다.</p>
+  </article>
+</div>
+</section>
+
+<section id="view-data" class="view">
+  <article class="card">
+    <p class="eyebrow">DATA MANAGEMENT</p>
+    <h2>XLSX 가져오기</h2>
+    <p class="muted">기존 행사 엑셀을 다시 불러올 때 사용합니다. 바로 덮어쓰지 않고 미리보기 후 최종 반영합니다.</p>
+    <div class="notice">최종 반영 시 현재 서버 데이터는 자동으로 JSON 백업한 뒤, XLSX의 참가자·좌석·설정 기준으로 교체됩니다.</div>
+    <div class="actions">
+      <input id="xlsxImportFile" type="file" accept=".xlsx,.xls">
+      <button id="xlsxPreviewBtn" class="primary">엑셀 분석 · 미리보기</button>
+    </div>
+    <div id="xlsxImportStatus" class="muted" style="margin-top:10px"></div>
+  </article>
+
+  <article id="xlsxPreviewCard" class="card hidden">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">PREVIEW</p>
+        <h2>가져오기 미리보기</h2>
+        <p id="xlsxPreviewFileName" class="muted"></p>
+      </div>
+      <button id="xlsxConfirmBtn" class="danger">이 내용으로 최종 반영</button>
+    </div>
+    <div id="xlsxPreviewSummary" class="stats"></div>
+    <div id="xlsxPreviewWarnings"></div>
+
+    <h3>참가자 샘플</h3>
+    <div class="table-wrap"><table><thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>기관</th><th>좌석</th><th>상태</th></tr></thead><tbody id="xlsxPreviewParticipants"></tbody></table></div>
+
+    <h3 style="margin-top:18px">좌석 샘플</h3>
+    <div class="table-wrap"><table><thead><tr><th>좌석</th><th>구역</th><th>일반자동</th><th>휠체어자동</th><th>사용</th></tr></thead><tbody id="xlsxPreviewSeats"></tbody></table></div>
+  </article>
+</section>
+
+<section id="view-backup" class="view">
+<div class="two">
+<article class="card">
+  <p class="eyebrow">LOCAL BACKUP</p><h2>Cloudtype 임시디스크 백업</h2>
+  <p class="muted">1분마다 서버 내부 롤링백업을 만들고 최근 자동백업 약 240개를 유지합니다.</p>
+  <div class="actions"><button type="button" id="backupNow" class="primary">지금 로컬백업</button><button type="button" id="downloadBackup">JSON 다운로드</button><button type="button" id="downloadCsv">참가자 CSV 다운로드</button><button type="button" id="reloadLocalBackups">백업 목록</button></div>
+  <div id="localBackupList"></div>
+  <hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">
+  <h3>내 PC의 JSON 백업 복원</h3>
+  <div class="actions"><input id="restoreFile" type="file" accept=".json"><button type="button" id="restoreBackup" class="danger">JSON 복원</button></div>
+  <pre id="backupOutput">대기 중...</pre>
+  <hr style="margin:20px 0;border:0;border-top:1px solid #e2e8f0">
+  <h3>참가자 CSV 병합 가져오기</h3>
+  <p class="muted">위에서 내려받은 참가자 CSV에 새 인원을 행으로 추가한 뒤 다시 올릴 수 있습니다. 기존 QR고유코드가 있는 행은 기존 참가자를 갱신하고, QR고유코드가 비어 있는 새 행은 새 QR을 자동 발급합니다. 기존 명단을 삭제하지 않습니다.</p>
+  <div class="actions"><input id="csvMergeFile" type="file" accept=".csv,text/csv"><button type="button" id="csvMergePreview" class="primary">CSV 확인</button><button type="button" id="csvMergeConfirm" class="danger" disabled>확인 후 병합</button></div>
+  <div id="csvMergeStatus" class="muted" style="margin-top:10px"></div>
+</article>
+<article class="card">
+  <p class="eyebrow">GOOGLE DRIVE BACKUP</p><h2>외부 백업 · 복원</h2>
+  <div id="externalBackupStatus" class="notice">상태 확인 중...</div>
+  <div class="actions"><button type="button" id="externalBackupNow" class="primary">지금 Drive 백업</button><button type="button" id="externalSnapshotNow">시점 백업 생성</button><button type="button" id="externalRestoreLatest" class="danger">Drive 최신백업 복원</button><button type="button" id="reloadExternalBackups">Drive 목록</button></div>
+  <div id="externalBackupList"></div>
+  <p class="muted">Google Drive는 현장 요청 처리와 분리된 비동기 보험용 백업입니다. Drive가 느리거나 실패해도 QR 접수 자체는 계속 동작합니다.</p>
+</article>
+</div>
+</section>
+</main>
+
+<div id="raffleStage" class="raffle-stage hidden" aria-live="polite">
+  <div class="raffle-ambient">
+    <div class="raffle-glow glow-a"></div>
+    <div class="raffle-glow glow-b"></div>
+    <div class="raffle-beam beam-a"></div>
+    <div class="raffle-beam beam-b"></div>
+    <div id="raffleParticles" class="raffle-particles"></div>
+  </div>
+
+  <div class="raffle-stage-inner">
+    <div class="raffle-brand">
+      <span class="raffle-brand-kicker">NYJWEL · 20TH ANNIVERSARY</span>
+      <span class="raffle-brand-line"></span>
+    </div>
+
+    <div id="raffleStageLabel" class="raffle-stage-label">LUCKY DRAW</div>
+    <div id="raffleStageProduct" class="raffle-product-pill">행운상품</div>
+
+    <div class="raffle-reel-shell">
+      <div class="raffle-reel-edge edge-top"></div>
+      <div class="raffle-reel-viewport" id="raffleReelViewport">
+        <div id="raffleReelTrack" class="raffle-reel-track"></div>
+        <div class="raffle-reel-focus"></div>
+        <div class="raffle-reel-fade fade-top"></div>
+        <div class="raffle-reel-fade fade-bottom"></div>
+      </div>
+      <div class="raffle-reel-edge edge-bottom"></div>
+    </div>
+
+    <div id="raffleStageName" class="raffle-stage-name sr-only">READY</div>
+    <div id="raffleStageSub" class="raffle-stage-sub">SPACE를 눌러 추첨을 멈춰주세요</div>
+    <div id="raffleSpaceHint" class="raffle-space-hint"><span class="space-key">SPACE</span><span>STOP</span></div>
+
+    <div id="raffleWinnerPanel" class="raffle-winner-panel hidden">
+      <div class="winner-kicker">CONGRATULATIONS</div>
+      <div id="raffleWinnerName" class="winner-name"></div>
+      <div id="raffleWinnerSeat" class="winner-seat"></div>
+      <div id="raffleWinnerPrize" class="winner-prize"></div>
+    </div>
+
+    <button type="button" id="raffleStageClose" class="raffle-stage-close hidden">추첨 화면 닫기</button>
+  </div>
+</div>
+<div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
+<script src="/app.js?v=0.9.31"></script></body></html>

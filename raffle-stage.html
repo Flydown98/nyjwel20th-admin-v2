@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07050a">
+<title>남양주시장애인복지관 20주년 · 행운권 무대</title>
+<link rel="stylesheet" href="/raffle-stage.css?v=0.9.13">
+</head>
+<body>
+<main id="stage">
+  <canvas id="fx"></canvas>
+
+  <div class="stage-brand">NYJWEL · 20TH ANNIVERSARY</div>
+  <div id="connection" class="connection">CONNECTING</div>
+
+  <section id="idleScene" class="scene">
+    <div class="idle-title">
+      <div class="small">20TH ANNIVERSARY</div>
+      <h1>20</h1>
+      <p id="idleMode">LUCKY DRAW</p>
+      <p>스무번의 계절, 스물한 번째 약속</p>
+    </div>
+  </section>
+
+  <section id="machineScene" class="scene machine-scene hidden">
+    <div class="machine-head">
+      <div class="eyebrow">LUCKY SLOT DRAW</div>
+      <h2 id="machinePrize">행운상품</h2>
+      <p id="roundText">MULTI SLOT</p>
+    </div>
+
+    <div class="machine-shell">
+      <div id="slotBoard" class="slot-board" data-count="1"></div>
+    </div>
+
+    <div id="status">행운의 주인공을 찾고 있습니다</div>
+    <div class="dot-line" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+  </section>
+
+  <section id="winnerScene" class="scene hidden"><div id="winnerPrize" class="hidden"></div></section>
+
+  <section id="finalScene" class="scene final-scene hidden">
+    <div class="final-title">
+      <div class="eyebrow">FINAL WINNERS</div>
+      <h2 id="finalPrize">행운상품</h2>
+      <p>축하드립니다!</p>
+    </div>
+    <div id="finalGrid" class="final-grid" data-count="1"></div>
+  </section>
+
+  <div id="particles"></div>
+
+  <div id="launchOverlay" class="launch-overlay">
+    <div class="launch-card">
+      <h1>20주년 행운권 무대화면</h1>
+      <p>행사장 PC에서는 이 버튼을 한 번만 눌러주세요.<br>전체화면과 효과음을 준비한 뒤 휴대폰 관리자에서 조작합니다.</p>
+      <button id="launchBtn" type="button">무대 화면 시작</button>
+    </div>
+  </div>
+</main>
+<script src="/raffle-stage.js?v=0.9.13"></script>
+</body>
+</html>
