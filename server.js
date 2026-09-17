@@ -28,7 +28,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.36';
+const FRONTEND_VERSION = '0.9.37';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -61,7 +61,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.36',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.37',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -89,7 +89,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.36'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.37'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -995,7 +995,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.36',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.37',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1042,8 +1042,14 @@ app.get('/api/public/seat-layout',(req,res)=>{
 });
 
 
+app.get('/raffle-stage',(req,res)=>{
+  res.setHeader('Cache-Control','no-store');
+  res.sendFile(path.join(ROOT,'public','raffle-stage.html'));
+});
+
 app.get('/api/public/raffle-stage',(req,res)=>{
-  if(str(req.query.k)!==raffleStageKey())return res.status(403).end();
+  const fixedPublic=str(req.query.fixed)==='1';
+  if(!fixedPublic && str(req.query.k)!==raffleStageKey())return res.status(403).end();
   res.setHeader('Content-Type','text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control','no-cache, no-transform');
   res.setHeader('Connection','keep-alive');
@@ -1056,7 +1062,7 @@ app.get('/api/public/raffle-stage',(req,res)=>{
 });
 
 app.get('/api/raffle/stage-link',auth,(req,res)=>{
-  res.json({ok:true,url:`${req.protocol}://${req.get('host')}/raffle-stage.html?k=${raffleStageKey()}`});
+  res.json({ok:true,url:`${req.protocol}://${req.get('host')}/raffle-stage`});
 });
 
 app.post('/api/login',(req,res)=>{
@@ -1106,7 +1112,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.36',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.37',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -2486,4 +2492,4 @@ app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,e
   }catch(e){console.error('[SEAT FREEZE v0.9.34]',e);}
 })();
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.36 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.37 · :${PORT}`));

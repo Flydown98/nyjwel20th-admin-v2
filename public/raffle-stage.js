@@ -119,7 +119,7 @@ function initCanvas(){
 }
 function connect(){
   if(!key){setConnection('NO KEY','error');return}
-  source?.close();source=new EventSource(`/api/public/raffle-stage?k=${encodeURIComponent(key)}`);
+  source?.close();source=new EventSource(key?`/api/public/raffle-stage?k=${encodeURIComponent(key)}`:'/api/public/raffle-stage?fixed=1');
   source.addEventListener('ready',()=>setConnection('LIVE · CONNECTED','connected'));
   source.addEventListener('raffle-sync',e=>{try{const r=JSON.parse(e.data).remote||{};if(r.status==='spinning')startSpin(r.sample,r.product,{count:r.targetCount||r.count});else if(r.status==='final'&&r.winners?.length)showFinalWinners(r.winners,r.product);else showIdle(r.screen||'idle')}catch(_){}});
   source.addEventListener('stage-mode',e=>{try{showIdle(JSON.parse(e.data).mode)}catch(_){}});
