@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.9.33">
+<link rel="stylesheet" href="/style.css?v=0.9.34">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.33</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.34</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
 <div id="systemModeBanner" class="system-mode-banner hidden"></div>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
@@ -91,7 +91,7 @@
 <article class="card">
   <div class="card-head">
     <div><p class="eyebrow">SEATS</p><h2>좌석관리</h2><p id="seatCount" class="muted"></p><p class="seat-format-note">현장 구조 · 앞 96석 + 뒤 왼쪽 144석 + 뒤 오른쪽 72석 = 총 312석</p></div>
-    <div class="actions"><button type="button" id="applyCurrentHallLayout" class="primary">현장 좌18 + 우8 · 312석 적용</button><button type="button" id="saveSeatMemory">현재 좌석 기억 저장</button><button type="button" id="restoreSeatMemory">이전 좌석 기억 복원</button><button type="button" id="apply400Layout" class="danger">구 좌석 배치 적용</button><button type="button" id="lockCurrentSeats" class="primary">수동 지정좌석 확정</button><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="finalAutoAssign" class="primary">내빈·휠체어 사전배치</button><button type="button" id="reassignWheelchair" class="primary">휠체어 신청자만 재배치</button><button type="button" id="resetGeneralSeats">후면 일반좌석 초기화</button><button type="button" id="autoAssignAll">현재 도착자 자동배치</button><button type="button" id="releasePendingSeats" class="danger">미도착 임시좌석 해제</button><button type="button" id="reloadSeats">갱신</button></div>
+    <div class="actions"><button type="button" id="saveSeatMemory">현재 좌석 기억 저장</button><button type="button" id="restoreSeatMemory">이전 좌석 기억 복원</button><button type="button" id="lockCurrentSeats" class="primary">현재 배정좌석 확정</button><button type="button" id="showUnassigned">미배정자 보기</button><button type="button" id="reloadSeats">갱신</button></div>
   </div>
   <div class="seat-legend"><span><i class="legend-dot assigned"></i> 배정·미도착</span><span><i class="legend-dot arrived"></i> 도착완료</span><span><i class="legend-line vip"></i> 내빈</span><span><i class="legend-line wheelchair"></i> 장애인·휠체어</span><span><i class="legend-dot empty"></i> 빈좌석</span></div>
   <p class="muted">앞 6줄 A~F 내빈석은 그대로 유지합니다. 뒤쪽은 런웨이를 기준으로 왼쪽 1~18번(G~N 8줄), 오른쪽 19~26번(G~O 9줄)으로 표시합니다. O열 왼쪽 1~18번은 실제 좌석이 없어 막힘 처리되고, 그 외 인원은 스탠딩으로 운영합니다. 오른쪽 19~26번은 정상적으로 클릭하여 참가자를 지정할 수 있습니다.</p>
@@ -217,7 +217,7 @@
       <label>외부백업 주기(초)<input name="externalBackupIntervalSec" type="number" min="30"></label>
       <label>외부 시점백업 주기(분)<input name="externalSnapshotIntervalMin" type="number" min="1"></label>
       <label class="check"><input type="checkbox" name="checkinSmsEnabled"> QR 접수 문자 자동발송</label>
-      <label class="check"><input type="checkbox" name="autoSeatAssignOnCheckin"> QR 접수 즉시 좌석 자동배정</label>
+      <label class="check"><input type="checkbox" name="autoSeatAssignOnCheckin"> QR 접수 좌석 자동배정 사용 안 함 (현재 좌석 고정)</label>
       <label class="check"><input type="checkbox" name="externalBackupEnabled"> Google Drive 외부백업 사용</label>
       <label class="check"><input type="checkbox" name="autoRestoreExternalIfEmpty"> 서버 데이터가 비면 Drive 최신백업 자동복원</label>
       <div class="notice wide-field"><strong>행사 운영 잠금</strong>은 메인 현황에서 관리자 비밀번호를 다시 입력해 ON/OFF 합니다.</div>
@@ -341,4 +341,4 @@ RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.9.33"></script></body></html>
+<script src="/app.js?v=0.9.34"></script></body></html>

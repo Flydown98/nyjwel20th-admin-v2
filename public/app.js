@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.33';
+const FRONTEND_VERSION='0.9.34';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.33';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.34';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -851,7 +851,7 @@ async function loadSettings(){
   try{
     const d=await api('/api/settings'),s=d.settings||{},f=$('#settingsForm');
     ['eventName','eventDate','eventVenue','eventHost','applicationCapacity','individualAutoCheckinDelayMs','checkinPopupCloseMs','externalBackupIntervalSec','externalSnapshotIntervalMin'].forEach(k=>{if(f.elements[k])f.elements[k].value=s[k]??''});
-    ['checkinSmsEnabled','autoSeatAssignOnCheckin','externalBackupEnabled','autoRestoreExternalIfEmpty'].forEach(k=>{if(f.elements[k])f.elements[k].checked=s[k]!==false});
+    ['checkinSmsEnabled','externalBackupEnabled','autoRestoreExternalIfEmpty'].forEach(k=>{if(f.elements[k])f.elements[k].checked=s[k]!==false});if(f.elements.autoSeatAssignOnCheckin){f.elements.autoSeatAssignOnCheckin.checked=false;f.elements.autoSeatAssignOnCheckin.disabled=true;}
     $('#rolePasswordStatus').innerHTML=[
       ['현장 접수',d.rolePasswords.reception],['좌석 담당',d.rolePasswords.seat],['추첨 담당',d.rolePasswords.raffle],['Google Drive 외부백업',d.externalBackupConfigured]
     ].map(([n,on])=>`<div class="${on?'settings-ok':'settings-off'}"><strong>${esc(n)}</strong> · ${on?'설정됨':'미설정'}</div>`).join('');
@@ -860,7 +860,7 @@ async function loadSettings(){
 $('#settingsForm')?.addEventListener('submit',async e=>{
   e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());
   ['applicationCapacity','individualAutoCheckinDelayMs','checkinPopupCloseMs','externalBackupIntervalSec','externalSnapshotIntervalMin'].forEach(k=>b[k]=Number(b[k]));
-  ['checkinSmsEnabled','autoSeatAssignOnCheckin','externalBackupEnabled','autoRestoreExternalIfEmpty'].forEach(k=>b[k]=f.has(k));
+  ['checkinSmsEnabled','externalBackupEnabled','autoRestoreExternalIfEmpty'].forEach(k=>b[k]=f.has(k));b.autoSeatAssignOnCheckin=false;
   try{const d=await api('/api/settings',{method:'POST',body:JSON.stringify(b)});appSettings=d.settings;toast('설정을 저장했습니다.');refreshDashboard()}catch(x){toast(x.message,7000)}
 });
 
@@ -1076,7 +1076,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.33',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.34',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 

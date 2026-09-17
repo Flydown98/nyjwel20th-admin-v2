@@ -28,7 +28,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.33';
+const FRONTEND_VERSION = '0.9.34';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -61,7 +61,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.33',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.34',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -69,7 +69,7 @@ function defaultState() {
       eventHost:'남양주시장애인복지관',
       applicationCapacity:450,
       checkinSmsEnabled:true,
-      autoSeatAssignOnCheckin:true,
+      autoSeatAssignOnCheckin:false,
       individualAutoCheckinDelayMs:1400,
       checkinPopupCloseMs:850,
       externalBackupEnabled:true,
@@ -89,7 +89,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.33'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.34'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -133,6 +133,7 @@ function seedDemoState(){
   const ps=names.map((name,i)=>({id:`DEMO-${String(i+1).padStart(3,'0')}`,receptionNo:i+1,name,phone:`010-9000-${String(1000+i).slice(-4)}`,organization:orgs[i%orgs.length],seat:'',active:true,participationStatus:'참여',arrived:false,giftReceived:false,onsite:false,usesCenter:i%2===0,disabledPerson:i%3===0,wheelchairUser:i===2||i===11,seatCategory:i===0?'vip':(i===1?'guest':'auto'),registeredAt:nowIso(),modifiedAt:nowIso(),companionGroup:''}));
   state=normalizeState(defaultState());
   state.settings.checkinSmsEnabled=true;
+  state.settings.autoSeatAssignOnCheckin=false;
   state.settings.externalBackupEnabled=false;
   state.settings.eventName='[시연용] 남양주시장애인복지관 20주년 관리자';
   state.seats=seats;state.participants=ps;
@@ -705,9 +706,16 @@ function verifySeatGuideKey(key){
   return state.participants.find(p=>num(p.receptionNo,0)===receptionNo)||null;
 }
 function checkinMessage(p,extra=''){
-  const seat=participantSeatLabel(p);
-  const guide=seatGuideUrl(p);
-  return `[남양주시장애인복지관]\n${p.name}님 현장 접수가 완료되었습니다.\n좌석: ${seat}\n좌석배치도: ${guide}\n기념품: 지급완료${extra?`\n${extra}`:''}\n개관 20주년 기념행사에 함께해 주셔서 감사합니다.`;
+  const hasSeat=Boolean(str(p?.seat));
+  const seat=hasSeat?displaySeatCode(p.seat):'자유석';
+  const guideLine=hasSeat?`
+좌석배치도: ${seatGuideUrl(p)}`:'';
+  return `[남양주시장애인복지관]
+${p.name}님 현장 접수가 완료되었습니다.
+좌석: ${seat}${guideLine}
+기념품: 지급완료${extra?`
+${extra}`:''}
+개관 20주년 기념행사에 함께해 주셔서 감사합니다.`;
 }
 function seatChangeMessage(p){
   return checkinMessage(p,'자리가 변경되어 다시 내용 보내드립니다. 확인 부탁드립니다.');
@@ -867,14 +875,6 @@ function markArrived(p,{station='관리자 웹',sendSms=true}={}){
   const already=Boolean(p.arrived);
   if(!already){
     p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso();p.checkinGroupId='';p.checkinGroupName='';p.checkinByParticipantId=p.id;p.checkinByParticipantName=p.name;p.checkinByAt=p.arrivedAt;
-    if(!p.seat && state.settings.autoSeatAssignOnCheckin!==false){
-      if(p.seatCategory==='standing')applyStandingPreference(p);
-      else if(p.seatCategory==='vip')assignOneCategory(p,'vip');
-      else if(p.seatCategory==='guest')assignOneCategory(p,'guest');
-      else if(p.wheelchairUser||p.seatCategory==='wheelchair'){
-        assignOneCategory(p,'wheelchair')||assignOneCategory(p,'general');
-      }else assignOneCategory(p,'general');
-    }
     addLog('QR접수',p,'기념품 지급완료',station);
     const priority=(p.seatCategory==='vip'||p.seatCategory==='guest')?'VIP/내빈':((p.wheelchairUser||p.seatCategory==='wheelchair')?'이동지원':'');
     if(priority)broadcastEvent('priority-arrival',{priority,participant:{id:p.id,name:p.name,seat:p.seat,organization:p.organization,wheelchairUser:Boolean(p.wheelchairUser)},station});
@@ -995,7 +995,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.33',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.34',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1106,7 +1106,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.33',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.34',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1243,7 +1243,7 @@ app.post('/api/checkin/test-individual',auth,(req,res)=>{
   const p=findParticipant(req.body?.code);if(!p)return res.status(404).json({ok:false,error:'QR 참가자를 찾을 수 없습니다.'});
   const g=groupForParticipant(p);if(g)return res.status(409).json({ok:false,error:'단체 참가자입니다.',groupRequired:true,participant:p});
   // DRY RUN: 실제 상태/좌석/기념품/SMS는 절대 변경하지 않는다.
-  res.json({ok:true,testMode:true,already:Boolean(p.arrived),participant:{...p},wouldSendSms:Boolean(p.phone&&state.settings.checkinSmsEnabled!==false),wouldAssignSeat:p.seatCategory!=='standing'&&!p.seat&&state.settings.autoSeatAssignOnCheckin!==false});
+  res.json({ok:true,testMode:true,already:Boolean(p.arrived),participant:{...p},wouldSendSms:Boolean(p.phone&&state.settings.checkinSmsEnabled!==false),wouldAssignSeat:false});
 });
 app.post('/api/checkin/test-group',auth,(req,res)=>{
   rebuildAutomaticGroups({persist:false});
@@ -1293,7 +1293,7 @@ app.post('/api/checkin/group',auth,(req,res)=>{
   // 기존 좌석은 접수 인원수와 관계없이 절대 해제하지 않는다.
   // 일부 인원만 먼저 도착해도 아직 오지 않은 그룹원의 사전 배정 좌석은 그대로 보존한다.
   selected.forEach(p=>{p.arrived=true;p.arrivedAt=nowIso();p.giftReceived=true;p.giftReceivedAt=nowIso();p.modifiedAt=nowIso();p.checkinGroupId=group.id;p.checkinGroupName=groupDisplayName(group);p.checkinByParticipantId=scanned?.id||'';p.checkinByParticipantName=scanned?.name||'';p.checkinByAt=nowIso()});
-  const seatPlan=assignGroupSmart(selected);
+  const seatPlan={mode:'fixed-seats-only',seats:selected.map(p=>p.seat).filter(Boolean)};
   const displayName=groupDisplayName(group);
   selected.forEach(p=>addLog('단체QR접수',p,`단체 ${displayName}`,str(req.body?.station)||'QR접수'));
   group.extraStanding=num(group.extraStanding,0)+extras;
@@ -1308,12 +1308,22 @@ app.post('/api/checkin/group',auth,(req,res)=>{
     || members.find(p=>p.phone);
   let sms=null;
   if(smsTarget?.phone&&state.settings.checkinSmsEnabled!==false){
-    const smsSeatMembers=group.type==='companion'?members.filter(p=>p.seat):selected;
-    const seats=smsSeatMembers.map(p=>displaySeatCode(p.seat)).filter(Boolean);
-    const extraText=extras?`추가 ${extras}명은 좌석 미배정(스탠딩 안내)입니다.`:'';
-    const seatLine=seats.length?`좌석: ${seats.join(', ')}\n`:'';
-    const countLine=group.type==='companion'?`동반그룹 ${members.length}명 / 배정좌석 ${seats.length}석`:`이번 접수 ${actual}명 / 좌석 ${checkCount}석`;
-    sms=queueAndSendSms(smsTarget.phone,`[남양주시장애인복지관]\n${displayName} 현장 접수가 완료되었습니다.\n${countLine}\n${seatLine}${extraText}${extraText?'\n':''}좌석배치도(이름별 좌석 함께 표시): ${seatGuideUrl(smsTarget)}\n기념품: ${group.type==='companion'?checkCount:actual}명 지급완료\n감사합니다.`,'group-checkin',smsTarget.id);
+    const smsSeatMembers=group.type==='companion'?members:selected;
+    const seated=smsSeatMembers.filter(p=>p.seat);
+    const seatEntries=seated.map(p=>`${p.name} ${displaySeatCode(p.seat)}`);
+    const freeCount=Math.max(0,smsSeatMembers.length-seated.length)+extras;
+    const seatLine=seatEntries.length?`배정좌석: ${seatEntries.join(', ')}
+`:'';
+    const freeLine=freeCount?`자유석: ${freeCount}명
+`:'';
+    const countLine=group.type==='companion'?`동반그룹 ${members.length}명`:`이번 접수 ${actual}명`;
+    const guideLine=seatEntries.length?`좌석배치도(이름별 좌석 함께 표시): ${seatGuideUrl(smsTarget)}
+`:'';
+    sms=queueAndSendSms(smsTarget.phone,`[남양주시장애인복지관]
+${displayName} 현장 접수가 완료되었습니다.
+${countLine}
+${seatLine}${freeLine}${guideLine}기념품: ${group.type==='companion'?checkCount:actual}명 지급완료
+감사합니다.`,'group-checkin',smsTarget.id);
   }
   saveState();res.json({ok:true,groupName:displayName,total:members.length,checkedInNow:checkCount,actualCount:actual,extraStanding:extras,
     seats:selected.map(p=>p.seat).filter(Boolean),seatPlan,smsQueued:Boolean(sms),smsTargetName:smsTarget?.name||''});
@@ -2117,7 +2127,7 @@ app.post('/api/settings',auth,(req,res)=>{
   textKeys.forEach(k=>{if(k in b)state.settings[k]=str(b[k])});
   if('applicationCapacity'in b)state.settings.applicationCapacity=Math.max(1,num(b.applicationCapacity,450));
   if('checkinSmsEnabled'in b)state.settings.checkinSmsEnabled=bool(b.checkinSmsEnabled);
-  if('autoSeatAssignOnCheckin'in b)state.settings.autoSeatAssignOnCheckin=bool(b.autoSeatAssignOnCheckin);
+  state.settings.autoSeatAssignOnCheckin=false;
   if('individualAutoCheckinDelayMs'in b)state.settings.individualAutoCheckinDelayMs=Math.max(300,Math.min(10000,num(b.individualAutoCheckinDelayMs,1400)));
   if('checkinPopupCloseMs'in b)state.settings.checkinPopupCloseMs=Math.max(300,Math.min(10000,num(b.checkinPopupCloseMs,850)));
   if('externalBackupEnabled'in b)state.settings.externalBackupEnabled=bool(b.externalBackupEnabled);
@@ -2455,18 +2465,14 @@ app.post('/relay/result',(req,res)=>{
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
 
-// v0.9.33: 배포 직후 구 좌석 상태가 남아 있으면 1회 자동 백업 후 새 현장 좌석으로 변환한다.
-(function ensureAsym312V2(){
+// v0.9.34: 좌석 동결 모드. 배포 시 좌석 구조/참가자 좌석을 자동변환하지 않는다.
+(function freezeSeatAssignmentMode(){
   try{
-    if(str(state.meta?.seatLayout)!=='ASYM312-V2'){
-      createSeatLayoutMemory('v0.9.33 자동전환 전 좌석기억');
-      backupNow('before-v0933-seat-auto-migrate');
-      const result=applyCurrentHallLayout();
+    if(state.settings.autoSeatAssignOnCheckin!==false){
+      state.settings.autoSeatAssignOnCheckin=false;
       saveState();
-      backupNow('after-v0933-seat-auto-migrate');
-      console.log('[SEAT MIGRATION v0.9.33]',result);
     }
-  }catch(e){console.error('[SEAT MIGRATION v0.9.33]',e);}
+  }catch(e){console.error('[SEAT FREEZE v0.9.34]',e);}
 })();
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.33 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.34 · :${PORT}`));
