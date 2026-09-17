@@ -28,7 +28,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.32';
+const FRONTEND_VERSION = '0.9.33';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -61,7 +61,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.32',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.33',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -89,7 +89,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.32'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.33'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -377,7 +377,7 @@ function applyCurrentHallLayout(){
     else{p.seat='';p.seatLocked=false;p.seatCategory='standing';p.standing=true;p.modifiedAt=nowIso();cleared++;}
   });
   state.seats=canonical;state.settings.autoSeatAssignOnCheckin=true;
-  state.meta.seatLayout='ASYM312-V1';state.meta.seatLayoutAppliedAt=nowIso();state.meta.seatPlanVersion='v0.9.32-asymmetric-312';
+  state.meta.seatLayout='ASYM312-V2';state.meta.seatLayoutAppliedAt=nowIso();state.meta.seatPlanVersion='v0.9.33-left18-right8-26';
   return {preserved,moved,cleared,fallbackMoved,seats:canonical.filter(s=>s.enabled!==false).length,totalCells:canonical.length,participantSeats:312,staffSeats:0};
 }
 
@@ -995,7 +995,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.32',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.33',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1106,7 +1106,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.32',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.33',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1612,7 +1612,7 @@ app.get('/api/seats',auth,(req,res)=>{
     assigned:rows.filter(x=>x.occupied).length,
     arrivedAssigned:rows.filter(x=>x.arrived).length,
     layoutVersion:state.meta.seatLayout||'',
-    layoutNeedsRepair:isCurrentHallLayout() ? (rows.filter(x=>x.enabled!==false).length!==312 || state.meta.seatLayout!=='ASYM312-V1') : (state.meta.seatLayout!=='EVENT400-V8' || rows.length!==400 ||
+    layoutNeedsRepair:isCurrentHallLayout() ? (rows.filter(x=>x.enabled!==false).length!==312 || state.meta.seatLayout!=='ASYM312-V2') : (state.meta.seatLayout!=='EVENT400-V8' || rows.length!==400 ||
       'ABCDEFGHIJKL'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==16) ||
       'MNOPQRST'.split('').some(r=>rows.filter(x=>x.row===r&&x.enabled!==false).length!==26)),
     autoSeatAssignOnCheckin:state.settings.autoSeatAssignOnCheckin!==false,
@@ -2454,4 +2454,19 @@ app.post('/relay/result',(req,res)=>{
 
 app.use((req,res)=>{if(req.path.startsWith('/api/')||req.path.startsWith('/relay/'))return res.status(404).json({ok:false,error:'API를 찾을 수 없습니다.'});res.sendFile(path.join(ROOT,'public','index.html'))});
 app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,error:err?.message||'서버 오류'})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.32 · :${PORT}`));
+
+// v0.9.33: 배포 직후 구 좌석 상태가 남아 있으면 1회 자동 백업 후 새 현장 좌석으로 변환한다.
+(function ensureAsym312V2(){
+  try{
+    if(str(state.meta?.seatLayout)!=='ASYM312-V2'){
+      createSeatLayoutMemory('v0.9.33 자동전환 전 좌석기억');
+      backupNow('before-v0933-seat-auto-migrate');
+      const result=applyCurrentHallLayout();
+      saveState();
+      backupNow('after-v0933-seat-auto-migrate');
+      console.log('[SEAT MIGRATION v0.9.33]',result);
+    }
+  }catch(e){console.error('[SEAT MIGRATION v0.9.33]',e);}
+})();
+
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.33 · :${PORT}`));

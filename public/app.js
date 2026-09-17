@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.32';
+const FRONTEND_VERSION='0.9.33';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.32';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.33';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -375,7 +375,7 @@ async function loadSeats(){
     $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석 · 자동좌석 ${d.autoSeatAssignOnCheckin?'ON':'OFF'}`;
     const byRow=new Map();d.rows.forEach(s=>{const row=String(s.row||'').toUpperCase();if(!byRow.has(row))byRow.set(row,[]);byRow.get(row).push(s)});
     let html='';
-    if(String(d.layoutVersion||'').startsWith('ASYM312-')){
+    if(String(d.layoutVersion||'').startsWith('ASYM312-') || d.rows.some(x=>x.section==='rearAsym')){
       const frontRow=(row)=>{const rs=(byRow.get(row)||[]),map=new Map(rs.map(s=>[+s.displayNumber||+s.number,s]));return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(map.get(i+9),i+9)).join('')}</div></div>`};
       const rearRow=(row)=>{const rs=(byRow.get(row)||[]),map=new Map(rs.map(s=>[+s.displayNumber||+s.number,s]));return `<div class="front-seat-row rear-asym-row"><div class="seat-row-label">${row}</div><div class="seat-block eighteen">${Array.from({length:18},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(map.get(i+19),i+19)).join('')}</div></div>`};
       const front='ABCDEF'.split('').map(frontRow).join('');
@@ -1076,7 +1076,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.32',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.33',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 
