@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s),key=new URLSearchParams(location.search).get('k')||'';
 function parseSeat(raw){
   raw=String(raw||'').toUpperCase();
-  let m=raw.match(/^([A-N])(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2]),side:''};
+  let m=raw.match(/^([A-W])(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2]),side:''};
   m=raw.match(/^([A-L])([LR])-(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[3]),side:m[2],display:m[2]==='L'?Number(m[3]):Number(m[3])+8};
   m=raw.match(/^([M-T])B-(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2]),side:'B',display:Number(m[2])};
   m=raw.match(/^([M-T])(\d{1,2})$/);if(m)return{row:m[1],n:Number(m[2]),side:'B',display:Number(m[2])};
@@ -19,14 +19,17 @@ function render(mySeats,layout){
     const raw=String(x?.rawSeat||x?.seat||'').toUpperCase(),p=parseSeat(raw);return p?{...p,rawSeat:raw,name:String(x?.name||'')}:null;
   }).filter(Boolean);
   const rows=Array.isArray(layout)?layout:[],byRow=new Map();rows.forEach(s=>{const r=String(s.row||'').toUpperCase();if(!byRow.has(r))byRow.set(r,[]);byRow.get(r).push(s)});
-  const hall=rows.some(s=>s.staffOnly)||rows.some(s=>s.row==='STAFF');
+  const hall=rows.some(s=>s.section==='rearAsym')||rows.some(s=>s.staffOnly)||rows.some(s=>s.row==='STAFF');
   if(hall){
-    const mapRow=(row,count)=>{const m=new Map((byRow.get(row)||[]).map(s=>[Number(s.displayNumber||s.number),s]));const half=count===16?8:15;return `<div class="front-row${count===30?' hall-wide-row':''}"><b class="row-label">${row}</b><div class="${count===16?'eight':'fifteen'}">${Array.from({length:half},(_,i)=>dotSeat(m.get(i+1),mines,i+1)).join('')}</div><span class="runway"></span><div class="${count===16?'eight':'fifteen'}">${Array.from({length:half},(_,i)=>dotSeat(m.get(i+half+1),mines,i+half+1)).join('')}</div></div>`};
-    const af='ABCDEF'.split('').map(row=>mapRow(row,16)).join('');
-    const gn='GHIJKLMN'.split('').map(row=>mapRow(row,30)).join('');
-    $('#seatMap').innerHTML=af+`<div class="rear-start">A~F 1~16 · 기존 물리 위치 유지</div>`+gn+`<div class="rear-start">G~N 1~30 · 참가자석 336석 / 스태프 자유석 64석은 참가자 안내에서 제외</div>`;
+    const frontRow=(row)=>{const m=new Map((byRow.get(row)||[]).map(s=>[Number(s.displayNumber||s.number),s]));return `<div class="front-row"><b class="row-label">${row}</b><div class="eight">${Array.from({length:8},(_,i)=>dotSeat(m.get(i+1),mines,i+1)).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dotSeat(m.get(i+9),mines,i+9)).join('')}</div></div>`};
+    const rearRow=(row)=>{const m=new Map((byRow.get(row)||[]).map(s=>[Number(s.displayNumber||s.number),s]));return `<div class="rear-asym-public"><b class="row-label">${row}</b><div class="eighteen">${Array.from({length:18},(_,i)=>dotSeat(m.get(i+1),mines,i+1)).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dotSeat(m.get(i+19),mines,i+19)).join('')}</div></div>`};
+    const af='ABCDEF'.split('').map(frontRow).join('');
+    const rear='GHIJKLMNO'.split('').map(rearRow).join('');
+    $('#seatMap').innerHTML=af+`<div class="rear-start">앞 6줄 A~F · 기존 내빈석</div>`+rear+`<div class="rear-start">뒤쪽 1~18 왼쪽 / 19~26 오른쪽 · O열 왼쪽은 막힘 · 그 외 스탠딩</div>`;
     return;
   }
+
+
 
   const front='ABCDEFGHIJKL'.split('').map(row=>{const nums=new Map((byRow.get(row)||[]).map(s=>[Number(s.displayNumber||s.number),s]));return `<div class="front-row"><b class="row-label">${row}</b><div class="eight">${Array.from({length:8},(_,i)=>dotSeat(nums.get(i+1),mines,i+1)).join('')}</div><span class="runway"></span><div class="eight">${Array.from({length:8},(_,i)=>dotSeat(nums.get(i+9),mines,i+9)).join('')}</div></div>`}).join('');
   const head=`<div class="number-head number-head-26"><span></span>${Array.from({length:26},(_,i)=>`<b>${i+1}</b>`).join('')}</div>`;

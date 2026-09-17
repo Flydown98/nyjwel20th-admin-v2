@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.30';
+const FRONTEND_VERSION='0.9.32';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.30';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.32';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -362,9 +362,8 @@ $('#representativeGroups').onclick=groupContainerClick;$('#companionGroups').onc
 
 let seatCache=[];
 function seatZoneClass(s){
-  const row=String(s.row||'').toUpperCase(),n=Number(s.displayNumber||s.number||0);
+  const row=String(s.row||'').toUpperCase();
   if(row>='A'&&row<='F')return 'guest';
-  if(row>='G'&&row<='N'&&(n<=2||n>=29))return 'wheelchair';
   return '';
 }
 let selectedSeatCode='';
@@ -376,12 +375,12 @@ async function loadSeats(){
     $('#seatCount').textContent=`전체 ${d.total}석 · 배정 ${d.assigned||0}석 · 도착 ${d.arrivedAssigned||0}석 · 자동좌석 ${d.autoSeatAssignOnCheckin?'ON':'OFF'}`;
     const byRow=new Map();d.rows.forEach(s=>{const row=String(s.row||'').toUpperCase();if(!byRow.has(row))byRow.set(row,[]);byRow.get(row).push(s)});
     let html='';
-    if(String(d.layoutVersion||'').startsWith('HALL400-N-')){
-      const numericRow=(row,count)=>{const rs=(byRow.get(row)||[]),map=new Map(rs.map(s=>[+s.displayNumber||+s.number,s]));const left=count===16?8:15;return `<div class="front-seat-row${count===30?' wide-wing-row':''}"><div class="seat-row-label">${row}</div><div class="seat-block ${count===16?'eight':'fifteen'}">${Array.from({length:left},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block ${count===16?'eight':'fifteen'}">${Array.from({length:left},(_,i)=>seatCellHtml(map.get(i+left+1),i+left+1)).join('')}</div></div>`};
-      const af='ABCDEF'.split('').map(row=>numericRow(row,16)).join('');
-      const gn='GHIJKLMN'.split('').map(row=>numericRow(row,30)).join('');
-      const staff=(side)=>{const rs=(byRow.get('STAFF')||[]).filter(s=>s.side===side),m=new Map(rs.map(s=>[+s.number,s]));return `<div class="staff-free-block"><strong>스태프 자유석 ${side==='L'?'좌':'우'} 32석</strong><div class="staff-seat-grid">${Array.from({length:32},(_,i)=>{const s=m.get(i+1);return `<div class="seat-cell disabled staff-seat" title="스태프 자유석"><strong>S${i+1}</strong></div>`}).join('')}</div></div>`};
-      html=`${d.layoutNeedsRepair?'<div class="seat-layout-warning"><strong>현장 좌석틀 저장 확인 필요</strong><span>현장 배치 적용 버튼으로 서버 상태에 저장할 수 있습니다.</span></div>':''}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label"><span>좌측</span><span>런웨이</span><span>우측</span></div>${af}<div class="runway-end-cap">A~F 1~16 · 기존 물리 위치 유지</div>${gn}<div class="runway-end-cap">G~N 1~30 · 참가자 실제 좌석 총 336석</div><div class="staff-free-wrap">${staff('L')}${staff('R')}</div><div class="runway-end-cap">스태프 자유석 64석 · 참가자 배정/접수 제외 · 전체 물리 좌석 400석</div>`;
+    if(String(d.layoutVersion||'').startsWith('ASYM312-')){
+      const frontRow=(row)=>{const rs=(byRow.get(row)||[]),map=new Map(rs.map(s=>[+s.displayNumber||+s.number,s]));return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(map.get(i+9),i+9)).join('')}</div></div>`};
+      const rearRow=(row)=>{const rs=(byRow.get(row)||[]),map=new Map(rs.map(s=>[+s.displayNumber||+s.number,s]));return `<div class="front-seat-row rear-asym-row"><div class="seat-row-label">${row}</div><div class="seat-block eighteen">${Array.from({length:18},(_,i)=>seatCellHtml(map.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(map.get(i+19),i+19)).join('')}</div></div>`};
+      const front='ABCDEF'.split('').map(frontRow).join('');
+      const rear='GHIJKLMNO'.split('').map(rearRow).join('');
+      html=`${d.layoutNeedsRepair?'<div class="seat-layout-warning"><strong>현장 좌석틀 저장 확인 필요</strong><span>새 312석 구조를 적용 버튼으로 저장해 주세요.</span></div>':''}<div class="seat-stage-label">무대 / 스테이지</div><div class="front-layout-label asym-label"><span>왼쪽 · 1~18</span><span>런웨이</span><span>오른쪽 · 19~26</span></div>${front}<div class="runway-end-cap">앞 6줄 내빈석 · A~F 기존 위치 유지</div>${rear}<div class="runway-end-cap">뒤쪽: 왼쪽 G~N 8줄×18석 + 오른쪽 G~O 9줄×8석 · 총 좌석 312석 · 나머지는 스탠딩</div>`;
     }else{
       const frontRows='ABCDEFGHIJKL'.split(''),rearRows='MNOPQRST'.split('');
       const front=frontRows.map(row=>{const rs=byRow.get(row)||[],lm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='L').map(s=>[Number(s.number),s])),rm=new Map(rs.filter(s=>String(s.side).toUpperCase()==='R').map(s=>[Number(s.number),s]));return `<div class="front-seat-row"><div class="seat-row-label">${row}</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(lm.get(i+1),i+1)).join('')}</div><div class="runway-long">RUNWAY</div><div class="seat-block eight">${Array.from({length:8},(_,i)=>seatCellHtml(rm.get(i+1),i+9)).join('')}</div></div>`}).join('');
@@ -441,7 +440,7 @@ async function openSeatManager(code){
 $('#seatGrid').onclick=e=>{const cell=e.target.closest('[data-seat]');if(!cell)return;const code=cell.dataset.seat;if(selectedSeatCode===code)return openSeatManager(code);selectedSeatCode=code;loadSeats();};
 
 $('#applyCurrentHallLayout')?.addEventListener('click',async()=>{
-  if(!confirm('현재 현장배치로 전환할까요?\n\n- A~F 물리 위치 유지 · 좌석명 1~16\n- G~N 좌석명 1~30 · 참가자석 240석\n- 참가자 실제 배정석 총 336석\n- 별도 스태프 자유석 64석 (참가자 배정 제외)\n- O~T 기존 배정자는 동반그룹/기관/프로그램 근거로 날개석에 묶음 재배치\n\n적용 직전 좌석상태는 자동으로 기억되어 언제든 복원할 수 있습니다.'))return;
+  if(!confirm('새 현장 좌석배치로 전환할까요?\n\n- A~F 앞 6줄 내빈석 96석은 그대로 유지\n- 뒤쪽 왼쪽: G~N 8줄 × 18석 (1~18번)\n- 뒤쪽 오른쪽: G~O 9줄 × 8석 (19~26번)\n- O열의 왼쪽 1~18번은 실제 좌석이 없어 막힘 처리\n- 실제 지정 좌석 총 312석, 나머지는 스탠딩\n\n적용 직전 좌석상태는 자동으로 기억되어 언제든 복원할 수 있습니다.'))return;
   try{const d=await api('/api/seats/apply-current-hall',{method:'POST',body:'{}'});toast(`현장배치 적용 · 계획배치 ${d.plannedMoved||0}명 · 기타변환 ${d.fallbackMoved||0}명 · 해제 ${d.cleared}명 · 자동기억 저장`,10000);selectedSeatCode='';loadSeats();refreshDashboard()}catch(e){toast(e.message,10000)}
 });
 $('#saveSeatMemory')?.addEventListener('click',async()=>{
@@ -1077,7 +1076,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.30',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.32',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 
