@@ -1,5 +1,5 @@
 'use strict';
-const FRONTEND_VERSION='0.9.34';
+const FRONTEND_VERSION='0.9.36';
 
 function displaySeat(code){
   const raw=String(code||'').toUpperCase();
@@ -38,7 +38,7 @@ async function refreshDashboard(){
   put('#sActualAttendance',s.actualAttendance);put('#sRecent10',s.recent10);put('#sPending',s.pending);
   put('#sExtraStanding',s.extraStanding);put('#sVipPending',s.vipPending);put('#sMobilityPending',s.mobilityPending);
   put('#sUnassigned',s.unassigned);put('#sSmsFailed',s.smsFailed);put('#sFreeSeats',s.freeSeats);
-  $('#statusBadge').textContent='연결됨 · v0.9.34';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
+  $('#statusBadge').textContent='연결됨 · v0.9.36';$('#statusBadge').classList.add('ok');$('#roleBadge').textContent=d.roleLabel||currentRole;
   $('#stationBtn').textContent=`접수대: ${stationName}`;
   const vb=$('#versionBadge');
   if(vb){const ok=d.version===FRONTEND_VERSION;vb.textContent=ok?`최신 ${FRONTEND_VERSION}`:`버전불일치 ${FRONTEND_VERSION}/${d.version}`;vb.classList.toggle('warning',!ok);if(!ok)toast('화면/서버 버전이 다릅니다. Ctrl+Shift+R로 새로고침하세요.',7000)}
@@ -219,7 +219,9 @@ $('#participantRows').onclick=async e=>{
   }
 };
 
-$('#onsiteForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());b.wheelchairUser=f.has('wheelchairUser');b.disabledPerson=f.has('disabledPerson');try{const d=await api('/api/participants/onsite',{method:'POST',body:JSON.stringify(b)});toast(`${d.participant.name} 현장등록 완료 · 스탠딩 안내`,6000);e.currentTarget.reset();e.currentTarget.station.value='현장접수';refreshDashboard()}catch(x){toast(x.message,6000)}};
+$('#onsiteForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),b=Object.fromEntries(f.entries());b.wheelchairUser=f.has('wheelchairUser');b.disabledPerson=f.has('disabledPerson');try{const d=await api('/api/participants/onsite',{method:'POST',body:JSON.stringify(b)});modal(`<p class="eyebrow">ON-SITE CHECK-IN</p><h2>현장 추가 접수 완료</h2><div class="notice"><strong>${esc(d.participant.name)}</strong>님이 현장 참가자로 등록되었습니다.</div><div class="result"><strong>좌석: 자유석</strong><br>${d.participant.organization?`소속: ${esc(d.participant.organization)}<br>`:''}${d.smsQueued?'접수 안내 문자를 발송했습니다.':'문자 발송 없음'}</div><button id="closeOnsiteDone" class="primary wide">확인</button>`);$('#closeOnsiteDone').onclick=closeModal;toast(`${d.participant.name} 현장 추가접수 완료 · 자유석`,6000);e.currentTarget.reset();e.currentTarget.station.value='현장접수';refreshDashboard();loadParticipants?.()}catch(x){toast(x.message,6000)}};
+const quickOnsiteBtn=$('#quickOnsiteCheckin');if(quickOnsiteBtn)quickOnsiteBtn.onclick=()=>showView('onsite');
+
 
 
 
@@ -490,18 +492,27 @@ async function loadRaffle(){
   try{
     const [p,h]=await Promise.all([api('/api/raffle/products'),api('/api/raffle/history')]);
     const current=$('#raffleProduct').value;
-    const productOptions=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}" data-remaining="${x.remaining}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="">사용 가능한 상품 없음</option>';
+    const productOptions=p.rows.filter(x=>x.enabled&&x.remaining>0).map(x=>`<option value="${esc(x.number)}" data-remaining="${x.remaining}">${esc(x.name)} · 남음 ${x.remaining}개 / 총 ${x.quantity}개</option>`).join('')||'<option value="custom" data-remaining="999">현장 행운권 · 수량 제한 없음</option>';
     $('#raffleProduct').innerHTML=productOptions;
     if($('#remoteRaffleProduct'))$('#remoteRaffleProduct').innerHTML=productOptions;
     if(current&&[...$('#raffleProduct').options].some(o=>o.value===current))$('#raffleProduct').value=current;
     syncRaffleCountToProduct($('#raffleProduct'),$('#raffleCount'));syncRaffleCountToProduct($('#remoteRaffleProduct'),$('#remoteRaffleCount'));
-    $('#raffleFilter').value='usesCenter';
+    if(!$('#raffleFilter').value)$('#raffleFilter').value='all';
+    if($('#raffleFilter').value==='usesCenter')$('#raffleFilter').value='all';
+    if($('#remoteRaffleFilter')&&$('#remoteRaffleFilter').value==='usesCenter')$('#remoteRaffleFilter').value='all';
+    loadRafflePoolStatus().catch(()=>{});
     renderRaffleProducts(p.rows);
     renderRaffleHistory(h.rows);
     loadRemoteRaffleStatus().catch(()=>{});
   }catch(e){toast(e.message)}
 }
 
+async function loadRafflePoolStatus(){
+  const filter=$('#raffleFilter')?.value||'all';
+  const d=await api(`/api/raffle/pool?filter=${encodeURIComponent(filter)}`);
+  const box=$('#rafflePoolStatus');
+  if(box)box.innerHTML=`<strong>현재 추첨 대상 ${d.count}명</strong><br>접수완료 전체 ${d.arrivedTotal}명 · 자유석 ${d.freeSeat}명 · 현장추가접수 ${d.onsite}명`;
+}
 function syncRaffleCountToProduct(select,countInput){
   if(!select||!countInput)return;
   const opt=select.selectedOptions?.[0];
@@ -523,7 +534,7 @@ function renderRaffleProducts(rows){
 function renderRaffleHistory(rows){
   $('#raffleHistory').innerHTML=rows.slice(0,80).map(x=>`<div class="history-row raffle-history-row">
     <strong>${esc(x.prizeName)} · ${esc(x.participantDisplayName||`${x.participantName}${x.participantPhoneLast4?` (${x.participantPhoneLast4})`:''}`)}</strong>
-    <small>${esc(x.seat||'스탠딩석')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')} · ${x.enabled===false?'당첨취소':'유효'}</small>
+    <small>${esc(x.seat||'자유석')} · ${new Date(x.drawnAt).toLocaleString('ko-KR')} · ${x.enabled===false?'당첨취소':'유효'}</small>
     ${x.winnerSmsSentAt?`<small class="winner-sms-done">당첨문자 요청완료 · ${esc(x.winnerSmsTargetName||'수신자')}</small>`:''}
     <div class="actions">
       ${x.enabled===false?'':`<button data-winnersms="${esc(x.drawId)}" data-pid="${esc(x.participantId)}">${x.winnerSmsSentAt?'당첨문자 재발송':'당첨확인문자 보내기'}</button>`}
@@ -643,7 +654,7 @@ function showRaffleStage(prep){
   return stage;
 }
 
-async function run777Raffle(prep){const stage=showRaffleStage(prep),samples=prep.sample.length?prep.sample:[{name:'행운의 주인공',seat:''}],run={prep,stopRequested:false,finished:false,spinAnim:null};raffleRun=run;raffleAudio();const winners=[];for(let round=1;round<=prep.count;round++){run.stopRequested=false;$('#raffleWinnerPanel').classList.add('hidden');$('#raffleStageClose').classList.add('hidden');$('#raffleSpaceHint').classList.remove('hidden');$('#raffleStageSub').textContent=`${round} / ${prep.count} 번째 당첨자 · SPACE로 멈춤`;stage.classList.remove('stopping','reveal');stage.classList.add('spinning');run.spinAnim=startPremiumReel(samples);while(!run.stopRequested)await sleep(60);stage.classList.remove('spinning');stage.classList.add('stopping');$('#raffleSpaceHint').classList.add('hidden');$('#raffleStageSub').textContent=`${round}번째 당첨자를 결정하고 있습니다`;const result=await api('/api/raffle/commit-one',{method:'POST',body:JSON.stringify({token:prep.token})});const current=result.record;winners.push(current);await stopPremiumReel(samples,{name:current.participantName,seat:current.seat||''});stage.classList.remove('stopping');stage.classList.add('reveal');fanfare();createRaffleParticles(54);$('#raffleWinnerPanel').classList.remove('hidden');$('#raffleWinnerName').textContent=current.participantName;$('#raffleWinnerSeat').textContent=current.seat?`좌석 ${current.seat}`:'좌석 미배정';$('#raffleWinnerPrize').textContent=`${prep.product.name} · ${round}/${prep.count}`;if(round<prep.count){$('#raffleStageSub').textContent='다음 당첨자를 위해 SPACE를 눌러주세요';run.stopRequested=false;while(!run.stopRequested)await sleep(60)}}$('#raffleWinnerName').textContent=`최종 ${winners.length}명 당첨`;$('#raffleWinnerSeat').textContent=winners.map(w=>`${w.participantName}${w.seat?` (${w.seat})`:''}`).join(' · ');$('#raffleWinnerPrize').textContent=prep.product.name;$('#raffleStageSub').textContent='최종 당첨 결과';$('#raffleStageClose').classList.remove('hidden');run.finished=true;return {ok:true,product:prep.product,winners}}
+async function run777Raffle(prep){const stage=showRaffleStage(prep),samples=prep.sample.length?prep.sample:[{name:'행운의 주인공',seat:''}],run={prep,stopRequested:false,finished:false,spinAnim:null};raffleRun=run;raffleAudio();const winners=[];for(let round=1;round<=prep.count;round++){run.stopRequested=false;$('#raffleWinnerPanel').classList.add('hidden');$('#raffleStageClose').classList.add('hidden');$('#raffleSpaceHint').classList.remove('hidden');$('#raffleStageSub').textContent=`${round} / ${prep.count} 번째 당첨자 · SPACE로 멈춤`;stage.classList.remove('stopping','reveal');stage.classList.add('spinning');run.spinAnim=startPremiumReel(samples);while(!run.stopRequested)await sleep(60);stage.classList.remove('spinning');stage.classList.add('stopping');$('#raffleSpaceHint').classList.add('hidden');$('#raffleStageSub').textContent=`${round}번째 당첨자를 결정하고 있습니다`;const result=await api('/api/raffle/commit-one',{method:'POST',body:JSON.stringify({token:prep.token})});const current=result.record;winners.push(current);await stopPremiumReel(samples,{name:current.participantName,seat:current.seat||''});stage.classList.remove('stopping');stage.classList.add('reveal');fanfare();createRaffleParticles(54);$('#raffleWinnerPanel').classList.remove('hidden');$('#raffleWinnerName').textContent=current.participantName;$('#raffleWinnerSeat').textContent=current.seat?`좌석 ${current.seat}`:'자유석';$('#raffleWinnerPrize').textContent=`${prep.product.name} · ${round}/${prep.count}`;if(round<prep.count){$('#raffleStageSub').textContent='다음 당첨자를 위해 SPACE를 눌러주세요';run.stopRequested=false;while(!run.stopRequested)await sleep(60)}}$('#raffleWinnerName').textContent=`최종 ${winners.length}명 당첨`;$('#raffleWinnerSeat').textContent=winners.map(w=>`${w.participantName}${w.seat?` (${w.seat})`:''}`).join(' · ');$('#raffleWinnerPrize').textContent=prep.product.name;$('#raffleStageSub').textContent='최종 당첨 결과';$('#raffleStageClose').classList.remove('hidden');run.finished=true;return {ok:true,product:prep.product,winners}}
 function requestRaffleStop(){
   if(!raffleRun||raffleRun.finished||raffleRun.stopRequested)return;
   raffleRun.stopRequested=true;
@@ -708,7 +719,7 @@ $('#raffleForm').onsubmit=async e=>{
       productNo:$('#raffleProduct').value,count:Number($('#raffleCount').value),filter:$('#raffleFilter').value
     })});
     const result=await run777Raffle(prep);
-    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(result.product.name)}</h3>${result.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'스탠딩석')}</p>`).join('')}</div>`;
+    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(result.product.name)}</h3>${result.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'자유석')}</p>`).join('')}</div>`;
     loadRaffle();
   }catch(x){
     $('#raffleStage')?.classList.add('hidden');
@@ -772,7 +783,7 @@ $('#remoteRaffleStop')?.addEventListener('click',async()=>{
   if(!confirm('지금 멈추고 당첨자를 확정할까요?'))return;
   try{
     const d=await api('/api/raffle/remote/stop',{method:'POST',body:'{}'});
-    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'스탠딩석')}</p>`).join('')}</div>`;
+    $('#raffleWinners').innerHTML=`<div class="successbox"><h3>${esc(d.product.name)}</h3>${d.winners.map(x=>`<p><strong>${esc(x.participantName)}</strong> · ${esc(x.seat||'자유석')}</p>`).join('')}</div>`;
     if(navigator.vibrate)navigator.vibrate([80,50,160]);
     toast(`${d.winners.length}명 당첨자를 확정하고 무대 화면에 공개했습니다.`,6500);
     loadRaffle();
@@ -1076,7 +1087,7 @@ $('#installApp')?.addEventListener('click',async()=>{
 });
 syncInstallButton();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.34',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=0.9.36',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
 }
 
 
@@ -1158,3 +1169,6 @@ document.addEventListener('click',async e=>{
     toast('자동묶음 규칙으로 되돌렸습니다.');loadGroups();refreshDashboard();
   }catch(x){toast(x.message,7000)}
 });
+
+$('#raffleFilter')?.addEventListener('change',()=>loadRafflePoolStatus().catch(e=>toast(e.message)));
+$('#remoteRaffleFilter')?.addEventListener('change',()=>{});

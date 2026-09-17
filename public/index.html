@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>20주년 현장 관리자 v2</title>
-<link rel="stylesheet" href="/style.css?v=0.9.34">
+<link rel="stylesheet" href="/style.css?v=0.9.36">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#172554">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@
 </head>
 <body>
 <div id="loginOverlay" class="overlay"><form id="loginForm" class="modal login"><div class="mark">20</div><p class="eyebrow">NYJWEL FIELD ADMIN</p><h1>20주년 현장 관리자 v2</h1><label>관리자 비밀번호<input id="password" type="password" required></label><button class="primary wide">로그인</button><p id="loginMessage" class="error"></p></form></div>
-<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.34</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
+<header><div><p class="eyebrow">남양주시장애인복지관</p><h1>20주년 현장 관리자 <small>v0.9.36</small></h1></div><div class="header-actions"><span id="roleBadge" class="badge">관리자</span><span id="statusBadge" class="badge">연결 확인 중</span><span id="versionBadge" class="badge">버전 확인</span><button type="button" id="stationBtn">접수대: 미설정</button><button type="button" id="openDemo" class="demo-cta">기능 시연</button><button type="button" id="installApp" class="install-cta">앱 다운로드</button><button type="button" id="topRefresh">새로고침</button><button type="button" id="logoutBtn">로그아웃</button></div></header>
 <div id="systemModeBanner" class="system-mode-banner hidden"></div>
 <nav id="tabs">
 <button data-view="dashboard" class="active">현황</button><button data-view="checkin">QR 접수</button><button data-view="participants">참가자</button><button data-view="onsite">현장 신규접수</button><button data-view="groups">단체관리</button><button data-view="seats">좌석</button><button data-view="raffle">행운권 추첨</button><button data-view="sms">문자</button><button data-view="logs">로그</button><button data-view="settings">설정</button><button data-view="data">데이터 관리</button><button data-view="backup">백업</button>
@@ -55,7 +55,7 @@
     <strong>🧪 QR 테스트 접수 모드 ON</strong>
     <span>실제 QR을 스캔해 참가자·그룹 조회와 접수 절차를 검증합니다. 문자 발송 · 도착처리 · 기념품처리 · 좌석변경은 하지 않습니다.</span>
   </article>
-  <div class="two"><article class="card"><div class="card-head"><div><p class="eyebrow">QR CHECK-IN</p><h2>QR 스캔</h2></div><div class="actions"><button id="toggleCheckinTestMode" type="button">테스트 모드 켜기</button><button id="toggleScanner" class="primary">카메라 시작</button></div></div><div id="reader" class="reader">카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.</div></article>
+  <div class="two"><article class="card"><div class="card-head"><div><p class="eyebrow">QR CHECK-IN</p><h2>QR 스캔</h2></div><div class="actions"><button id="quickOnsiteCheckin" type="button">현장 추가 접수</button><button id="toggleCheckinTestMode" type="button">테스트 모드 켜기</button><button id="toggleScanner" class="primary">카메라 시작</button></div></div><div id="reader" class="reader">카메라를 시작하거나 오른쪽에서 QR코드를 직접 입력하세요.</div></article>
 <article class="card"><h2>수동 QR / 검색코드</h2><form id="manualQrForm" class="stack"><input id="manualQr" placeholder="QR고유코드 또는 접수번호" required><button class="primary">접수 확인</button></form><div id="recentResult" class="result muted">아직 접수하지 않았습니다.</div></article></div></section>
 
 <section id="view-participants" class="view">
@@ -66,7 +66,7 @@
 </article>
 </section>
 
-<section id="view-onsite" class="view"><article class="card narrow"><p class="eyebrow">ON-SITE</p><h2>QR 없이 온 참가자 등록</h2><div class="notice">현장 추가 참가자는 자동 좌석을 배정하지 않습니다. 등록 즉시 <strong>스탠딩 안내</strong> 및 기념품 지급완료로 처리합니다.</div><form id="onsiteForm" class="form-grid"><label>이름<input name="name" required></label><label>연락처<input name="phone" placeholder="선택"></label><label>소속기관<input name="organization"></label><label>접수대<input name="station" value="현장접수"></label><label class="check"><input name="wheelchairUser" type="checkbox"> 휠체어 이용</label><label class="check"><input name="disabledPerson" type="checkbox"> 장애인 당사자</label><label class="wide-field">메모<textarea name="note" rows="3"></textarea></label><button class="primary wide-field">현장 등록</button></form></article></section>
+<section id="view-onsite" class="view"><article class="card narrow"><p class="eyebrow">ON-SITE</p><h2>현장 추가 접수</h2><div class="notice">사전 명단에 없는 참가자를 바로 등록하고 접수완료 처리합니다. <strong>좌석은 자동 배정하지 않으며 자유석</strong>으로 안내합니다. 연락처가 있으면 접수 안내 문자도 발송합니다.</div><form id="onsiteForm" class="form-grid"><label>이름<input name="name" required></label><label>연락처<input name="phone" placeholder="선택"></label><label>소속기관<input name="organization"></label><label>접수대<input name="station" value="현장접수"></label><label class="check"><input name="wheelchairUser" type="checkbox"> 휠체어 이용</label><label class="check"><input name="disabledPerson" type="checkbox"> 장애인 당사자</label><label class="wide-field">메모<textarea name="note" rows="3"></textarea></label><button class="primary wide-field">현장 추가 접수 완료</button></form></article></section>
 
 <section id="view-groups" class="view">
 <article class="card">
@@ -120,7 +120,7 @@
 
   <div class="remote-control-grid">
     <label>상품<select id="remoteRaffleProduct"></select></label>
-    <label>대상<select id="remoteRaffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
+    <label>대상<select id="remoteRaffleFilter"><option value="all" selected>접수 완료 전체</option><option value="usesCenter">복지관 이용인만</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option><option value="freeSeat">자유석 참가자만</option></select></label>
     <label>당첨 인원<input id="remoteRaffleCount" type="number" min="1" max="5" value="1"></label>
   </div>
 
@@ -139,9 +139,9 @@
     <p class="muted">기본 대상은 <strong>도착 완료 + 복지관 이용인 체크 + 이전 미당첨자</strong>입니다. 행사장 전체화면용 추첨 연출입니다. 한 번에 1~5명을 선택할 수 있습니다. 여러 명을 선택하면 1~5개의 슬롯이 동시에 돌아가고 순서대로 빠르게 멈춘 뒤 전체 당첨자가 한 화면에 표시됩니다.</p>
     <form id="raffleForm" class="stack">
       <label>상품<select id="raffleProduct"></select></label>
-      <label>대상<select id="raffleFilter"><option value="usesCenter" selected>복지관 이용인만</option><option value="all">도착 완료 전체</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option></select></label>
+      <label>대상<select id="raffleFilter"><option value="all" selected>접수 완료 전체</option><option value="usesCenter">복지관 이용인만</option><option value="disabledPerson">장애인 당사자만</option><option value="wheelchair">휠체어 이용자만</option><option value="freeSeat">자유석 참가자만</option></select></label>
       <label>이번 당첨 인원<input id="raffleCount" type="number" min="1" max="5" value="1"><small class="muted">상품 잔여수량에 맞춰 최대 5명까지 자동 추천됩니다.</small></label>
-      <button class="primary big-action">행운권 추첨 시작</button>
+      <div id="rafflePoolStatus" class="notice">추첨 대상 확인 중...</div><button class="primary big-action">행운권 추첨 시작</button>
     </form>
     <details class="raffle-product-manager" open>
       <summary><strong>행운권 상품 · 수량 관리</strong></summary>
@@ -341,4 +341,4 @@ RAFFLE_PASSWORD=추첨담당 비밀번호</pre>
   </div>
 </div>
 <div id="modalWrap" class="overlay hidden"><div id="modal" class="modal"></div></div><div id="toast" class="toast hidden"></div>
-<script src="/app.js?v=0.9.34"></script></body></html>
+<script src="/app.js?v=0.9.36"></script></body></html>

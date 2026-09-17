@@ -28,7 +28,7 @@ const RAFFLE_PASSWORD = String(process.env.RAFFLE_PASSWORD || '');
 
 const SYSTEM_DEMO_MODE = String(process.env.SYSTEM_DEMO_MODE || '').toLowerCase()==='true';
 const DEMO_PASSWORD = String(process.env.DEMO_PASSWORD || 'demo1234');
-const FRONTEND_VERSION = '0.9.34';
+const FRONTEND_VERSION = '0.9.36';
 
 
 if(!ADMIN_PASSWORD && !SYSTEM_DEMO_MODE){
@@ -61,7 +61,7 @@ const digits = v => str(v).replace(/\D/g,'');
 
 function defaultState() {
   return {
-    meta:{app:'nyjwel20th-admin-v2',version:'0.9.34',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
+    meta:{app:'nyjwel20th-admin-v2',version:'0.9.36',createdAt:nowIso(),updatedAt:nowIso(),importedAt:null,importSource:null},
     settings:{
       eventName:'남양주시장애인복지관 개관 20주년 기념행사',
       eventDate:'2026. 9. 17.(목) 13:30',
@@ -89,7 +89,7 @@ function normalizeState(s) {
   const d=defaultState();
   return {
     ...d,...(s||{}),
-    meta:{...d.meta,...(s?.meta||{}),version:'0.9.34'},
+    meta:{...d.meta,...(s?.meta||{}),version:'0.9.36'},
     settings:{...d.settings,...(s?.settings||{})},
     participants:Array.isArray(s?.participants)?s.participants:[],
     groups:Array.isArray(s?.groups)?s.groups:[],
@@ -155,7 +155,7 @@ const raffleRemote={
   sample:[],
   poolSize:0,
   count:1,
-  filter:'usesCenter',
+  filter:'all',
   startedAt:null,
   winners:[],
   targetCount:1,
@@ -392,7 +392,7 @@ function raffleDisplayName(p){
 }
 function participantSeatLabel(p){
   if(p?.seat)return displaySeatCode(p.seat);
-  return p?.seatCategory==='standing'||p?.standing?'스탠딩석':'미배정';
+  return p?.seatCategory==='standing'||p?.standing?'스탠딩석':'자유석';
 }
 function applyStandingPreference(p){
   if(!p)return;
@@ -995,7 +995,7 @@ app.post('/api/demo/reset',(req,res)=>{
 
 app.get('/api/health',(req,res)=>{
   let disk=null;try{const d=fs.statfsSync(DATA_DIR);disk={totalBytes:d.blocks*d.bsize,freeBytes:d.bavail*d.bsize}}catch(_){}
-  res.json({ok:true,version:'0.9.34',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
+  res.json({ok:true,version:'0.9.36',serverTime:nowIso(),uptimeSeconds:Math.round(process.uptime()),participants:state.participants.length,
     smsReady:munjanaraConfigured(),externalBackupConfigured:Boolean(GDRIVE_BACKUP_URL&&GDRIVE_BACKUP_TOKEN),
     disk,memory:{rss:process.memoryUsage().rss,heapUsed:process.memoryUsage().heapUsed}});
 });
@@ -1106,7 +1106,7 @@ app.get('/api/bootstrap',auth,(req,res)=>{
   const smsFailed=state.smsQueue.filter(x=>x.status==='실패').length;
   const freeSeats=Math.max(0,state.seats.filter(x=>x.enabled!==false).length-active.filter(p=>p.seat).length);
   const recent10=active.filter(p=>p.arrivedAt && Date.now()-new Date(p.arrivedAt).getTime()<=10*60*1000).length;
-  res.json({ok:true,serverTime:nowIso(),version:'0.9.34',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
+  res.json({ok:true,serverTime:nowIso(),version:'0.9.36',frontendVersion:FRONTEND_VERSION,demoMode:SYSTEM_DEMO_MODE,
     role:req.adminRole,roleLabel:roleLabel(req.adminRole),summary:{
       participants:state.participants.length,active:active.length,arrived,pending,
       actualAttendance:arrived+extraStanding,extraStanding,recent10,
@@ -1168,8 +1168,12 @@ app.post('/api/participants/onsite',auth,(req,res)=>{
     giftReceived:true,giftReceivedAt:nowIso(),onsite:true,standing:true};
   // 사용자의 운영 규칙: 현장 추가 접수자는 자동 좌석을 만들지 않고 스탠딩으로 안내.
   state.participants.push(p);addLog('현장신규등록',p,'좌석 미배정 · 스탠딩 안내',str(b.station)||'현장접수');
-  if(p.phone&&state.settings.checkinSmsEnabled!==false)queueAndSendSms(p.phone,checkinMessage(p,'현장 추가 참여로 좌석은 별도 배정되지 않습니다.'),'onsite',p.id);
-  saveState();res.json({ok:true,participant:p});
+  let smsQueued=false;
+  if(p.phone&&state.settings.checkinSmsEnabled!==false){
+    queueAndSendSms(p.phone,checkinMessage(p,'현장 추가 접수로 자유석으로 안내드립니다.'),'onsite',p.id);
+    smsQueued=true;
+  }
+  saveState();res.json({ok:true,participant:p,smsQueued,seatLabel:'자유석'});
 });
 app.post('/api/participant/:id/update',auth,(req,res)=>{
   const p=findParticipant(req.params.id);if(!p)return res.status(404).json({ok:false,error:'참가자를 찾을 수 없습니다.'});
@@ -1765,10 +1769,11 @@ app.get('/api/logs',auth,(req,res)=>{
 
 const rafflePreparations=new Map();
 
-function eligibleRafflePool(filter='usesCenter'){
+function eligibleRafflePool(filter='all'){
   const wonIds=new Set(state.rouletteHistory.filter(x=>x.enabled!==false).map(x=>x.participantId));
   let pool=state.participants.filter(p=>p.arrived&&participantActive(p)&&!wonIds.has(p.id));
   if(filter==='usesCenter')pool=pool.filter(p=>p.usesCenter);
+  if(filter==='freeSeat')pool=pool.filter(p=>!p.seat);
   if(filter==='disabledPerson')pool=pool.filter(p=>p.disabledPerson);
   if(filter==='wheelchair')pool=pool.filter(p=>p.wheelchairUser);
   return pool;
@@ -1789,6 +1794,12 @@ function productRemaining(product){
   if(!Number.isFinite(qty)||qty<=0)return 999999;
   return Math.max(0,qty-productDrawnCount(product.number));
 }
+app.get('/api/raffle/pool',auth,(req,res)=>{
+  const filter=str(req.query?.filter||'all');
+  const pool=eligibleRafflePool(filter);
+  res.json({ok:true,filter,count:pool.length,arrivedTotal:state.participants.filter(p=>p.arrived&&participantActive(p)).length,freeSeat:pool.filter(p=>!p.seat).length,onsite:pool.filter(p=>p.onsite).length});
+});
+
 app.get('/api/raffle/products',auth,(req,res)=>{
   const rows=state.rouletteProducts.map(x=>({...x,drawn:productDrawnCount(x.number),remaining:productRemaining(x)}));
   res.json({ok:true,rows});
@@ -1902,7 +1913,7 @@ function commitOneRaffle(prep,method='순차 추첨'){
 
 app.post('/api/raffle/remote/start',auth,(req,res)=>{
   if(raffleRemote.status==='spinning')return res.status(409).json({ok:false,error:'이미 슬롯 추첨이 진행 중입니다.'});
-  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(5,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
+  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(5,num(req.body?.count,1))),filter=str(req.body?.filter||'all');
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:'행운상품',quantity:999,enabled:true};
   if(!product.enabled)return res.status(400).json({ok:false,error:'사용 중지된 상품입니다.'});
   if(productRemaining(product)<count)return res.status(400).json({ok:false,error:`${product.name} 남은 수량이 부족합니다.`});
@@ -1939,10 +1950,10 @@ app.post('/api/raffle/remote/next',auth,(req,res)=>{
   res.status(409).json({ok:false,error:'v0.9.19부터는 1~5명을 한 번에 추첨합니다. 새 추첨 시작 버튼을 사용해 주세요.'});
 });
 
-app.post('/api/raffle/remote/reset',auth,(req,res)=>{if(raffleRemote.token)rafflePreparations.delete(raffleRemote.token);Object.assign(raffleRemote,{status:'idle',screen:'idle',token:'',product:null,sample:[],poolSize:0,count:1,targetCount:1,currentIndex:0,filter:'usesCenter',startedAt:null,winners:[],drawSessionId:'',lastActionAt:nowIso()});broadcastRaffleStage('stage-mode',{mode:'idle'});res.json({ok:true,connectedScreens:raffleStageClients.size});});
+app.post('/api/raffle/remote/reset',auth,(req,res)=>{if(raffleRemote.token)rafflePreparations.delete(raffleRemote.token);Object.assign(raffleRemote,{status:'idle',screen:'idle',token:'',product:null,sample:[],poolSize:0,count:1,targetCount:1,currentIndex:0,filter:'all',startedAt:null,winners:[],drawSessionId:'',lastActionAt:nowIso()});broadcastRaffleStage('stage-mode',{mode:'idle'});res.json({ok:true,connectedScreens:raffleStageClients.size});});
 
 app.post('/api/raffle/prepare',auth,(req,res)=>{
-  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(5,num(req.body?.count,1))),filter=str(req.body?.filter||'usesCenter');
+  const productNo=str(req.body?.productNo),count=Math.max(1,Math.min(5,num(req.body?.count,1))),filter=str(req.body?.filter||'all');
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
   if(!product.enabled)return res.status(400).json({ok:false,error:'사용 중지된 상품입니다.'});
   const remaining=productRemaining(product);
@@ -1976,7 +1987,7 @@ app.post('/api/raffle/commit',auth,(req,res)=>{
   res.json({ok:true,drawId,product:{...product,remaining:productRemaining(product)},winners:records,poolSize:currentPool.length});
 });
 app.post('/api/raffle/draw',auth,(req,res)=>{
-  const filter=str(req.body?.filter||'usesCenter'),productNo=str(req.body?.productNo),count=Math.max(1,Math.min(5,num(req.body?.count,1)));
+  const filter=str(req.body?.filter||'all'),productNo=str(req.body?.productNo),count=Math.max(1,Math.min(5,num(req.body?.count,1)));
   const product=state.rouletteProducts.find(x=>str(x.number)===productNo)||{number:productNo||'custom',name:str(req.body?.productName)||'행운상품',quantity:999,enabled:true};
   const remaining=productRemaining(product);
   if(remaining<count)return res.status(400).json({ok:false,error:`${product.name} 남은 수량이 ${remaining}개입니다.`});
@@ -2475,4 +2486,4 @@ app.use((err,req,res,next)=>{console.error(err);res.status(500).json({ok:false,e
   }catch(e){console.error('[SEAT FREEZE v0.9.34]',e);}
 })();
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.34 · :${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`NYJWEL Admin v0.9.36 · :${PORT}`));
